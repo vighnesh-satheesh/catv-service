@@ -1151,40 +1151,6 @@ class CasePatchSerializer(NonNullModelSerializer):
         is_owner = True if request.user == self.instance.owner else False
 
         utils.CASE_STATUS_FSM.validate(self.instance.status, status, is_super, is_owner)
-
-        """
-        if self.instance.status == models.CaseStatus.NEW:  # authenticated user. new -> progress. owner becomes user.
-            if status == models.CaseStatus.PROGRESS:
-                return status
-        elif self.instance.status == models.CaseStatus.PROGRESS:  # owner. progress -> confirmed, rejected.
-            if is_owner is False:
-                raise exceptions.OwnerRequiredError()
-            if status in [models.CaseStatus.CONFIRMED, models.CaseStatus.REJECTED]:
-                return status
-            elif status in [models.CaseStatus.NEW]:  # owner. progress -> new. owner becomes null.
-                return status
-        elif self.instance.status == models.CaseStatus.CONFIRMED:
-            if (is_super and
-                    status in [models.CaseStatus.RELEASED, models.CaseStatus.REJECTED]):  # supersentinel. confirmed -> released,rejected
-                return status
-            elif (is_super is False and
-                    status in [models.CaseStatus.RELEASED, models.CaseStatus.REJECTED]):
-                raise exceptions.SupersentinelRequiredError()
-
-            if is_owner:  # owner. confirmed -> progress
-                if status == models.CaseStatus.PROGRESS:
-                    return status
-        elif self.instance.status == models.CaseStatus.REJECTED:  # owner. rejected -> progress.
-            if is_owner is False:
-                raise exceptions.OwnerRequiredError()
-            if status == models.CaseStatus.PROGRESS:
-                return status
-        elif self.instance.status == models.CaseStatus.RELEASED:  # supersentinel. released -> rejected
-            if is_super is False:
-                raise exceptions.SupersentinelRequiredError()
-            if status == models.CaseStatus.REJECTED:
-                return status
-        """
         return status
 
     def update(self, instance, validated_data):
