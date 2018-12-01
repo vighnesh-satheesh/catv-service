@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -13,7 +12,7 @@ from indicatorlib import Pattern
 from django.db import transaction, IntegrityError
 
 from .models import (
-    User, Case, Indicator, ICO, CaseStatus, Key,
+    User, Case, Indicator, ICO, CaseStatus, Key, Comment,
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus
 )
@@ -25,7 +24,8 @@ from .serializers import (
     IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
     UppwardRewardInfoPostSerializer,
     UserDetailSerializer, UserPostSerializer,
-    ICFDetailSerializer, ICFPostSerializer
+    ICFDetailSerializer, ICFPostSerializer,
+    CommentSerializer, CommentPostSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -44,6 +44,7 @@ from .cache import DefaultCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
+
 
 class LoginView(ObtainAuthToken):
     authentication_classes = (CachedTokenAuthentication,)
@@ -83,20 +84,6 @@ class ChangePasswordView(APIView):
             return self.model.objects.get(email__iexact=email)
         except self.model.DoesNotExist:
             raise exceptions.UserNotFound("")
-
-    def get(self, request, code=None):
-        if code is None:
-            raise exceptions.DataIntegrityError("")
-        c = DefaultCache()
-        v = c.get(code)
-        if not v:
-            raise exceptions.AuthenticationValidationError("")
-        email = v.split("-")[0]
-        return APIResponse({
-            "data": {
-                "email": email
-            }
-        })
 
     def put(self, request, format=None):
         data = request.data
@@ -942,7 +929,7 @@ class UserDetailView(APIView):
 
 class IcfView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (permissions.IsPostOrIsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
     model = Key
 
     def get_object(self, request):
@@ -987,3 +974,60 @@ class IcfView(APIView):
                 "api": data
             }
         })
+
+
+class CommentView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = Comment
+
+    def get(self, request, type=None, pk=None):
+        if type is None or pk is None:
+            raise exceptions.ValidationError("type or uid is not provided.")
+        comment_objs = []
+
+        if type == 'case':
+            comment_objs = Comment.objects.filter(case = pk).order_by('-created')
+        elif type == 'indicator':
+            comment_objs = Comment.objects.filter(indicator = pk).order_by('-created')
+        elif type == 'ico':
+            comment_objs = Comment.objects.filter(ico = pk).order_by('-created')
+        else:
+            raise exceptions.ValidationError("invalid type")
+        if len(comment_objs) == 0:
+            data = []
+        else:
+            serializer = CommentSerializer(comment_objs, context={"request": request}, many=True)
+            data = serializer.data
+        return APIResponse({
+            "data": data
+        })
+
+    def post(self, request, type=None, pk=None, uid=None, format=None):
+        if type is None or pk is None:
+            raise exceptions.ValidationError("type or uid is not provided.")
+        serializer = CommentPostSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        data = serializer.data
+        data["writer"] = {
+            "nickname": request.user.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(request.user.image) is False else request.user.image.url,
+            "uid": request.user.uid
+        }
+        return APIResponse({
+            "data": data
+        })
+
+    def delete(self, request, type=None, pk=None, uid=None):
+        if type is None or pk is None or uid is None:
+            raise exceptions.ValidationError("type, pk or uid is not provided.")
+        try:
+            comment = self.model.objects.get(uid = uid)
+        except Comment.DoesNotExist:
+            raise exceptions.ValidatationError("comment does not exist")
+        comment.deleted = True
+        comment.save()
+        return APIResponse({"data": {
+            "id": comment.pk
+        }})

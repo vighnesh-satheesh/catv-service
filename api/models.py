@@ -474,3 +474,21 @@ class EmailSent(models.Model):
     created = models.DateTimeField(default=now)
     type = EnumField(enum=EmailSentType, max_length = 20)
 
+
+class Comment(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    body = models.TextField(max_length=api_settings.COMMENT_BODY_MAX_LEN, default="")
+    writer = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
+    case = models.ForeignKey(Case, null=True, blank=True, on_delete=models.CASCADE)
+    indicator = models.ForeignKey(Indicator, null=True, blank=True, on_delete=models.CASCADE)
+    ico = models.ForeignKey(ICO, null=True, blank=True, on_delete=models.CASCADE)
+    deleted = models.BooleanField(default=False)
+    created = models.DateTimeField(default=now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['writer']),
+            models.Index(fields=['case']),
+            models.Index(fields=['indicator']),
+            models.Index(fields=['ico'])
+        ]

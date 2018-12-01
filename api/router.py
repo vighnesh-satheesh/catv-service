@@ -41,7 +41,9 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^search/?$', views.SearchView.as_view(), name='search-query'),
         url(r'^dashboard/?$', views.DashboardView.as_view(), name='user-dashboard'),
         url(r'^ico/(?P<pk>[0-9a-z\-]+)/?$', views.ICODetailView.as_view(), name='ico-detail'),
-        url(r'^uppward_reward/?$', views.UppwardRewardInfoView.as_view(), name='uppward-reward-post')
+        url(r'^uppward_reward/?$', views.UppwardRewardInfoView.as_view(), name='uppward-reward-post'),
+        url(r'^comment/(?P<type>[a-z\-]+)/(?P<pk>[0-9]+)/(?P<uid>[0-9a-z\-]+)/?$', views.CommentView.as_view(), name='comment-modify'),
+        url(r'^comment/(?P<type>[a-z\-]+)/(?P<pk>[0-9]+)/?$', views.CommentView.as_view(), name='comment-view'),
     ]
 
 
@@ -51,10 +53,3 @@ if settings.EXPOSE_FILE_API:
         url(r'^file/(?P<pk>[0-9a-z\-]+)/?$', views.AttachedFileDetailView.as_view(), name='file-handle')
     ]
 
-
-if settings.ENVIRONMENT == "development":
-    # schema_view = get_swagger_view(title='Portal API')
-    # urlpatterns += [
-    #     url(r'^$', schema_view)
-    # ]
-    pass

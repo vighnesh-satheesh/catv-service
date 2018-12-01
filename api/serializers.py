@@ -1329,3 +1329,69 @@ class ProjectPostSerializer(NonNullModelSerializer):
         except models.Case.DoesNotExist:
             raise exceptions.DataIntegrityError("case does not exist")
         return obj
+
+
+class CommentSerializer(NonNullModelSerializer):
+    body = serializers.SerializerMethodField()
+    writer = serializers.SerializerMethodField()
+    editable = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Comment
+        fields = ("id", "uid", "writer", "body", "created", "deleted", "editable")
+        read_only_fields = ("id", "uid", "created", "editable", "writer")
+
+    def get_body(self, obj):
+        if obj.deleted:
+            return ""
+        else:
+            return obj.body
+
+    def get_writer(self, obj):
+        if not obj.writer:
+            return {}
+        return {
+            "nickname": obj.writer.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(obj.writer.image) is False else obj.writer.image.url,
+            "uid": obj.writer.uid
+        }
+
+    def get_editable(self, obj):
+        request = self.context["request"]
+        if not obj:
+            return ""
+        if request.user == obj.writer:
+            return True
+        else:
+            return False
+
+
+class CommentPostSerializer(NonNullModelSerializer):
+    case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), required=False)
+    indicator = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
+    ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
+
+    class Meta:
+        model = models.Comment
+        fields = ("id", "uid", "case", "indicator", "ico", "writer", "body", "created", "deleted")
+        read_only_fields = ("id", "uid", "created")
+
+    def validate(self, data):
+        request = self.context["request"]
+        body = data.get("body", "")
+        if len(body) > api_settings.COMMENT_BODY_MAX_LEN:
+            raise exceptions.ValidationError("the maximum length for the comment body exceeds")
+        if len(body) == 0:
+            raise exceptions.ValidationError("empty body")
+        data["writer"] = request.user
+        return data
+
+    def create(self, data):
+        try:
+            with transaction.atomic():
+                obj = models.Comment.objects.create(**data)
+        except IntegrityError:
+            raise exceptions.DataIntegrityError()
+        except exceptions.DataIntegrityError as err:
+            raise err
+        return obj
