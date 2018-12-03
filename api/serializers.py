@@ -1208,7 +1208,7 @@ class AutoCompleteSerializer(serializers.Serializer):
         return api_settings.AUTO_COMPLETE_LIMIT
 
     def _validate_type(self, auto_type):
-        if auto_type.lower() not in  ["ico", "indicator", "case"]:
+        if auto_type.lower() not in  ["ico", "indicator", "case", "user"]:
             raise exceptions.ValidationError("not supported type")
 
     def validate(self, data):
@@ -1253,6 +1253,14 @@ class AutoCompleteSerializer(serializers.Serializer):
                 indicator_serializer = IndicatorListSerializer(indicator_objs, many=True)
                 indicators = indicator_serializer.data
             return {"indicators": indicators}
+
+        elif auto_type == "user":
+            users = []
+            users_objs = models.User.objects.filter(nickname__istartswith=query)
+            if users_objs:
+                user_serializer = UserDetailSerializer(users_objs, many=True)
+                users = user_serializer.data
+            return {"users": users}
 
         elif auto_type == 'case':
             cases = []
@@ -1360,7 +1368,7 @@ class CommentSerializer(NonNullModelSerializer):
         request = self.context["request"]
         if not obj:
             return ""
-        if request.user == obj.writer:
+        if request.user == obj.writer and not obj.deleted:
             return True
         else:
             return False

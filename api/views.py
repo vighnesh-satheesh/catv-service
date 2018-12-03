@@ -987,11 +987,11 @@ class CommentView(APIView):
         comment_objs = []
 
         if type == 'case':
-            comment_objs = Comment.objects.filter(case = pk).order_by('-created')
+            comment_objs = Comment.objects.filter(case = pk)
         elif type == 'indicator':
-            comment_objs = Comment.objects.filter(indicator = pk).order_by('-created')
+            comment_objs = Comment.objects.filter(indicator = pk)
         elif type == 'ico':
-            comment_objs = Comment.objects.filter(ico = pk).order_by('-created')
+            comment_objs = Comment.objects.filter(ico = pk)
         else:
             raise exceptions.ValidationError("invalid type")
         if len(comment_objs) == 0:
