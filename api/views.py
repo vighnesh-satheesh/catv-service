@@ -193,7 +193,7 @@ class DashboardView(APIView):
             ]
 
         notifications = []
-        notification_objs = Notification.objects.filter(user = user.pk)
+        notification_objs = Notification.objects.filter(user = user.pk).order_by('-created')
         if notification_objs:
             notifications = NotificationSerializer(notification_objs, many=True).data
 
