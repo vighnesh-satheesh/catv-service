@@ -19,5 +19,5 @@ class Constants:
         "NOTIFICATION_MODIFY_CASE": "[Sentinel Protocol] {0} has modified the case.",
         "NOTIFICATION_DELETE_CASE": "[Sentinel Protocol] {0} has deleted the case",
         "NOTIFICATION_COMMENT": "[Sentinel Protocol] {0} has left a comment.",
-        "NOTIFICATION_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment"
+        "NOTIFICATION_COMMENT_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment"
     }
