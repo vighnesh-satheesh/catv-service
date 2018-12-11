@@ -1157,8 +1157,7 @@ class CasePatchSerializer(NonNullModelSerializer):
         elif validated_data["status"] == models.CaseStatus.PROGRESS:
             instance.owner = self.context["request"].user
         elif validated_data["status"] == models.CaseStatus.CONFIRMED:  # confirmed status should contain at least one indicator.
-            indicators = models.Indicator.objects.filter(case=instance.pk)
-            if len(indicators) == 0:
+            if not instance.indicators:
                 raise exceptions.ValidationError("at least one indicator should be contained.")
         elif validated_data["status"] == models.CaseStatus.RELEASED:
             instance.verifier = self.context["request"].user
