@@ -89,7 +89,7 @@ class UserForm(forms.ModelForm):
                     sender = e.EMAIL_SENDER["NO-REPLY"],
                     recipient = [user.email]
                 )
-        except User.model.DoesNotExist:
+        except Exception as e:
             pass
         if commit:
             m.save()
