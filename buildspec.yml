@@ -8,7 +8,6 @@ phases:
   install:
     commands:
       - git clone https://uppindicator:$INDICATOR_TOKEN@github.com/upphub/indicator-lib.git library/indicator-lib
-      - cd library/indicator-lib/src/py && python setup.py install
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
