@@ -374,6 +374,7 @@ class ICFPostSerializer(serializers.ModelSerializer):
             if new_key != prev_key:
                 obj.api_key = new_key
                 break
+        obj.expire_datetime = timezone.now() + timedelta(days=30)
         obj.save()
         return obj
 
