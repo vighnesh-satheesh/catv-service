@@ -1,6 +1,6 @@
 FROM python:3.6.5-stretch
 
-MAINTAINER jmye <jmye@uppsala.foundation>
+MAINTAINER uppsala <developer@sentinelprotocol.io>
 
 ARG PM2_CONFIG_FILE=pm2.json
 ARG EXPOSE_GENERAL_API=false
@@ -24,40 +24,39 @@ ENV CONTAINER_TYPE=$CONTAINER_TYPE
 WORKDIR /app
 
 # Install packages
-RUN apt-get update
-
 # Install nodejs and pm2
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
-RUN apt-get install -y nodejs
-RUN npm install pm2 -g
+RUN apt-get update && \
+    apt-get install -y nodejs && \
+    npm install pm2 -g
 
 # Install requirements
 COPY ./requirements/${PORTAL_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
-RUN pip install -r ./requirements.txt
-RUN pip install uwsgi
-RUN pip install -e ./library/indicator-lib/src/py
+RUN pip install -r ./requirements.txt && \
+    pip install uwsgi && \
+    pip install -e ./library/indicator-lib/src/py
 
 # Add uppsala user.
+
 RUN groupadd -g 999 uppsala && \
-    useradd -r -u 999 -g uppsala uppsala
-WORKDIR /app
-RUN chown uppsala:uppsala /app
-RUN usermod -d /app uppsala
+    useradd -r -u 999 -g uppsala uppsala && \
+    chown uppsala:uppsala /app && \
+    usermod -d /app uppsala
 USER uppsala
 
 # Install pm2-slack
 RUN pm2 install pm2-slack
-RUN pm2 set pm2-slack:slack_url ${SLACK_URL}
-RUN pm2 set pm2-slack:log false
-RUN pm2 set pm2-slack:error false
-RUN pm2 set pm2-slack:kill true
-RUN pm2 set pm2-slack:exception false
-RUN pm2 set pm2-slack:restart false
-RUN pm2 set pm2-slack:delete true
-RUN pm2 set pm2-slack:stop true
-RUN pm2 set pm2-slack:'restart overlimit' true
-RUN pm2 set pm2-slack:buffer_seconds 5
+RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
+    pm2 set pm2-slack:log false && \
+    pm2 set pm2-slack:error false && \
+    pm2 set pm2-slack:kill true && \
+    pm2 set pm2-slack:exception false && \
+    pm2 set pm2-slack:restart false && \
+    pm2 set pm2-slack:delete true && \
+    pm2 set pm2-slack:stop true && \
+    pm2 set pm2-slack:'restart overlimit' true && \
+    pm2 set pm2-slack:buffer_seconds 5
 
 # Bundle APP files
 COPY . .
