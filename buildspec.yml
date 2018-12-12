@@ -7,7 +7,8 @@ env:
 phases:
   install:
     commands:
-      - apt-get install install libmagic
+      - sudo apt-get update
+      - sudo apt-get install libmagic-dev
       - pip install -r requirements/development.txt
       - git clone https://uppindicator:$INDICATOR_TOKEN@github.com/upphub/indicator-lib.git library/indicator-lib
       - cd library/indicator-lib/src/py && python setup.py install
