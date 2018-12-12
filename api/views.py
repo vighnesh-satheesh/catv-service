@@ -620,7 +620,7 @@ class SearchView(generics.ListAPIView):
         filter_queries = Q(symbol__istartswith=query)
         if len(query) > 1:
             filter_queries |= Q(name__icontains=query)
-        objs = ICO.objects.filter(filter_queries).order_by('pk')
+        objs = ICO.objects.filter(filter_queries).distinct('id').order_by('pk')
         return objs
 
     def get_indicator_queryset(self, query):
@@ -633,7 +633,7 @@ class SearchView(generics.ListAPIView):
         elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
             filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk)
 
-        objs = Indicator.objects.filter(filter_queries).order_by('pk')
+        objs = Indicator.objects.filter(filter_queries).distinct('id').order_by('pk')
 
         return objs
 
@@ -661,7 +661,8 @@ class SearchView(generics.ListAPIView):
             .prefetch_related('indicators') \
             .select_related('ico') \
             .filter(filter_queries) \
-            .order_by('-created')
+            .distinct('id') \
+            .order_by('-pk')
 
         return objs.all()
 
