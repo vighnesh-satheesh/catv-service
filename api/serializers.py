@@ -523,7 +523,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     force = serializers.BooleanField(required=False)
     deleted = serializers.BooleanField(required=False)
     uid = serializers.UUIDField(required=False)
-    cases = serializers.ListField()
+    cases = serializers.ListField(required=False)
 
     class Meta:
         model = models.Indicator
@@ -833,15 +833,14 @@ class FileItemSerializer(serializers.Serializer):
 class CasePostSerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=True, max_length=api_settings.CASE_TITLE_MAX_LEN)
     detail = serializers.CharField(required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
-    reporter_info = serializers.CharField(required=False, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
+    reporter_info = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
     ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
 
     class Meta:
         model = models.Case
-        fields = ("title", "detail", "reporter_info",
-                  "ico", "indicators", "files")
+        fields = ("title", "detail", "reporter_info", "ico", "indicators", "files")
         read_only_fields = ("id", "uid", "created")
 
     def validate_files(self, data):
@@ -871,8 +870,8 @@ class CasePostSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 case = models.Case.objects.create(**validated_data)
                 for indi in indicators_data:
-                    if "id" in indi:
-                        indicator = indi["id"]
+                    if "uid" in indi:
+                        indicator = models.Indicator.objects.get(uid=indi["uid"])
                     else:
                         indicator = models.Indicator.objects.create(case=case, **indi)
                     indicator.cases.add(case)
@@ -931,7 +930,6 @@ class CasePostSerializer(serializers.ModelSerializer):
                 # indicators
                 for indi_item in indicators_data:
                     if "uid" in indi_item:
-                        print (indi_item["uid"], indi_item)
                         indicator = models.Indicator.objects.get(uid=indi_item["uid"])
                         if "deleted" in indi_item and indi_item["deleted"] is True:
                             indicator.cases.remove(instance)
@@ -1151,40 +1149,6 @@ class CasePatchSerializer(NonNullModelSerializer):
         is_owner = True if request.user == self.instance.owner else False
 
         utils.CASE_STATUS_FSM.validate(self.instance.status, status, is_super, is_owner)
-
-        """
-        if self.instance.status == models.CaseStatus.NEW:  # authenticated user. new -> progress. owner becomes user.
-            if status == models.CaseStatus.PROGRESS:
-                return status
-        elif self.instance.status == models.CaseStatus.PROGRESS:  # owner. progress -> confirmed, rejected.
-            if is_owner is False:
-                raise exceptions.OwnerRequiredError()
-            if status in [models.CaseStatus.CONFIRMED, models.CaseStatus.REJECTED]:
-                return status
-            elif status in [models.CaseStatus.NEW]:  # owner. progress -> new. owner becomes null.
-                return status
-        elif self.instance.status == models.CaseStatus.CONFIRMED:
-            if (is_super and
-                    status in [models.CaseStatus.RELEASED, models.CaseStatus.REJECTED]):  # supersentinel. confirmed -> released,rejected
-                return status
-            elif (is_super is False and
-                    status in [models.CaseStatus.RELEASED, models.CaseStatus.REJECTED]):
-                raise exceptions.SupersentinelRequiredError()
-
-            if is_owner:  # owner. confirmed -> progress
-                if status == models.CaseStatus.PROGRESS:
-                    return status
-        elif self.instance.status == models.CaseStatus.REJECTED:  # owner. rejected -> progress.
-            if is_owner is False:
-                raise exceptions.OwnerRequiredError()
-            if status == models.CaseStatus.PROGRESS:
-                return status
-        elif self.instance.status == models.CaseStatus.RELEASED:  # supersentinel. released -> rejected
-            if is_super is False:
-                raise exceptions.SupersentinelRequiredError()
-            if status == models.CaseStatus.REJECTED:
-                return status
-        """
         return status
 
     def update(self, instance, validated_data):
@@ -1193,8 +1157,7 @@ class CasePatchSerializer(NonNullModelSerializer):
         elif validated_data["status"] == models.CaseStatus.PROGRESS:
             instance.owner = self.context["request"].user
         elif validated_data["status"] == models.CaseStatus.CONFIRMED:  # confirmed status should contain at least one indicator.
-            indicators = models.Indicator.objects.filter(case=instance.pk)
-            if len(indicators) == 0:
+            if not instance.indicators:
                 raise exceptions.ValidationError("at least one indicator should be contained.")
         elif validated_data["status"] == models.CaseStatus.RELEASED:
             instance.verifier = self.context["request"].user
@@ -1242,7 +1205,7 @@ class AutoCompleteSerializer(serializers.Serializer):
         return api_settings.AUTO_COMPLETE_LIMIT
 
     def _validate_type(self, auto_type):
-        if auto_type.lower() not in  ["ico", "indicator", "case"]:
+        if auto_type.lower() not in  ["ico", "indicator", "case", "user"]:
             raise exceptions.ValidationError("not supported type")
 
     def validate(self, data):
@@ -1287,6 +1250,14 @@ class AutoCompleteSerializer(serializers.Serializer):
                 indicator_serializer = IndicatorListSerializer(indicator_objs, many=True)
                 indicators = indicator_serializer.data
             return {"indicators": indicators}
+
+        elif auto_type == "user":
+            users = []
+            users_objs = models.User.objects.filter(nickname__istartswith=query)
+            if users_objs:
+                user_serializer = UserDetailSerializer(users_objs, many=True)
+                users = user_serializer.data
+            return {"users": users}
 
         elif auto_type == 'case':
             cases = []
@@ -1363,3 +1334,100 @@ class ProjectPostSerializer(NonNullModelSerializer):
         except models.Case.DoesNotExist:
             raise exceptions.DataIntegrityError("case does not exist")
         return obj
+
+
+class CommentSerializer(NonNullModelSerializer):
+    body = serializers.SerializerMethodField()
+    writer = serializers.SerializerMethodField()
+    editable = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Comment
+        fields = ("id", "uid", "writer", "body", "created", "deleted", "editable")
+        read_only_fields = ("id", "uid", "created", "editable", "writer")
+
+    def get_body(self, obj):
+        if obj.deleted:
+            return ""
+        else:
+            return obj.body
+
+    def get_writer(self, obj):
+        if not obj.writer:
+            return {}
+        return {
+            "nickname": obj.writer.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(obj.writer.image) is False else obj.writer.image.url,
+            "uid": obj.writer.uid
+        }
+
+    def get_editable(self, obj):
+        request = self.context["request"]
+        if not obj:
+            return ""
+        if request.user == obj.writer and not obj.deleted:
+            return True
+        else:
+            return False
+
+
+class CommentPostSerializer(NonNullModelSerializer):
+    case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), required=False)
+    indicator = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
+    ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
+
+    class Meta:
+        model = models.Comment
+        fields = ("id", "uid", "case", "indicator", "ico", "writer", "body", "created", "deleted")
+        read_only_fields = ("id", "uid", "created")
+
+    def validate(self, data):
+        request = self.context["request"]
+        body = data.get("body", "")
+        if len(body) > api_settings.COMMENT_BODY_MAX_LEN:
+            raise exceptions.ValidationError("the maximum length for the comment body exceeds")
+        if len(body) == 0:
+            raise exceptions.ValidationError("empty body")
+        data["writer"] = request.user
+        return data
+
+    def create(self, data):
+        try:
+            with transaction.atomic():
+                obj = models.Comment.objects.create(**data)
+        except IntegrityError:
+            raise exceptions.DataIntegrityError()
+        except exceptions.DataIntegrityError as err:
+            raise err
+        return obj
+
+
+class NotificationSerializer(NonNullModelSerializer):
+    user = serializers.SerializerMethodField()
+    initiator = serializers.SerializerMethodField()
+    type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.Notification
+        fields = ("uid", "user", "initiator", "target", "read", "created", "type")
+
+    def get_user(self, obj):
+        if not obj.user:
+            return {}
+        return {
+            "nickname": obj.user.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(obj.user.image) is False else obj.user.image.url,
+            "uid": obj.user.uid
+        }
+
+    def get_initiator(self, obj):
+        if not obj:
+            return {}
+        return {
+            "nickname": obj.initiator.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(obj.initiator.image) is False else obj.initiator.image.url,
+            "uid": obj.initiator.uid
+        }
+
+    def get_type(self, obj):
+        return obj.type.value

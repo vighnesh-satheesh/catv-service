@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -10,9 +9,11 @@ from rest_framework.renderers import JSONRenderer
 from django_filters import rest_framework as filters
 from django.db.models import Q, Prefetch, Count
 from indicatorlib import Pattern
+from django.db import transaction, IntegrityError
 
 from .models import (
-    User, Case, Indicator, ICO, CaseStatus, Key,
+    User, Case, Indicator, ICO, CaseStatus, Key, Comment,
+    Notification, NotificationType,
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus
 )
@@ -24,7 +25,9 @@ from .serializers import (
     IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
     UppwardRewardInfoPostSerializer,
     UserDetailSerializer, UserPostSerializer,
-    ICFDetailSerializer, ICFPostSerializer
+    ICFDetailSerializer, ICFPostSerializer,
+    CommentSerializer, CommentPostSerializer,
+    NotificationSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -43,6 +46,7 @@ from .cache import DefaultCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
+
 
 class LoginView(ObtainAuthToken):
     authentication_classes = (CachedTokenAuthentication,)
@@ -82,20 +86,6 @@ class ChangePasswordView(APIView):
             return self.model.objects.get(email__iexact=email)
         except self.model.DoesNotExist:
             raise exceptions.UserNotFound("")
-
-    def get(self, request, code=None):
-        if code is None:
-            raise exceptions.DataIntegrityError("")
-        c = DefaultCache()
-        v = c.get(code)
-        if not v:
-            raise exceptions.AuthenticationValidationError("")
-        email = v.split("-")[0]
-        return APIResponse({
-            "data": {
-                "email": email
-            }
-        })
 
     def put(self, request, format=None):
         data = request.data
@@ -146,6 +136,16 @@ class DashboardView(APIView):
 
         cases = [
             {
+                "id": "case_my",
+                "count": my_count,
+                "children": [
+                    utils.get_dashboard_item("case_my", "progress", count_dict),
+                    utils.get_dashboard_item("case_my", "confirmed", count_dict),
+                    utils.get_dashboard_item("case_my", "rejected", count_dict),
+                    utils.get_dashboard_item("case_my", "released", count_dict),
+                ]
+            },
+            {
                 "id": "case_all",
                 "count": total_count,
                 "children": [
@@ -155,47 +155,53 @@ class DashboardView(APIView):
                     utils.get_dashboard_item("case_all", "rejected", count_dict),
                     utils.get_dashboard_item("case_all", "released", count_dict),
                 ]
-            },
-            {
-                "id": "case_my",
-                "count": my_count,
-                "children": [
-                    utils.get_dashboard_item("case_my", "progress", count_dict),
-                    utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                    utils.get_dashboard_item("case_my", "rejected", count_dict),
-                    utils.get_dashboard_item("case_my", "released", count_dict),
-                ]
             }
         ]
-        indicators = [
-            {
-                "id": "indicator_attached",
-                "count": Indicator.objects.annotate(num_cases = Count('cases')).filter(num_cases__gt = 0).count(),
-                "children": []
-            },
-            {
-                "id": "indicator_unattached",
-                "count":  Indicator.objects.annotate(num_cases = Count('cases')).filter(num_cases = 0).count(),
-                "children": []
-            }
-        ]
-
         if user.permission is UserPermission.EXCHANGE:
             for status, cnt in count_dict.items():
-                if status in ['all_new', 'all_progress', 'all_confirmed']:
+                if status in ['case_all_new', 'case_all_progress', 'all_confirmed']:
                     total_count -= cnt
-            cases[0]["children"] = cases[0]["children"][3:]
-            cases["all"]["count"] = total_count
+            cases[1]["children"] = cases[1]["children"][3:]
+            cases[1]["count"] = total_count
+
+            indicator_attached_filter = Q(num_cases__gt=0) & \
+                                        (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk))
+            indicators = [
+                {
+                    "id": "indicator_attached",
+                    "count": Indicator.objects.annotate(num_cases=Count('cases')).filter(indicator_attached_filter).count(),
+                    "children": []
+                },
+                {
+                    "id": "indicator_unattached",
+                    "count":  Indicator.objects.annotate(num_cases=Count('cases')).filter(num_cases=0).count(),
+                    "children": []
+                }
+            ]
+        else:
+            indicators = [
+                {
+                    "id": "indicator_attached",
+                    "count": Indicator.objects.annotate(num_cases=Count('cases')).filter(num_cases__gt=0).count(),
+                    "children": []
+                },
+                {
+                    "id": "indicator_unattached",
+                    "count":  Indicator.objects.annotate(num_cases=Count('cases')).filter(num_cases=0).count(),
+                    "children": []
+                }
+            ]
+
+        notifications = []
+        notification_objs = Notification.objects.filter(user=user.pk).order_by('-created')
+        if notification_objs:
+            notifications = NotificationSerializer(notification_objs, many=True).data
 
         return APIResponse({
             "data": {
-                "user": {
-                    "id": user.uid,
-                    "nickname": user.nickname,
-                    "permission": user.permission.value
-                },
                 "cases": cases,
-                "indicators": indicators
+                "indicators": indicators,
+                "notifications": notifications
             }
         })
 
@@ -361,26 +367,98 @@ class CaseDetailView(APIView):
         serializer = CasePostSerializer(obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
+        if obj.reporter:
+            notification = Notification.objects.create(
+                user=obj.reporter,
+                initiator=request.user,
+                type=NotificationType.CASE_UPDATED,
+                target={
+                    "uid": str(obj.uid),
+                    "title": obj.title,
+                    "type": "case"
+                }
+            )
+            e = Email()
+            kv = {
+                "nickname": obj.reporter.nickname,
+                "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
+            }
+            SendEmail().delay(kv = kv,
+                  subject = Constants.EMAIL_TITLE["NOTIFICATION_MODIFY_CASE"].format(request.user.nickname),
+                  email_type = e.EMAIL_TYPE["NOTIFICATION"],
+                  sender = e.EMAIL_SENDER["NO-REPLY"],
+                  recipient = [obj.reporter.email])
+
         return APIResponse({
             "data": {}})
 
     def patch(self, request, pk=None):
-        queryset = self.get_object(pk)
-        serializer = CasePatchSerializer(queryset, data=request.data, partial=True, context={"request": request})
+        obj = self.get_object(pk)
+        serializer = CasePatchSerializer(obj, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if obj.reporter:
+            notification = Notification.objects.create(
+                user=obj.reporter,
+                initiator=request.user,
+                type=NotificationType("case_status_updated_to_{0}".format(serializer.data["status"])),
+                target={
+                    "uid": str(obj.uid),
+                    "title": obj.title,
+                    "type": "case"
+                }
+            )
+            e = Email()
+            kv = {
+                "nickname": obj.reporter.nickname,
+                "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
+            }
+            SendEmail().delay(kv = kv,
+                              subject = Constants.EMAIL_TITLE["NOTIFICATION_PATCH_CASE"].format(request.user.nickname, obj.status.value),
+                              email_type = e.EMAIL_TYPE["NOTIFICATION"],
+                              sender = e.EMAIL_SENDER["NO-REPLY"],
+                              recipient = [obj.reporter.email])
+
         return APIResponse({"data": {}})
 
     def delete(self, request, pk=None):
-        obj = self.get_object(pk)
-        if obj.status != CaseStatus.PROGRESS:
-            raise exceptions.ValidationError("case cannot be deleted.")
-        if obj.owner != request.user:
-            raise exceptions.OwnerRequiredError()
         try:
-            obj.delete()
+            with transaction.atomic():
+                obj = self.get_object(pk)
+                if obj.status != CaseStatus.PROGRESS:
+                    raise exceptions.ValidationError("case cannot be deleted.")
+                if obj.owner != request.user:
+                    raise exceptions.OwnerRequiredError()
+                for indicator in obj.indicators.all():
+                    indicator.cases.remove(obj)
+                    obj.indicators.remove(indicator)
         except Case.DoesNotExist:
-            pass
+            raise exceptions.ValidationError("case does not exist")
+        except IntegrityError:
+            raise exceptions.DataIntegrityError("")
+        if obj.reporter:
+            notification = Notification.objects.create(
+                user=obj.reporter,
+                initiator=request.user,
+                type=NotificationType.CASE_DELETED,
+                target={
+                    "uid": str(obj.uid),
+                    "title": obj.title,
+                    "type": "case"
+                }
+            )
+            e = Email()
+            kv = {
+                "nickname": obj.reporter.nickname,
+                "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
+            }
+            SendEmail().delay(kv = kv,
+                              subject = Constants.EMAIL_TITLE["NOTIFICATION_DELETE_CASE"].format(request.user.nickname),
+                              email_type = e.EMAIL_TYPE["NOTIFICATION"],
+                              sender = e.EMAIL_SENDER["NO-REPLY"],
+                              recipient = [obj.reporter.email])
+        obj.delete()
 
         return APIResponse({"data": {}})
 
@@ -393,10 +471,16 @@ class IndicatorFilter(filters.FilterSet):
         fields = ("type",)
 
     def filter_type(self, queryset, name, value):
+        if self.request.user.permission is UserPermission.EXCHANGE:
+            indicator_attached_filter = Q(num_cases__gt=0) & \
+                                        (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
+        else:
+            indicator_attached_filter = Q(num_cases__gt=0)
+
         if value == 'attached':
-            return queryset.annotate(num_cases = Count('cases')).filter(num_cases__gt = 0)
+            return queryset.annotate(num_cases=Count('cases')).filter(indicator_attached_filter)
         elif value == 'unattached':
-            return queryset.annotate(num_cases = Count('cases')).filter(num_cases = 0)
+            return queryset.annotate(num_cases=Count('cases')).filter(num_cases=0)
         else:
             raise exceptions.IndicatorNotFound()
 
@@ -424,9 +508,9 @@ class IndicatorView(generics.ListCreateAPIView):
 
     def post(self, request):
         if "indicators" in request.data:
-            serializer = IndicatorPostSerializer(data = request.data["indicators"], many=True)
+            serializer = IndicatorPostSerializer(data=request.data["indicators"], many=True)
         else:
-            serializer = IndicatorPostSerializer(data = request.data)
+            serializer = IndicatorPostSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if request.auth is not None:
             indicator_obj = serializer.save(user=request.user)
@@ -466,7 +550,7 @@ class IndicatorDetailView(APIView):
 
     def put(self, request, pk=None):
         obj = self.get_object(pk)
-        case_test_objs = obj.cases.filter(status__in = [CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+        case_test_objs = obj.cases.filter(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
         if len(case_test_objs) > 0:
             raise exceptions.NotAllowedError()
         serializer = IndicatorPostSerializer(obj, data=request.data)
@@ -476,6 +560,22 @@ class IndicatorDetailView(APIView):
         return APIResponse({
             "data": result_serializer.data
         })
+
+    def delete(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                indicator = self.get_object(pk)
+                for case in indicator.cases.all():
+                    if case.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
+                        raise exceptions.ValidationError("has confirmed or released attached cases.")
+                    case.indicators.remove(indicator)
+                    indicator.cases.remove(case)
+                indicator.delete()
+        except Indicator.DoesNotExist:
+            raise exceptions.ValidationError("indicator does not exist")
+        except IntegrityError:
+            raise exceptions.DataIntegrityError("")
+        return APIResponse({"data": {}})
 
 
 # /search?q=aa&type=ico&page=1
@@ -525,14 +625,16 @@ class SearchView(generics.ListAPIView):
 
     def get_indicator_queryset(self, query):
         objs = []
-        ltree_pattern = Pattern.getMaterializedPathForSelect(query)
+        #filter_queries = Q(pattern_tree__aore=ltree_pattern) | Q(pattern_tree__dore=ltree_pattern)
+        filter_queries = Q(pattern__icontains=query)
 
-        filter_queries = Q(pattern_tree__aore=ltree_pattern) | Q(pattern_tree__dore=ltree_pattern)
-        if self.request.auth:
-            objs = Indicator.objects.filter(filter_queries).order_by('pk')
-        else:
+        if not self.request.auth:
             filter_queries &= Q(case__status=CaseStatus.RELEASED)
-            objs = Indicator.objects.filter(filter_queries).order_by('pk')
+        elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
+            filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk)
+
+        objs = Indicator.objects.filter(filter_queries).order_by('pk')
+
         return objs
 
     def get_case_queryset(self, query):
@@ -551,6 +653,9 @@ class SearchView(generics.ListAPIView):
             filter_queries |= Q(indicator__pattern__icontains=query)
             filter_queries |= Q(indicator__pattern_subtype__icontains=query)
             filter_queries |= Q(ico__symbol__icontains=query)
+
+        if self.request.user.permission is UserPermission.EXCHANGE:
+            filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(reporter=self.request.user.pk)
 
         objs = Case.objects \
             .prefetch_related('indicators') \
@@ -895,7 +1000,7 @@ class UserDetailView(APIView):
 
 class IcfView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (permissions.IsPostOrIsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
     model = Key
 
     def get_object(self, request):
@@ -939,4 +1044,145 @@ class IcfView(APIView):
             "data": {
                 "api": data
             }
+        })
+
+
+class CommentView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = Comment
+
+    def get(self, request, type=None, pk=None):
+        if type is None or pk is None:
+            raise exceptions.ValidationError("type or uid is not provided.")
+        comment_objs = []
+
+        if type == 'case':
+            comment_objs = Comment.objects.filter(case = pk)
+        elif type == 'indicator':
+            comment_objs = Comment.objects.filter(indicator = pk)
+        elif type == 'ico':
+            comment_objs = Comment.objects.filter(ico = pk)
+        else:
+            raise exceptions.ValidationError("invalid type")
+        if len(comment_objs) == 0:
+            data = []
+        else:
+            serializer = CommentSerializer(comment_objs, context={"request": request}, many=True)
+            data = serializer.data
+        return APIResponse({
+            "data": data
+        })
+
+    def post(self, request, type=None, pk=None, uid=None, format=None):
+        if type is None or pk is None:
+            raise exceptions.ValidationError("type or uid is not provided.")
+        notification = request.data.pop("notification", [])
+        serializer = CommentPostSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        data = serializer.data
+        data["writer"] = {
+            "nickname": request.user.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(request.user.image) is False else request.user.image.url,
+            "uid": request.user.uid
+        }
+        u = None
+        target = {}
+        e = Email()
+        if "case" in data:
+            obj = Case.objects.get(id=data["case"])
+            target["uid"] = str(obj.uid)
+            target["title"] = obj.title
+            target["type"] = "case"
+            u = obj.reporter
+        if "indicator" in data:
+            obj = Indicator.objects.get(id=data["indicator"])
+            target["uid"] = str(obj.uid)
+            target["title"] = obj.pattern
+            target["type"] = "indicator"
+            u = obj.user
+        if "ico" in data:
+            obj = ICO.objects.get(id=data["ico"])
+            target["uid"] = str(obj.uid)
+            target["title"] = obj.name
+            target["type"] = "ico"
+            u = obj.user
+        if u:
+            Notification.objects.create(
+                user=u,
+                initiator=request.user,
+                type=NotificationType.COMMENT,
+                target=target
+            )
+            kv = {
+                "nickname": u.nickname,
+                "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
+            }
+            SendEmail().delay(kv = kv,
+                  subject = Constants.EMAIL_TITLE["NOTIFICATION_COMMENT"].format(request.user.nickname),
+                  email_type = e.EMAIL_TYPE["NOTIFICATION"],
+                  sender = e.EMAIL_SENDER["NO-REPLY"],
+                  recipient = [obj.reporter.email])
+
+        if notification:
+            users = User.objects.filter(id__in=notification)
+            for user in users:
+                notification = Notification.objects.create(
+                    user=user,
+                    initiator=request.user,
+                    type=NotificationType.COMMENT_MENTIONED,
+                    target=target
+                )
+                kv = {
+                    "nickname": u.nickname,
+                    "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
+                }
+                SendEmail().delay(kv = kv,
+                    subject = Constants.EMAIL_TITLE["NOTIFICATION_COMMENT_MENTION"].format(request.user.nickname),
+                    email_type = e.EMAIL_TYPE["NOTIFICATION"],
+                    sender = e.EMAIL_SENDER["NO-REPLY"],
+                    recipient = [user.email])
+
+        return APIResponse({
+            "data": data
+        })
+
+    def delete(self, request, type=None, pk=None, uid=None):
+        if type is None or pk is None or uid is None:
+            raise exceptions.ValidationError("type, pk or uid is not provided.")
+        try:
+            comment = self.model.objects.get(uid = uid)
+        except Comment.DoesNotExist:
+            raise exceptions.ValidatationError("comment does not exist")
+        comment.deleted = True
+        comment.save()
+        return APIResponse({"data": {
+            "id": comment.pk
+        }})
+
+
+class NotificationView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = Notification
+
+    def delete(self, request, uid=None):
+        if uid is None:
+            notification = self.model.objects.filter(user=request.user)
+        else:
+            notification = self.model.objects.filter(user=request.user, uid=uid)
+
+        if notification.exists():
+            notification.delete()
+        else:
+            raise exceptions.ValidationError('nothing to delete')
+        return APIResponse({
+            "data": ""
+        })
+
+    def patch(self, request):
+        self.model.objects.filter(user=request.user).exclude(read=True).update(read=True)
+        return APIResponse({
+            "data": ""
         })

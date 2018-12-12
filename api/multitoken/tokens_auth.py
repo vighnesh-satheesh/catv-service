@@ -29,16 +29,10 @@ class MultiToken:
         else:
             tokens.append(token)
 
-        cls._set_key_value(str(user.pk), tokens)  # TODO: why need this? for audit?
+        cls._set_key_value(str(user.pk), tokens)
         cls._set_key_value(token, str(user.pk))
 
         return MultiToken(token, user), created
-
-    @classmethod
-    def get_user_from_token(cls, token, timestamp):  # TODO: DEPRECATED.
-        verified_token = verify_token(token, timestamp)
-        user = User.objects.get(pk=TOKENS_CACHE.get(verified_token))
-        return user
 
     @classmethod
     def get_user_token_from_key(cls, token, timestamp):

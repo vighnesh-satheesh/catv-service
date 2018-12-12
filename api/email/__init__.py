@@ -12,7 +12,8 @@ class Email:
             "REGISTER": "REGISTER",
             "VERIFICATION_RESEND": "VERIFICATION_RESEND",
             "VERIFIED": "VERIFIED",
-            "PASSWORD_RESET": "PASSWORD_RESET"
+            "PASSWORD_RESET": "PASSWORD_RESET",
+            "NOTIFICATION": "NOTIFICATION"
         }
         self.EMAIL_TEMPLATE = {
             "REGISTER": {
@@ -30,6 +31,10 @@ class Email:
             "PASSWORD_RESET": {
                 "text": "email/passwordreset.txt",
                 "html": "email/passwordreset.html"
+            },
+            "NOTIFICATION": {
+                "text": "email/notification.txt",
+                "html": "email/notification.html"
             }
         }
     def sendemail(self, *args, **kwargs):

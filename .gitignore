@@ -8,4 +8,6 @@ env/
 static/
 dump.rdb
 celerybeat-schedule
-
+*.sh
+*.env
+library/
