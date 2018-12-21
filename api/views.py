@@ -368,7 +368,7 @@ class CaseDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        if obj.reporter:
+        if obj.reporter and obj.reporter.email_notification:
             notification = Notification.objects.create(
                 user=obj.reporter,
                 initiator=request.user,
@@ -398,7 +398,7 @@ class CaseDetailView(APIView):
         serializer = CasePatchSerializer(obj, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        if obj.reporter:
+        if obj.reporter and obj.reporter.email_notification:
             notification = Notification.objects.create(
                 user=obj.reporter,
                 initiator=request.user,
@@ -437,7 +437,7 @@ class CaseDetailView(APIView):
             raise exceptions.ValidationError("case does not exist")
         except IntegrityError:
             raise exceptions.DataIntegrityError("")
-        if obj.reporter:
+        if obj.reporter and obj.reporter.email_notification:
             notification = Notification.objects.create(
                 user=obj.reporter,
                 initiator=request.user,
@@ -1109,7 +1109,7 @@ class CommentView(APIView):
             target["title"] = obj.name
             target["type"] = "ico"
             u = obj.user
-        if u:
+        if u and u.email_notification:
             Notification.objects.create(
                 user=u,
                 initiator=request.user,
@@ -1124,11 +1124,13 @@ class CommentView(APIView):
                   subject = Constants.EMAIL_TITLE["NOTIFICATION_COMMENT"].format(request.user.nickname),
                   email_type = e.EMAIL_TYPE["NOTIFICATION"],
                   sender = e.EMAIL_SENDER["NO-REPLY"],
-                  recipient = [obj.reporter.email])
+                  recipient = [u.email])
 
         if notification:
             users = User.objects.filter(id__in=notification)
             for user in users:
+                if not user.email_notification:
+                    continue
                 notification = Notification.objects.create(
                     user=user,
                     initiator=request.user,

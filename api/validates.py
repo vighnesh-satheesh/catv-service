@@ -15,9 +15,32 @@ def validate_pattern_type_subtype(pattern_type, pattern_subtype, model=False):
     elif pattern_type == models.IndicatorPatternType.CRYPTOADDR:
         if pattern_subtype not in models.IndicatorPatternSubtype.cryptoaddr_subtypes():
             raise exc_class({"pattern_subtype": "pattern_subtype should be one of crypto address subtype"})
+    elif pattern_type == models.IndicatorPatternType.FILEHASH:
+        if pattern_subtype not in models.IndicatorPatternSubtype.filehash_subtypes():
+            raise exc_class({"pattern_subtype": "pattern_subtype should be one of file hash subtype"})
     elif pattern_type == models.IndicatorPatternType.OTHER:
         if pattern_subtype != models.IndicatorPatternSubtype.OTHER:
             raise exc_class({"pattern_subtype": "pattern_subtype should be other when pattern_type is other"})
+
+
+def validate_indicator_vector(vector, model=False):
+    exc_class = ValidationError if model is True else exceptions.ValidationError
+
+    if not vector:
+        return
+
+    if len(set(vector) - set(models.IndicatorVector.indicator_vector_type())) > 0:
+        raise exc_class({"vector":  "now allowed vector type"})
+
+
+def validate_indicator_environment(environment, model=False):
+    exc_class = ValidationError if model is True else exceptions.ValidationError
+
+    if not environment:
+        return
+
+    if len(set(environment) - set(models.IndicatorEnvironment.indicator_environment_type())) > 0:
+        raise exc_class({"environment":  "now allowed environment type"})
 
 
 def validate_security_type_tag(security_category, security_tag, model=False):
@@ -33,10 +56,6 @@ def validate_security_type_tag(security_category, security_tag, model=False):
             return
         elif not isinstance(security_tag, list):
             raise exc_class({"security_tags": "list of string is required."})
-        else:
-            for item in security_tag:
-                if str(item).lower() not in ["phishing", "scam", "malware", "hacks", "exploits"]:
-                    raise exc_class({"security_tags": "tag item should be one of  Phishing, Scam, Malware, Hacks, Exploits. Or empty list"})
 
 
 def validate_max_length(text, model=False, limit=128, field_name="text"):

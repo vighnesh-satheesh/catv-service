@@ -62,7 +62,8 @@ class LoginSerializer(serializers.Serializer):
                 "nickname": user.nickname,
                 "permission": user.permission.value,
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
-                "status": user.status.value
+                "status": user.status.value,
+                "email_notification": user.email_notification
             }
         }
 
@@ -152,7 +153,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.User
-        fields = ("id", "uid", "nickname", "permission", "image", "created")
+        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -174,6 +175,7 @@ class UserPostSerializer(serializers.ModelSerializer):
     permission = fields.EnumField(enum=models.UserPermission, required=False)
     email = serializers.CharField(required=False)
     nickname = serializers.CharField(required=True)
+    email_notification = serializers.BooleanField(required=False)
     password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
     old_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
     new_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
@@ -183,7 +185,7 @@ class UserPostSerializer(serializers.ModelSerializer):
                                    use_url=False)
     class Meta:
         model = models.User
-        fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password")
+        fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password", "email_notification")
 
 
     def get_created(self, obj):
@@ -278,7 +280,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             instance.update(
                 password = validated_data.get("new_password", None),
                 image = validated_data.get("image"),
-                nickname = validated_data["nickname"]
+                nickname = validated_data["nickname"],
+                email_notification = validated_data["email_notification"]
             )
         except IntegrityError as e:
             if "nickname" in str(e):
@@ -446,6 +449,8 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     detail = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN,
                                        required=False, allow_blank=True, allow_null=True)
     security_tags = serializers.ListField(child=serializers.CharField(), required=False)
+    vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector), required=False)
+    environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
     pattern = serializers.CharField(required=False)
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
@@ -455,7 +460,7 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "detail", "pattern", "icos")
+        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector", "environment", "detail", "pattern", "icos")
         read_only_fields = ("id", "uid", "icos")
 
     def __init__(self, *args, **kwargs):
@@ -521,6 +526,8 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     detail = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN,
                                        required=False, allow_blank=True, allow_null=True)
     security_tags = serializers.ListField(child=serializers.CharField(), required=False)
+    vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector), required=False)
+    environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
     force = serializers.BooleanField(required=False)
     deleted = serializers.BooleanField(required=False)
     uid = serializers.UUIDField(required=False)
@@ -528,7 +535,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "detail", "pattern", "force", "deleted", "cases")
+        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "environment", "vector", "detail", "pattern", "force", "deleted", "cases")
         read_only_fields = ("id", "uid", "force", "deleted")
 
     def validate(self, data):
@@ -538,7 +545,11 @@ class IndicatorPostSerializer(NonNullModelSerializer):
 
         security_category = data.get("security_category")
         security_tags = data.get("security_tags", None)
+        vector = data.get("vector", None)
+        environment = data.get("environment", None)
         validates.validate_security_type_tag(security_category, security_tags)
+        validates.validate_indicator_vector(vector)
+        validates.validate_indicator_environment(environment)
         return data
 
     def create(self, data):
@@ -608,8 +619,8 @@ class IndicatorTRDBSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype")
-        read_only_fields = ("id", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype")
+        fields = ("id", "security_category", "security_tags", "vector", "environment" "pattern", "pattern_type", "pattern_subtype")
+        read_only_fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern", "pattern_type", "pattern_subtype")
 
     def get_id(self, obj):
         if obj.uid:
@@ -703,19 +714,24 @@ class ICODetailSerializer(NonNullModelSerializer):
             if len(case_queryset) > 0:
                 blacklist = []
                 whitelist = []
+                graylist = []
                 for case in case_queryset:
                     blacklist.extend(case.indicators.filter(security_category=models.IndicatorSecurityCategory.BLACKLIST))
                     whitelist.extend(case.indicators.filter(security_category=models.IndicatorSecurityCategory.WHITELIST))
+                    graylist.extend(case.indicators.filter(security_category=models.IndicatorSecurityCategory.GRAYLIST))
 
                 white_se = IndicatorListSerializer(whitelist, many=True)
                 black_se = IndicatorListSerializer(blacklist, many=True)
+                graylist_se = IndicatorListSerializer(graylist, many=True)
 
                 return {"whitelist": white_se.data,
-                        "blacklist": black_se.data}
+                        "blacklist": black_se.data,
+                        "graylist": graylist_se.data}
             else:
                 return {
                     "whitelist": [],
-                    "blacklist": []
+                    "blacklist": [],
+                    "graylist": []
                 }
         except models.Case.DoesNotExist:
             pass
@@ -1206,7 +1222,7 @@ class AutoCompleteSerializer(serializers.Serializer):
         return api_settings.AUTO_COMPLETE_LIMIT
 
     def _validate_type(self, auto_type):
-        if auto_type.lower() not in  ["ico", "indicator", "case", "user"]:
+        if auto_type.lower() not in  ["ico", "indicator", "indicator_tag", "case", "user"]:
             raise exceptions.ValidationError("not supported type")
 
     def validate(self, data):
@@ -1240,17 +1256,30 @@ class AutoCompleteSerializer(serializers.Serializer):
                         break
                 except ValueError:
                     continue
-            if idx == 0:
-                return {"indicators": indicators}
 
-            if len(query) < 3:
-                return {"indaicators": indicators}
+            if idx == 0 or len(query) < 3:
+                return {"indicators": indicators}
 
             indicator_objs = models.Indicator.objects.filter(pattern__istartswith=query)
             if indicator_objs:
                 indicator_serializer = IndicatorListSerializer(indicator_objs, many=True)
                 indicators = indicator_serializer.data
             return {"indicators": indicators}
+
+        elif auto_type == "indicator_tag":
+            indicator_objs = models.Indicator.objects.filter(security_tags__icontains=query)
+            if indicator_objs:
+                __tags = []
+                indicator_tags = []
+                for o in indicator_objs:
+                    __tags.extend(t for t in o.security_tags if t not in __tags)
+                for tag in __tags:
+                    if tag[:len(query)].lower() == query.lower():
+                        indicator_tags.append({
+                            'tag': tag
+                        })
+                indicator_tags = sorted(indicator_tags, key=lambda k: k["tag"])
+                return {"indicator_tags":  indicator_tags}
 
         elif auto_type == "user":
             users = []
