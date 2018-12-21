@@ -62,7 +62,8 @@ class LoginSerializer(serializers.Serializer):
                 "nickname": user.nickname,
                 "permission": user.permission.value,
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
-                "status": user.status.value
+                "status": user.status.value,
+                "email_notification": user.email_notification
             }
         }
 
@@ -152,7 +153,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.User
-        fields = ("id", "uid", "nickname", "permission", "image", "created")
+        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -174,6 +175,7 @@ class UserPostSerializer(serializers.ModelSerializer):
     permission = fields.EnumField(enum=models.UserPermission, required=False)
     email = serializers.CharField(required=False)
     nickname = serializers.CharField(required=True)
+    email_notification = serializers.BooleanField(required=False)
     password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
     old_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
     new_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
@@ -183,7 +185,7 @@ class UserPostSerializer(serializers.ModelSerializer):
                                    use_url=False)
     class Meta:
         model = models.User
-        fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password")
+        fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password", "email_notification")
 
 
     def get_created(self, obj):
@@ -278,7 +280,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             instance.update(
                 password = validated_data.get("new_password", None),
                 image = validated_data.get("image"),
-                nickname = validated_data["nickname"]
+                nickname = validated_data["nickname"],
+                email_notification = validated_data["email_notification"]
             )
         except IntegrityError as e:
             if "nickname" in str(e):

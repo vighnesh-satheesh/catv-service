@@ -246,6 +246,7 @@ class User(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     created = models.DateTimeField(default=now)
     permission = EnumField(enum=UserPermission, default=UserPermission.SENTINEL, max_length=16)
+    email_notification = models.BooleanField(default=True)
     image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
     status = EnumField(enum=UserStatus, default=UserStatus.APPROVED, max_length = 16)
 
@@ -287,6 +288,11 @@ class User(models.Model):
         try:
             if kwargs["nickname"] is not None:
                 self.nickname = kwargs["nickname"]
+        except KeyError:
+            pass
+        try:
+            if kwargs["email_notification"] is not None:
+                self.email_notification = kwargs["email_notification"]
         except KeyError:
             pass
         return super(User, self).save()
