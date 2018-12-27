@@ -619,7 +619,7 @@ class IndicatorTRDBSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "security_category", "security_tags", "vector", "environment" "pattern", "pattern_type", "pattern_subtype")
+        fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern", "pattern_type", "pattern_subtype")
         read_only_fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern", "pattern_type", "pattern_subtype")
 
     def get_id(self, obj):
@@ -1205,6 +1205,8 @@ class CasePatchSerializer(NonNullModelSerializer):
                 ch_serializer.save()
                 return super(CasePatchSerializer, self).update(instance, validated_data)
         except IntegrityError:
+            raise exceptions.DataIntegrityError()
+        except Exception as e:
             raise exceptions.DataIntegrityError()
         return {}
 
