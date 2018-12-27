@@ -363,8 +363,8 @@ class Indicator(models.Model):
 
     security_category = EnumField(enum=IndicatorSecurityCategory)
     security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
-    vector = ArrayField(EnumField(enum=IndicatorVector), blank=True, null=True)
-    environment = ArrayField(EnumField(enum=IndicatorEnvironment), blank=True, null=True)
+    vector = ArrayField(EnumField(enum=IndicatorVector, max_length=32), blank=True, null=True)
+    environment = ArrayField(EnumField(enum=IndicatorEnvironment, max_length=32), blank=True, null=True)
 
     pattern = models.CharField(max_length=256)
     pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False)
