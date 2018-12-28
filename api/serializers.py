@@ -616,8 +616,8 @@ class IndicatorTRDBSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
     security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
-    vector = fields.EnumField(enum=models.IndicatorVector)
-    environment = fields.EnumField(enum=models.IndicatorEnvironment)
+    vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector))
+    environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment))
 
     class Meta:
         model = models.Indicator
