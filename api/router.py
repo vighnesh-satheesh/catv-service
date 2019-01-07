@@ -5,7 +5,7 @@ from rest_framework import routers
 # from rest_framework_swagger.views import get_swagger_view
 
 from . import views
-from . import views_internal
+from .internal import views as views_internal
 
 router = routers.SimpleRouter()
 
@@ -17,8 +17,7 @@ urlpatterns = [
 # Internal APIs
 urlpatterns += [
     url(r'^internal/indicator/?$', views_internal.IndicatorInternalView.as_view(), name='internal-indicator'),
-    url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(), name='internal-case'),
-    url(r'^internal/project/?$', views_internal.ProjectInternalView.as_view(), name='internal-project'),
+    url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(), name='internal-case')
 ]
 
 if settings.EXPOSE_GENERAL_API:
