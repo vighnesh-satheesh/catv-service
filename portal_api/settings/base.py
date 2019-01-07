@@ -239,7 +239,8 @@ API_SETTINGS = {
     'CELERY_RESULT_BACKEND': env.str('API_CELERY_RESULT_BACKEND', None),
     'EMAIL_HOST_USER': env.str('API_EMAIL_HOST_USER', None),
     'EMAIL_HOST_PASSWORD': env.str('API_EMAIL_HOST_PASSWORD', None),
-    'WEB_URL': env.str('API_WEB_URL', '')
+    'WEB_URL': env.str('API_WEB_URL', ''),
+    "PORTAL_API_MODE": env.str("PORTAL_API_MODE", '')
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.

@@ -31,6 +31,11 @@ class AppInit:
     def set_environment_variables_from_parameter_store(cls):
         ssm_path = os.environ.get("PORTAL_API_PARAM_PATH")
         if ssm_path:
+            if ssm_path == "/UPP/PRD/portal-api":
+                os.environ["PORTAL_API_MODE"] = "production"
+            else:
+                os.environ["PORTAL_API_MODE"] = "staging"
+
             region = os.environ.get("AWS_REGION", "ap-northeast-2")
             ssm = boto3.client('ssm', region_name=region)
 
@@ -62,6 +67,7 @@ class AppInit:
                 next_token = response["NextToken"]
         else:
             env_file = os.environ.get("PORTAL_API_ENV_PATH")
+            os.environ["PORTAL_API_MODE"] = "development"
             if env_file is None or os.path.isfile(env_file) is False:
                 raise AttributeError(
                     "Please set environ variable 'PORTAL_API_ENV_PATH' for env file path."

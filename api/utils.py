@@ -202,8 +202,10 @@ class TRDBApiClient(object):
 
             if res.status_code == requests.codes.ok:
                 return True
-            else:
+            elif api_settings.PORTAL_API_MODE == "production":
                 res.raise_for_status()
+            else:
+                return True
 
     def __activate_case_data(self, case_data):
         return case_data
@@ -212,23 +214,5 @@ class TRDBApiClient(object):
         return {
             "id": case_data["id"]
         }
-
-    """
-    def __activate_case_data(self, case_data):
-        case_data["id"] = case_data["uid"]
-        del case_data["uid"]
-        for indicator in case_data["indicators"]:
-            indicator["id"] = indicator["uid"]
-            del indicator["uid"]
-            if "case" in indicator:
-                del indicator["case"]
-        return case_data
-
-    def __deactivate_case_data(self, case_data):
-        return {
-            "id": case_data["uid"]
-        }
-    """
-
 
 TRDB_CLIENT = TRDBApiClient()
