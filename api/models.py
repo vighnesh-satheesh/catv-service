@@ -137,6 +137,7 @@ class IndicatorPatternType(Enum):
     NETWORKADDR = 'addr'
     CRYPTOADDR = 'cryptoaddr'
     FILEHASH = 'filehash'
+    SOCIALMEDIA = 'socialmedia'
     OTHER = 'other'
 
 
@@ -163,6 +164,12 @@ class IndicatorPatternSubtype(Enum):
     # file hash
     SHA256 = 'sha256'
     MD5 = 'md5'
+    # social media
+    TWITTER = 'twitter'
+    FACEBOOK = 'facebook'
+    YOUTUBE = 'youtube'
+    TELEGRAM = 'telegram'
+
     # other
     OTHER = 'other'
 
@@ -178,6 +185,10 @@ class IndicatorPatternSubtype(Enum):
     @classmethod
     def filehash_subtypes(cls):
         return [cls.SHA256, cls.MD5]
+
+    @classmethod
+    def socialmedia_subtypes(cls):
+        return [cls.TWITTER, cls.FACEBOOK, cls.YOUTUBE, cls.TELEGRAM]
 
 
 class IndicatorVector(Enum):
@@ -367,7 +378,7 @@ class Indicator(models.Model):
     environment = ArrayField(EnumField(enum=IndicatorEnvironment, max_length=32), blank=True, null=True)
 
     pattern = models.CharField(max_length=256)
-    pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False)
+    pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False, max_length=32)
     pattern_subtype = EnumField(enum=IndicatorPatternSubtype, blank=True, null=True)
     pattern_tree = LtreeField(blank=False, null=False)
 
