@@ -154,6 +154,7 @@ class IndicatorPatternSubtype(Enum):
     ZEC = 'ZEC'
     XMR = 'XMR'
     NEO = 'NEO'
+    XRP = 'XRP'
     NA = 'NA'
     # network address
     URL = 'url'
@@ -176,7 +177,7 @@ class IndicatorPatternSubtype(Enum):
     @classmethod
     def cryptoaddr_subtypes(cls):
         return [cls.ETH, cls.ERC20, cls.ETC, cls.EOS, cls.BTC, cls.BCH,
-                cls.LTC, cls.DASH, cls.ZEC, cls.XMR, cls.NEO, cls.NA]
+                cls.LTC, cls.DASH, cls.ZEC, cls.XMR, cls.NEO, cls.XRP, cls.NA]
 
     @classmethod
     def networkaddr_subtypes(cls):

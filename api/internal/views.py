@@ -2,8 +2,7 @@ from rest_framework.views import APIView
 from ..models import (
     Case,
     CaseStatus,
-    Indicator,
-    ICO
+    Indicator
 )
 
 from django.db.models import Q
