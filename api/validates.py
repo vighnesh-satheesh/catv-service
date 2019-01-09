@@ -20,7 +20,7 @@ def validate_pattern_type_subtype(pattern_type, pattern_subtype, model=False):
             raise exc_class({"pattern_subtype": "pattern_subtype should be one of file hash subtype"})
     elif pattern_type == models.IndicatorPatternType.SOCIALMEDIA:
         if pattern_subtype not in models.IndicatorPatternSubtype.socialmedia_subtypes():
-            raise exc_class({"pattern_subtype": "pattern_subtype should be one of social mdeia subtype"})
+            raise exc_class({"pattern_subtype": "pattern_subtype should be one of social media subtype"})
     elif pattern_type == models.IndicatorPatternType.OTHER:
         if pattern_subtype != models.IndicatorPatternSubtype.OTHER:
             raise exc_class({"pattern_subtype": "pattern_subtype should be other when pattern_type is other"})

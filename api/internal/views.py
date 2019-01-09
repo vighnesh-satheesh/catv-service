@@ -2,7 +2,9 @@ from rest_framework.views import APIView
 from ..models import (
     Case,
     CaseStatus,
-    Indicator
+    Indicator,
+    IndicatorPatternType,
+    IndicatorPatternSubtype
 )
 
 from django.db.models import Q
@@ -64,6 +66,15 @@ class IndicatorInternalView(APIView):
 
         if pattern_type is None or pattern_subtype is None:
             raise exceptions.ValidationError("pattern_type and pattern_subtype are required")
+
+        try:
+            IndicatorPatternType(pattern_type)
+        except ValueError:
+            raise exceptions.ValidationError("invalid pattern_type")
+        try:
+            IndicatorPatternSubtype(pattern_subtype)
+        except ValueError:
+            raise exceptions.ValidationError("invalid pattern_type")
 
         if security_category:
             filter_queries &= Q(security_category=security_category)
