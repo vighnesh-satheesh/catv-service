@@ -13,6 +13,7 @@ from .serializers import (
     IndicatorDetailSerializer
 )
 
+from rest_framework import exceptions
 from ..response import APIResponse
 from .. import permissions
 
@@ -60,6 +61,9 @@ class IndicatorInternalView(APIView):
         pattern_type = request.query_params.get("pattern_type", None)
         pattern_subtype = request.query_params.get("pattern_subtype", None)
         security_tags = request.GET.getlist("security_tags")
+
+        if pattern_type is None or pattern_subtype is None:
+            raise exceptions.ValidationError("pattern_type and pattern_subtype are required")
 
         if security_category:
             filter_queries &= Q(security_category=security_category)
