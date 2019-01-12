@@ -103,7 +103,7 @@ class UserAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'uid')
     list_filter = [('permission', EnumFieldListFilter), ('status', EnumFieldListFilter), ]
     search_fields = ('id', 'email', 'nickname')
-    fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status')
+    fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status', 'email_notification')
     readonly_fields = ('id', 'uid', 'created')
 
 
@@ -112,7 +112,7 @@ class IndicatorAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'uid')
     list_filter = [('pattern_type', EnumFieldListFilter), ('security_category', EnumFieldListFilter)]
     search_fields = ('id', 'pattern')
-    fields = ('id', 'uid', 'case', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail')
+    fields = ('id', 'uid', 'case', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'vector', 'environment')
     raw_id_fields = ('case',)
     readonly_fields = ('id', 'uid')
 
@@ -147,7 +147,7 @@ class ICOAdmin(admin.ModelAdmin):
 class CaseAdmin(admin.ModelAdmin):
     list_display = ('id', 'uid', 'title', 'status', 'owner_id')
     list_display_links = ('id', 'uid')
-    list_filter = [('status', EnumFieldListFilter), ]
+    list_filter = [('status', EnumFieldListFilter)]
     search_fields = ('id', 'title')
     fields = ('id', 'uid', 'title', 'detail', 'created', 'status', 'reporter_info', 'reporter', 'owner', 'verifier', 'block_num', 'transaction_id', 'ico',)
     raw_id_fields = ('reporter', 'owner', 'verifier', 'ico')
