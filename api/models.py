@@ -384,6 +384,8 @@ class Indicator(models.Model):
     pattern_tree = LtreeField(blank=False, null=False)
 
     detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
+    annotation = models.CharField(max_length=256, blank=True, null=True)
+
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
 
