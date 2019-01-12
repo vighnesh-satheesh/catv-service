@@ -37,13 +37,14 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     pattern = serializers.CharField(required=False)
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
+    annotation = serializers.CharField(required=False)
     uid = serializers.UUIDField(required=False)
     id = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
 
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector",
-                  "environment", "detail", "pattern")
+                  "environment", "detail", "pattern", "annotation")
         read_only_fields = ("id", "uid")
 
     def validate(self, attrs):
@@ -71,6 +72,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     security_tags = serializers.ListField(child=serializers.CharField(), required=False)
     vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector), required=False)
     environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
+    annotation = serializers.CharField(required=False)
     force = serializers.BooleanField(required=False)
     deleted = serializers.BooleanField(required=False)
     uid = serializers.UUIDField(required=False)
@@ -79,7 +81,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "environment",
-                  "vector", "detail", "pattern", "force", "deleted", "cases")
+                  "vector", "detail", "pattern", "force", "deleted", "cases", "annotation")
         read_only_fields = ("id", "uid", "force", "deleted")
 
     def validate(self, data):

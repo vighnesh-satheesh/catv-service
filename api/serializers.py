@@ -454,13 +454,14 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     pattern = serializers.CharField(required=False)
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
+    annotation = serializers.CharField(required=False)
     icos = serializers.SerializerMethodField()
     uid = serializers.UUIDField(required=False)
     id = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector", "environment", "detail", "pattern", "icos")
+        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector", "environment", "detail", "pattern", "icos", "annotation")
         read_only_fields = ("id", "uid", "icos")
 
     def __init__(self, *args, **kwargs):
@@ -504,7 +505,7 @@ class IndicatorListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "cases", "created")
+        fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "cases", "created", "annotation")
         read_only_fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "cases", "created")
 
     def __init__(self, *args, **kwargs):
@@ -530,12 +531,13 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
     force = serializers.BooleanField(required=False)
     deleted = serializers.BooleanField(required=False)
+    annotation = serializers.CharField(required=False)
     uid = serializers.UUIDField(required=False)
     cases = serializers.ListField(required=False)
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "environment", "vector", "detail", "pattern", "force", "deleted", "cases")
+        fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "environment", "vector", "detail", "pattern", "force", "deleted", "cases", "annotation")
         read_only_fields = ("id", "uid", "force", "deleted")
 
     def validate(self, data):
@@ -621,8 +623,10 @@ class IndicatorTRDBSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern", "pattern_type", "pattern_subtype")
-        read_only_fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern", "pattern_type", "pattern_subtype")
+        fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern",
+                  "pattern_type", "pattern_subtype", "annotation")
+        read_only_fields = ("id", "security_category", "security_tags", "vector", "environment", "pattern",
+                            "pattern_type", "pattern_subtype", "annotation")
 
     def get_id(self, obj):
         if obj.uid:
