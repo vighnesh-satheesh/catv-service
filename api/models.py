@@ -325,7 +325,7 @@ class Case(models.Model):
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
     status = EnumField(enum=CaseStatus, default=CaseStatus.NEW)
-    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)  # blockchain에 사용되면 안된다.
+    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
     reporter = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='reporter')
     owner = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='owner')
     verifier = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='verifier')
@@ -385,6 +385,7 @@ class Indicator(models.Model):
 
     detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
     annotation = models.CharField(max_length=256, blank=True, null=True)
+    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
 
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
@@ -458,11 +459,12 @@ class AttachedFile(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     uploader = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='uploader')
     case = models.ForeignKey(Case, null=True, blank=True, on_delete=models.CASCADE, related_name='case')
+    indicator = models.ForeignKey(Indicator, null=True, blank=True, on_delete=models.CASCADE, related_name='indicator')
 
     class Meta:
         db_table = "api_file"
         indexes = [
-            models.Index(fields=['case', ]),
+            models.Index(fields=['case', 'indicator', ]),
         ]
 
     @property

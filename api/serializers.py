@@ -455,6 +455,7 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
     annotation = serializers.CharField(required=False)
+    reported_by = serializers.SerializerMethodField()
     icos = serializers.SerializerMethodField()
     uid = serializers.UUIDField(required=False)
     id = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
@@ -462,8 +463,8 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector",
-                  "environment", "detail", "pattern", "icos", "annotation")
-        read_only_fields = ("id", "uid", "icos")
+                  "environment", "detail", "pattern", "icos", "annotation", "reported_by")
+        read_only_fields = ("id", "uid", "icos", "reported_by")
 
     def __init__(self, *args, **kwargs):
         is_authenticated = False
@@ -488,6 +489,18 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
         validates.validate_security_type_tag(security_category, security_tags)
 
         return super(IndicatorDetailSerializer, self).validate(attrs)
+
+    def get_reported_by(self, obj):
+        if obj.user:
+            return {
+                "nickname": obj.user.nickname,
+                "uid": obj.user.uid
+            }
+        elif obj.reporter_info:
+            return {
+                "email": obj.reporter_info
+            }
+        return None
 
     def get_icos(self, obj):
         ico_objs = []
@@ -531,6 +544,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector), required=False)
     environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
     force = serializers.BooleanField(required=False)
+    reporter_info = serializers.CharField(required=False)
     deleted = serializers.BooleanField(required=False)
     annotation = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     uid = serializers.UUIDField(required=False)
@@ -539,7 +553,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "environment",
-                  "vector", "detail", "pattern", "force", "deleted", "cases", "annotation")
+                  "vector", "detail", "pattern", "force", "deleted", "cases", "annotation", "reporter_info")
         read_only_fields = ("id", "uid", "force", "deleted")
 
     def validate(self, data):
@@ -898,6 +912,11 @@ class CasePostSerializer(serializers.ModelSerializer):
                     if "uid" in indi:
                         indicator = models.Indicator.objects.get(uid=indi["uid"])
                     else:
+                        if not hasattr(self.context["request"].user, "is_anonymous"):
+                            indi["user"] = self.context["request"].user
+                        reporter_info = validated_data.get("reporter_info", None)
+                        if not reporter_info:
+                            indi["reporter_info"] = reporter_info
                         indicator = models.Indicator.objects.create(case=case, **indi)
                     indicator.cases.add(case)
                     case.indicators.add(indicator)
@@ -1089,6 +1108,10 @@ class CaseDetailSerializer(NonNullModelSerializer):
             return {
                 "nickname": obj.reporter.nickname,
                 "uid": obj.reporter.uid
+            }
+        elif obj.reporter_info:
+            return {
+                "email": obj.reporter_info
             }
         return None
 

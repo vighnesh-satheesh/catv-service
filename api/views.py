@@ -515,7 +515,7 @@ class IndicatorView(generics.ListCreateAPIView):
         if request.auth is not None:
             indicator_obj = serializer.save(user=request.user)
         else:
-            indicator_obj = serializer.save
+            indicator_obj = serializer.save()
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
         return APIResponse({
             "data": result_serializer.data
