@@ -406,7 +406,7 @@ class Indicator(models.Model):
         # removing trailing slash
         if self.pattern[-1] == '/':
             self.pattern = self.pattern[:-1]
-        self.pattern_tree = Pattern.getMaterializedPathForInsert(self.pattern)
+        self.pattern_tree = Pattern.getMaterializedPathForInsert(self.pattern.lower())
         return super(Indicator, self).save(*args, **kwargs)
 
     def clean(self):
