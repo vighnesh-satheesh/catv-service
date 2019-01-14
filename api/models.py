@@ -403,13 +403,9 @@ class Indicator(models.Model):
         return truncatechars(self.pattern, 50)
 
     def save(self, *args, **kwargs):
-        pattern_type = Pattern.getType(self.pattern)
-        if len(pattern_type) > 0 and pattern_type[0][0] in \
-                [IndicatorPatternType.NETWORKADDR.value, IndicatorPatternType.SOCIALMEDIA.value]:
-            self.pattern = self.pattern.lower()
-            if self.pattern[-1] == '/':
-                self.pattern = self.pattern[:-1]
-
+        # removing trailing slash
+        if self.pattern[-1] == '/':
+            self.pattern = self.pattern[:-1]
         self.pattern_tree = Pattern.getMaterializedPathForInsert(self.pattern)
         return super(Indicator, self).save(*args, **kwargs)
 
