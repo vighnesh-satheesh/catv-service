@@ -7,8 +7,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.renderers import JSONRenderer
 
 from django_filters import rest_framework as filters
-from django.db.models import Q, Prefetch, Count
-from indicatorlib import Pattern
+from django.db.models import Q, Count
 from django.db import transaction, IntegrityError
 
 from .models import (
@@ -286,7 +285,7 @@ class CaseView(generics.ListCreateAPIView):
     model = Case
 
     def get_queryset(self):
-        return self.model.objects.select_related('owner').select_related('ico').order_by('-pk')
+        return self.model.objects.order_by('-pk')
 
     def get_throttles(self):
         ret = []
@@ -616,12 +615,11 @@ class SearchView(generics.ListAPIView):
         filter_queries = Q(symbol__istartswith=query)
         if len(query) > 1:
             filter_queries |= Q(name__icontains=query)
-        objs = ICO.objects.filter(filter_queries).distinct('id').order_by('pk')
+        objs = ICO.objects.filter(filter_queries).distinct('id').order_by('-pk')
         return objs
 
     def get_indicator_queryset(self, query):
         objs = []
-        #filter_queries = Q(pattern_tree__aore=ltree_pattern) | Q(pattern_tree__dore=ltree_pattern)
         filter_queries = Q(pattern__icontains=query)
         filter_queries |= Q(security_tags__icontains=query)
 
@@ -636,7 +634,7 @@ class SearchView(generics.ListAPIView):
         elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
             filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk)
 
-        objs = Indicator.objects.filter(filter_queries).distinct('id').order_by('pk')
+        objs = Indicator.objects.filter(filter_queries).distinct('id').order_by('-pk')
 
         return objs
 
