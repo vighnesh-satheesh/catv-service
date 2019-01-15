@@ -286,11 +286,7 @@ class CaseView(generics.ListCreateAPIView):
     model = Case
 
     def get_queryset(self):
-        return self.model.objects.select_related('owner').select_related('ico') \
-            .prefetch_related(Prefetch('indicator',
-                                       queryset=Indicator.objects.all(),
-                                       to_attr='indicators')) \
-            .order_by('-pk')
+        return self.model.objects.select_related('owner').select_related('ico').order_by('-pk')
 
     def get_throttles(self):
         ret = []
