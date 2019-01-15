@@ -14,6 +14,7 @@ from .. import fields
 from ..settings import api_settings
 from ..constants import Constants
 
+
 class NonNullModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         result = super(NonNullModelSerializer, self).to_representation(instance)

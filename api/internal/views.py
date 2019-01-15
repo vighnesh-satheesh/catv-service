@@ -60,6 +60,7 @@ class IndicatorInternalView(APIView):
         filter_queries = Q(cases__status__in=[CaseStatus.RELEASED])
         security_category = request.query_params.get("security_category", None)
         pattern = request.query_params.get('pattern', None)
+        patterns = request.GET.getlist("patterns")
         pattern_type = request.query_params.get("pattern_type", None)
         pattern_subtype = request.query_params.get("pattern_subtype", None)
         security_tags = request.GET.getlist("security_tags")
@@ -74,12 +75,14 @@ class IndicatorInternalView(APIView):
         try:
             IndicatorPatternSubtype(pattern_subtype)
         except ValueError:
-            raise exceptions.ValidationError("invalid pattern_type")
+            raise exceptions.ValidationError("invalid pattern_subtype")
 
         if security_category:
             filter_queries &= Q(security_category=security_category)
         if pattern:
             filter_queries &= Q(pattern__iexact=pattern)
+        if patterns:
+            filter_queries &= Q(pattern__iregex=r"(" + "|".join(list(map(str.lower, patterns))) + ")$")
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
