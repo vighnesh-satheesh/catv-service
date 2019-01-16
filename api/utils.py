@@ -197,15 +197,13 @@ class TRDBApiClient(object):
             "case": case_data
         }
 
-        with requests.Session() as s:
-            res = s.post(urllib.parse.urljoin(self.base_url, "transaction"), json=data, headers={'Connection': 'close'})
-
-            if res.status_code == requests.codes.ok:
-                return True
-            elif api_settings.PORTAL_API_MODE == "production":
-                res.raise_for_status()
-            else:
-                return True
+        if api_settings.PORTAL_API_MODE == "production":
+            with requests.Session() as s:
+                res = s.post(urllib.parse.urljoin(self.base_url, "transaction"), json=data, headers={'Connection': 'close'})
+                if res.status_code == requests.codes.ok:
+                    return True
+                else:
+                    return False
 
     def __activate_case_data(self, case_data):
         return case_data

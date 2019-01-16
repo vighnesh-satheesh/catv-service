@@ -578,6 +578,7 @@ class SearchView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (AllowAny,)
     pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
 
     def list(self, request, *args, **kwargs):
         search_type = self.request.query_params.get("type", "ico")
@@ -634,7 +635,10 @@ class SearchView(generics.ListAPIView):
         elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
             filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk)
 
-        objs = Indicator.objects.filter(filter_queries).distinct('id').order_by('-pk')
+        objs = Indicator.objects \
+            .filter(filter_queries) \
+            .distinct('id') \
+            .order_by('-pk')
 
         return objs
 
@@ -659,14 +663,12 @@ class SearchView(generics.ListAPIView):
             filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(reporter=self.request.user.pk)
 
         objs = Case.objects \
-            .prefetch_related('indicators') \
-            .select_related('ico') \
             .filter(filter_queries) \
+            .select_related('ico') \
             .distinct('id') \
             .order_by('-pk')
 
-        return objs.all()
-
+        return objs
 
     def get_queryset(self):
         query = self.request.query_params.get("q", None)

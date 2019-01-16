@@ -117,7 +117,15 @@ DATABASES = {
 
 CACHES = {
     'default': env.cache(),
-    'token': env.cache('REDIS_TOKEN_URL')
+    'token': env.cache('REDIS_TOKEN_URL'),
+    'uppward': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': env.str('API_UPPWARD_CACHE_SERVER'),
+        "OPTIONS": {
+            "SOCKET_CONNECT_TIMEOUT": 3,
+            "SOCKET_TIMEOUT": 3,
+        }
+    }
 }
 
 # Internationalization
@@ -228,6 +236,7 @@ API_SETTINGS = {
     "INDICATOR_PATTERN_MAX_LEN": env.int('API_INDICATOR_PATTERN_MAX_LEN', 256),
     "COMMENT_BODY_MAX_LEN": env.int('API_COMMENT_BODY_MAX_LEN', 1024),
     "TRDB_API_URL": env.str('API_TRDB_API_URL', 'http://localhost:3001/v1/'),
+    "UPPWARD_CACHE_SERVER": env.str("API_UPPWARD_CACHE_SERVER", None),
 
     'TOKEN_REDIS_DB_NAME': env.str('API_TOKEN_REDIS_DB_NAME', 'token'),
     'TOKEN_RESET_TTL_ON_USER_LOG_IN': True,
