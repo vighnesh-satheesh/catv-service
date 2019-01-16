@@ -814,18 +814,10 @@ class CaseListSerializer(NonNullModelSerializer):
     def get_indicator_summary(self, obj):
         indicator_summary = {}
         indicators = obj.indicators
-        net_objs = indicators.filter(pattern_type = models.IndicatorPatternType.NETWORKADDR).order_by('-created')
-        crypto_objs = indicators.filter(pattern_type = models.IndicatorPatternType.CRYPTOADDR).order_by('-created')
-        indicator_summary["network_address_count"] = len(net_objs)
-        indicator_summary["crypto_address_count"] = len(crypto_objs)
-        if net_objs:
-            indicator_summary["network_address"] = IndicatorSimpleListSerializer(net_objs[:3], many=True).data
-        else:
-            indicator_summary["network_address"] = []
-        if crypto_objs:
-            indicator_summary["crypto_address"] = IndicatorSimpleListSerializer(crypto_objs[:3], many=True).data
-        else:
-            indicator_summary["crypto_address"] = []
+        net_objs = indicators.filter(pattern_type = models.IndicatorPatternType.NETWORKADDR)
+        crypto_objs = indicators.filter(pattern_type = models.IndicatorPatternType.CRYPTOADDR)
+        indicator_summary["network_address_count"] = net_objs.count()
+        indicator_summary["crypto_address_count"] = crypto_objs.count()
         return indicator_summary
 
 
