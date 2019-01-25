@@ -108,12 +108,11 @@ class UserAdmin(admin.ModelAdmin):
 
 
 class IndicatorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'uid', 'security_category', 'pattern_type', 'pattern_subtype', 'short_pattern', 'case_id')
+    list_display = ('id', 'uid', 'security_category', 'pattern_type', 'pattern_subtype', 'short_pattern')
     list_display_links = ('id', 'uid')
     list_filter = [('pattern_type', EnumFieldListFilter), ('security_category', EnumFieldListFilter)]
     search_fields = ('id', 'pattern')
-    fields = ('id', 'uid', 'case', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'vector', 'environment')
-    raw_id_fields = ('case',)
+    fields = ('id', 'uid', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'vector', 'environment')
     readonly_fields = ('id', 'uid')
 
 
@@ -154,7 +153,6 @@ class CaseAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'uid', 'created',)
 
     inlines = [
-        IndicatorInline,
         CaseHistoryInline,
     ]
 

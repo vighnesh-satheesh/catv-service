@@ -911,7 +911,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                         reporter_info = validated_data.get("reporter_info", None)
                         if not reporter_info:
                             indi["reporter_info"] = reporter_info
-                        indicator = models.Indicator.objects.create(case=case, **indi)
+                        indicator = models.Indicator.objects.create(**indi)
                     indicator.cases.add(case)
                     case.indicators.add(indicator)
 

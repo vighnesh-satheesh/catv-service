@@ -345,8 +345,6 @@ class Case(models.Model):
         ]
 
     def save(self, *args, **kargs):
-        # TODO: detect status field. and insert into history.
-        # history.log = "status changed to {dst status}"
         return super(Case, self).save(*args, **kargs)
 
     def clean(self):
@@ -369,7 +367,6 @@ class CaseHistory(models.Model):
 
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="indicator", blank=True, null=True)
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='indicator_user')
     cases = models.ManyToManyField(Case, related_name='indicator_cases')
 
@@ -394,7 +391,6 @@ class Indicator(models.Model):
         indexes = [
             GistIndex(fields=['pattern_tree', ]),
             models.Index(fields=['pattern_tree', ]),
-            models.Index(fields=['case', ]),
             models.Index(fields=['user']),
         ]
 
@@ -417,6 +413,14 @@ class Indicator(models.Model):
         validates.validate_indicator_vector(self.vector, model=True)
         validates.validate_indicator_environment(self.vector, model=True)
         return super(Indicator, self).clean()
+
+
+class CaseIndicator(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE)
+    indicator = models.ForeignKey(Indicator, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'api_m2m_case_indicator'
 
 
 class ICO(models.Model):
