@@ -14,7 +14,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 
 from .models import (
-    User, Case, Indicator, ICO, CaseStatus, Key, Comment,
+    User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment,
     Notification, NotificationType,
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus, IndicatorPatternSubtype
@@ -440,9 +440,8 @@ class CaseDetailView(APIView):
                     raise exceptions.ValidationError("case cannot be deleted.")
                 if obj.owner != request.user:
                     raise exceptions.OwnerRequiredError()
-                for indicator in obj.indicators.all():
-                    indicator.cases.remove(obj)
-                    obj.indicators.remove(indicator)
+                CaseIndicator.objects.filter(case = obj).delete()
+
         except Case.DoesNotExist:
             raise exceptions.ValidationError("case does not exist")
         except IntegrityError:
@@ -587,11 +586,11 @@ class IndicatorDetailView(APIView):
         try:
             with transaction.atomic():
                 indicator = self.get_object(pk)
-                for case in indicator.cases.all():
+                cases = indicator.cases.all()
+                for case in cases:
                     if case.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
                         raise exceptions.ValidationError("has confirmed or released attached cases.")
-                    case.indicators.remove(indicator)
-                    indicator.cases.remove(case)
+                CaseIndicator.objects.filter(indicator=indicator).delete()
                 indicator.delete()
         except Indicator.DoesNotExist:
             raise exceptions.ValidationError("indicator does not exist")

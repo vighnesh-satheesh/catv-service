@@ -335,7 +335,7 @@ class Case(models.Model):
     transaction_id = models.CharField(max_length=64, null=True, blank=True)
 
     ico = models.ForeignKey('ICO', null=True, blank=True, on_delete=models.DO_NOTHING)
-    indicators = models.ManyToManyField('Indicator', related_name="case_indicators")
+    indicators = models.ManyToManyField('Indicator', through='CaseIndicator')
 
     class Meta:
         indexes = [
@@ -368,7 +368,7 @@ class CaseHistory(models.Model):
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='indicator_user')
-    cases = models.ManyToManyField(Case, related_name='indicator_cases')
+    cases = models.ManyToManyField(Case, through='CaseIndicator')
 
     security_category = EnumField(enum=IndicatorSecurityCategory)
     security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
