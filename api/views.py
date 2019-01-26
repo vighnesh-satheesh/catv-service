@@ -128,9 +128,7 @@ class DashboardView(APIView):
 
         try:
             for item in CaseStatus:
-                if item == CaseStatus.NEW:
-                    continue
-                count = Case.objects.filter(Q(owner=user.pk) & Q(status=item)).count()
+                count = Case.objects.filter((Q(owner=user.pk) | Q(reporter=user.pk)) & Q(status=item)).count()
                 count_dict["case_my_{0}".format(item.value)] = count
                 my_count += count
         except Case.DoesNotExist:
@@ -141,6 +139,7 @@ class DashboardView(APIView):
                 "id": "case_my",
                 "count": my_count,
                 "children": [
+                    utils.get_dashboard_item("case_my", "new", count_dict),
                     utils.get_dashboard_item("case_my", "progress", count_dict),
                     utils.get_dashboard_item("case_my", "confirmed", count_dict),
                     utils.get_dashboard_item("case_my", "rejected", count_dict),
@@ -266,12 +265,11 @@ class CaseFilter(filters.FilterSet):
                 raise exceptions.CaseFilterError()
         elif cate == "my":
             if subcate is None:
-                return queryset.filter(owner=self.request.user.pk)
-
-            if subcate not in ["progress", "confirmed", "rejected", "released"]:
+                return queryset.filter(Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
+            if subcate not in ["new", "progress", "confirmed", "rejected", "released"]:
                 raise exceptions.CaseFilterError()
             try:
-                return queryset.filter(status=subcate, owner=self.request.user.pk)
+                return queryset.filter(Q(status=subcate) & (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk)))
             except Exception:
                 raise exceptions.CaseFilterError()
         else:
