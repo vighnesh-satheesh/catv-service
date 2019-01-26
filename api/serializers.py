@@ -894,17 +894,25 @@ class CasePostSerializer(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 case = models.Case.objects.create(**validated_data)
+                m2m_bulk = []
+                indicator_bulk = []
+                new_indicators = []
                 for indi in indicators_data:
                     if "uid" in indi:
                         indicator = models.Indicator.objects.get(uid=indi["uid"])
+                        indicator_bulk.append(indicator)
                     else:
                         if not hasattr(self.context["request"].user, "is_anonymous"):
                             indi["user"] = self.context["request"].user
                         reporter_info = validated_data.get("reporter_info", None)
                         if not reporter_info:
                             indi["reporter_info"] = reporter_info
-                        indicator = models.Indicator.objects.create(**indi)
-                    models.CaseIndicator.objects.create(case=case, indicator=indicator)
+                        new_indicators.append(models.Indicator(**indi))
+
+                indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
+                for indicator in indicator_bulk:
+                    m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
+                models.CaseIndicator.objects.bulk_create(m2m_bulk)
 
                 if len(files_data) > api_settings.CASE_ATTACHED_FILE_MAX_LIMIT:
                     raise exceptions.ValidationError({"files": "one case cannot have more than 20 files."})

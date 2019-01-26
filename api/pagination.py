@@ -10,7 +10,7 @@ from .response import APIResponse
 # "totalPages": 50, # = ceiling(totalItems / ItemsPerPage)
 
 class CustomPagination(pagination.PageNumberPagination):
-    page_size = 15
+    page_size = 20
     page_query_param = "page"
     invalid_page_message = _('invalid page number.')
 
