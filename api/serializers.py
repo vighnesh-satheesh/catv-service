@@ -786,26 +786,41 @@ class CaseSimpleListSerializer(NonNullModelSerializer):
 
 class CaseListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus)
-    ico = ICOSerializer(read_only=True)
+    reporter = serializers.SerializerMethodField()
     owned_by = serializers.SerializerMethodField()
     indicators = serializers.SerializerMethodField()
     created = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "created", "status", "owned_by", "ico", "indicators")
-        read_only_fields = ("id", "uid", "title", "created", "status", "owned_by", "ico", "indicators")
+        fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by", "indicators")
+        read_only_fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by", "indicators")
 
     def get_created(self, obj):
         if obj.created is None:
             return None
         return time.mktime(obj.created.timetuple())
 
+    def get_reporter(self, obj):
+        if obj.reporter:
+            return {
+                "nickname": obj.reporter.nickname,
+                "image": obj.reporter.image.url if bool(obj.reporter.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": obj.reporter.uid
+            }
+        elif obj.reporter_info:
+            return {
+                "nickname": obj.reporter_info,
+                "image": api_settings.S3_USER_IMAGE_DEFAULT
+            }
+        return None
+
     def get_owned_by(self, obj):
         if obj.owner:
             return {
                 "nickname": obj.owner.nickname,
-                "image": obj.owner.image.url if bool(obj.owner.image) else api_settings.S3_USER_IMAGE_DEFAULT
+                "image": obj.owner.image.url if bool(obj.owner.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": obj.owner.uid
             }
         return None
 
