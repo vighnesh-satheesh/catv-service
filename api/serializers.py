@@ -805,11 +805,13 @@ class CaseListSerializer(NonNullModelSerializer):
         if obj.reporter:
             return {
                 "nickname": obj.reporter.nickname,
-                "image": obj.reporter.image.url if bool(obj.reporter.image) else api_settings.S3_USER_IMAGE_DEFAULT
+                "image": obj.reporter.image.url if bool(obj.reporter.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": obj.reporter.uid
             }
         elif obj.reporter_info:
             return {
-                "email": obj.reporter_info
+                "nickname": obj.reporter_info,
+                "image": api_settings.S3_USER_IMAGE_DEFAULT
             }
         return None
 
@@ -817,7 +819,8 @@ class CaseListSerializer(NonNullModelSerializer):
         if obj.owner:
             return {
                 "nickname": obj.owner.nickname,
-                "image": obj.owner.image.url if bool(obj.owner.image) else api_settings.S3_USER_IMAGE_DEFAULT
+                "image": obj.owner.image.url if bool(obj.owner.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": obj.owner.uid
             }
         return None
 
