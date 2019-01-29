@@ -13,6 +13,7 @@ from .. import models
 from .. import fields
 from ..settings import api_settings
 from ..constants import Constants
+from indicatorlib import Pattern
 
 
 class NonNullModelSerializer(serializers.ModelSerializer):
@@ -226,6 +227,8 @@ class CasePostSerializer(serializers.ModelSerializer):
                         indicator = models.Indicator.objects.get(uid=indi["uid"])
                         indicator_bulk.append(indicator)
                     else:
+                        if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
+                            indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
                         new_indicators.append(models.Indicator(**indi))
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 for indicator in indicator_bulk:

@@ -24,6 +24,8 @@ from .multitoken.tokens_auth import MultiToken
 from .multitoken.crypto import decrypt_message
 from .constants import Constants
 from .cache.uppward import UppwardCache
+from indicatorlib import Pattern
+
 
 class NonNullModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
@@ -922,6 +924,8 @@ class CasePostSerializer(serializers.ModelSerializer):
                         reporter_info = validated_data.get("reporter_info", None)
                         if not reporter_info:
                             indi["reporter_info"] = reporter_info
+                        if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
+                            indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
                         new_indicators.append(models.Indicator(**indi))
 
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
