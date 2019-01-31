@@ -229,10 +229,9 @@ class CasePostSerializer(serializers.ModelSerializer):
                     else:
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
-                        force = indi.pop("force", True)
-                        if not force and indi["security_category"] is models.IndicatorSecurityCategory.BLACKLIST:
-                            ic = models.Indicator.objects.filter(pattern = indi["pattern"])
-                            if ic:
+                        if indi["security_category"] is models.IndicatorSecurityCategory.BLACKLIST:
+                            ic = models.Indicator.objects.filter(pattern = indi["pattern"]).order_by('-pk').first()
+                            if ic and ic.security_category is models.IndicatorSecurityCategory.BLACKLIST:
                                 continue
                         new_indicators.append(models.Indicator(**indi))
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
