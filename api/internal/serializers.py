@@ -229,6 +229,11 @@ class CasePostSerializer(serializers.ModelSerializer):
                     else:
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
+                        force = indi.pop("force", True)
+                        if not force:
+                            ic = models.Indicator.objects.filter(pattern = indi["pattern"])
+                            if ic:
+                                continue
                         new_indicators.append(models.Indicator(**indi))
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 for indicator in indicator_bulk:
