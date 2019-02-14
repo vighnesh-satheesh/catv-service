@@ -22,6 +22,7 @@ urlpatterns += [
 
 if settings.EXPOSE_GENERAL_API:
     urlpatterns += [
+        url(r'^healthcheck/?$', views.HealthCheckView.as_view(), name='healthcheck'),
         url(r'^login/?$', views.LoginView.as_view(), name='user-login'),
         url(r'^logout/?$', views.LogoutView.as_view(), name='user-logout'),
         url(r'^changepw/(?P<code>[0-9a-zA-Z\-]+)/?$', views.ChangePasswordView.as_view(), name='user-changepw'),
