@@ -19,6 +19,9 @@ from rest_framework import exceptions
 from ..response import APIResponse
 from .. import permissions
 
+import operator
+import functools
+
 class CaseIntervalView(APIView):
     authentication_classes = ()
     permission_classes = (permissions.InternalOnly,)
@@ -82,7 +85,7 @@ class IndicatorInternalView(APIView):
         if pattern:
             filter_queries &= Q(pattern__iexact=pattern)
         if patterns:
-            filter_queries &= Q(pattern__iregex=r"(" + "|".join(list(map(str.lower, patterns))) + ")$")
+            filter_queries |= functools.reduce(operator.and_, (Q(pattern=p) for p in patterns))
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
