@@ -83,7 +83,7 @@ class IndicatorInternalView(APIView):
         if pattern:
             filter_queries &= Q(pattern__iexact=pattern)
         if patterns:
-            filter_queries &= reduce(lambda q, p: q|Q(pattern=p), patterns, Q())
+            filter_queries &= reduce(lambda q, p: q|Q(pattern__iexact=p), patterns, Q())
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
