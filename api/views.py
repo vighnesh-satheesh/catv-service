@@ -50,6 +50,16 @@ from .email.tasks import SendEmail
 from .constants import Constants
 
 
+class HealthCheckView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        return APIResponse({
+            "status": "ok"
+        })
+
+
 class LoginView(ObtainAuthToken):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (AllowAny,)
