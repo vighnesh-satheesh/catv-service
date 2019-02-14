@@ -18,9 +18,7 @@ from .serializers import (
 from rest_framework import exceptions
 from ..response import APIResponse
 from .. import permissions
-
-import operator
-import functools
+from functools import reduce
 
 class CaseIntervalView(APIView):
     authentication_classes = ()
@@ -85,7 +83,7 @@ class IndicatorInternalView(APIView):
         if pattern:
             filter_queries &= Q(pattern__iexact=pattern)
         if patterns:
-            filter_queries |= functools.reduce(operator.and_, (Q(pattern=p) for p in patterns))
+            filter_queries &= reduce(lambda q, p: q|Q(pattern=p), patterns, Q())
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
