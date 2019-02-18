@@ -1182,7 +1182,7 @@ class CommentView(APIView):
                     target=target
                 )
                 kv = {
-                    "nickname": u.nickname,
+                    "nickname": user.nickname,
                     "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
                 }
                 SendEmail().delay(kv = kv,
