@@ -77,6 +77,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
     annotation = serializers.CharField(required=False)
     reporter_info = serializers.CharField(required=False)
+    user = serializers.CharField(required=False)
     force = serializers.BooleanField(required=False)
     deleted = serializers.BooleanField(required=False)
     uid = serializers.UUIDField(required=False)
@@ -85,7 +86,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "environment",
-                  "vector", "detail", "pattern", "force", "deleted", "cases", "annotation", "reporter_info")
+                  "vector", "detail", "pattern", "force", "deleted", "cases", "annotation", "reporter_info", "user")
         read_only_fields = ("id", "uid", "force", "deleted")
 
     def validate(self, data):
@@ -109,6 +110,15 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                                               pattern_subtype = data["pattern_subtype"])
         cases = data.pop("cases", [])
         force = data.pop("force", False)
+
+        try:
+            user = data.pop("user", None)
+            if user:
+                data["user"] = models.User.objects.get(id=user)
+        except models.User.DoesNotExist:
+            raise exceptions.DataIntegrityError("invalid user id")
+        except ValueError:
+            raise exceptions.DataIntegrityError("invalid user id")
 
         if len(dup) > 0 and not force:
             raise exceptions.DataIntegrityError("duplicate indicator")
@@ -184,13 +194,14 @@ class CasePostSerializer(serializers.ModelSerializer):
                                           allow_blank=True,
                                           allow_null=True,
                                           max_length=api_settings.CASE_REPORTER_MAX_LEN)
+    reporter = serializers.CharField(required=False)
     ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
 
     class Meta:
         model = models.Case
-        fields = ("title", "detail", "reporter_info", "ico", "indicators", "files")
+        fields = ("title", "detail", "reporter_info", "reporter", "ico", "indicators", "files")
         read_only_fields = ("id", "uid", "created")
 
     def validate_files(self, data):
@@ -216,6 +227,16 @@ class CasePostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
+
+        try:
+            reporter = validated_data.pop("reporter", None)
+            if reporter:
+                validated_data["reporter"] = models.User.objects.get(id=reporter)
+        except models.User.DoesNotExist:
+            raise exceptions.DataIntegrityError("invalid user id")
+        except ValueError:
+            raise exceptions.DataIntegrityError("invalid user id")
+
         try:
             with transaction.atomic():
                 case = models.Case.objects.create(**validated_data)

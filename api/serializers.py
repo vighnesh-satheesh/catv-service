@@ -1310,7 +1310,10 @@ class AutoCompleteSerializer(serializers.Serializer):
                 except ValueError:
                     continue
 
-            if idx == 0 or len(query) < 3:
+
+            if query.startswith('0x') and len(query) < 4:
+                return {"indicators": indicators}
+            elif len(query) < 3:
                 return {"indicators": indicators}
 
             indicator_objs = models.Indicator.objects.filter(pattern__istartswith=query)
