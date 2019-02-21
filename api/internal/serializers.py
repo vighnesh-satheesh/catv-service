@@ -250,10 +250,16 @@ class CasePostSerializer(serializers.ModelSerializer):
                     else:
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
-                        if indi["security_category"] is models.IndicatorSecurityCategory.BLACKLIST:
-                            ic = models.Indicator.objects.filter(pattern = indi["pattern"]).order_by('-pk').first()
-                            if ic and ic.security_category is models.IndicatorSecurityCategory.BLACKLIST:
-                                continue
+                        force = indi.pop("force", False)
+                        if not force:
+                            dup = models.Indicator.objects.filter(security_category = indi["security_category"],
+                                                                  pattern = indi["pattern"],
+                                                                  pattern_type = indi["pattern_type"],
+                                                                  pattern_subtype = indi["pattern_subtype"])
+                            if len(dup) > 0:
+                                raise exceptions.DataIntegrityError("duplicate indicator")
+                        if validated_data["reporter"]:
+                            indi["user"] = validated_data["reporter"]
                         new_indicators.append(models.Indicator(**indi))
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 for indicator in indicator_bulk:
