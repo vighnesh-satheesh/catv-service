@@ -293,6 +293,10 @@ class CasePostSerializer(serializers.ModelSerializer):
                                 new_indicators.append(models.Indicator(**indi))
 
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
+
+                if len(indicator_bulk) == 0:
+                    raise exceptions.DataIntegrityError("Posted case has no valid indicator to be added. ")
+                
                 for indicator in indicator_bulk:
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
                 models.CaseIndicator.objects.bulk_create(m2m_bulk)
