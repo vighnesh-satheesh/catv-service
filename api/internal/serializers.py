@@ -244,23 +244,54 @@ class CasePostSerializer(serializers.ModelSerializer):
                 indicator_bulk = []
                 new_indicators = []
                 for indi in indicators_data:
-                    indi.pop("force", False)
+
                     if "uid" in indi:
                         indicator = models.Indicator.objects.get(uid=indi["uid"])
                         indicator_bulk.append(indicator)
                     else:
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
-                        if indi["security_category"] == models.IndicatorSecurityCategory.BLACKLIST:
-                            dup = models.Indicator.objects.filter(security_category = indi["security_category"],
-                                                                  pattern = indi["pattern"],
-                                                                  pattern_type = indi["pattern_type"],
-                                                                  pattern_subtype = indi["pattern_subtype"])
+
+                        try:
+                            force = indi.pop("force")
+                            if not force:
+                                dup = models.Indicator.objects.filter(security_category=indi["security_category"],
+                                                                          pattern=indi["pattern"],
+                                                                          pattern_type=indi["pattern_type"],
+                                                                          pattern_subtype=indi["pattern_subtype"])
+                                if len(dup) > 0:
+                                    raise exceptions.DataIntegrityError("duplicate indicator")
+
+                            if validated_data["reporter"]:
+                                indi["user"] = validated_data["reporter"]
+                            new_indicators.append(models.Indicator(**indi))
+
+                        except KeyError as e:
+
+                            # KeyError thrown when force option not sent in api request
+                            # when force not set, case should still be added when there are duplicate indicators.
+                            # however, duplicate indicators should be dropped if
+                            # 1) the most recent duplicate has the same security_category as indicator to add
+
+                            # check for dup
+                            dup = models.Indicator.objects.filter(security_category=indi["security_category"],
+                                                                      pattern=indi["pattern"],
+                                                                      pattern_type=indi["pattern_type"],
+                                                                      pattern_subtype=indi["pattern_subtype"]).order_by("-id")
                             if len(dup) > 0:
-                                continue
-                        if validated_data["reporter"]:
-                            indi["user"] = validated_data["reporter"]
-                        new_indicators.append(models.Indicator(**indi))
+                                mostRecentDup = dup[0]
+                                if mostRecentDup.security_category != indi["security_category"]:
+                                    # indicator to be added has different security category as its duplicate, should thus be added to portal for investigation
+                                    if validated_data["reporter"]:
+                                        indi["user"] = validated_data["reporter"]
+                                    new_indicators.append(models.Indicator(**indi))
+                                    # else if same security category, do nothing(i.e. drop the indicator to be added), but still continue to post the case (with the other indicators)
+                            else:
+                                # there is no duplicate, so proceed to add indicator to portal
+                                if validated_data["reporter"]:
+                                    indi["user"] = validated_data["reporter"]
+                                new_indicators.append(models.Indicator(**indi))
+
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 for indicator in indicator_bulk:
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
