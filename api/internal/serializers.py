@@ -273,11 +273,18 @@ class CasePostSerializer(serializers.ModelSerializer):
                             # however, duplicate indicators should be dropped if
                             # 1) the most recent duplicate has the same security_category as indicator to add
 
-                            # check for dup
-                            dup = models.Indicator.objects.filter(security_category=indi["security_category"],
-                                                                      pattern=indi["pattern"],
-                                                                      pattern_type=indi["pattern_type"],
-                                                                      pattern_subtype=indi["pattern_subtype"]).order_by("-id")
+                            # check for duplicate (non-case sensitive) ethereum addresses
+                            if indi["pattern_subtype"] == "ETH":
+                                # non case sensitive check
+                                # ETH addresses are case insensitive, hence dup check should do case insensitive filtering
+                                dup = models.Indicator.objects.filter(security_category=indi["security_category"],
+                                                                      pattern__iexact=indi["pattern"]).order_by("-id")
+                            else:
+                                # exact patternmatch check
+                                dup = models.Indicator.objects.filter(security_category=indi["security_category"],
+                                                                          pattern=indi["pattern"]).order_by("-id")
+
+
                             if len(dup) > 0:
                                 mostRecentDup = dup[0]
                                 if mostRecentDup.security_category != indi["security_category"]:
@@ -296,7 +303,7 @@ class CasePostSerializer(serializers.ModelSerializer):
 
                 if len(indicator_bulk) == 0:
                     raise exceptions.DataIntegrityError("Posted case has no valid indicator to be added. ")
-                
+
                 for indicator in indicator_bulk:
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
                 models.CaseIndicator.objects.bulk_create(m2m_bulk)
