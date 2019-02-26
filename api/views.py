@@ -561,8 +561,8 @@ class IndicatorDetailView(APIView):
     def get(self, request, pk=None):
         c = DefaultCache()
         cached_response = c.get_view_cache(request)
-        if cached_response:
-            return APIResponse(cached_response)
+        # if cached_response:
+        #     return APIResponse(cached_response)
 
         obj = self.get_object(pk)
         serializer = IndicatorDetailSerializer(obj, is_authenticated=True if request.user and request.user.is_authenticated else False)

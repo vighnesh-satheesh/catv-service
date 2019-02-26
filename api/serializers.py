@@ -458,6 +458,7 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
     annotation = serializers.CharField(required=False)
+    annotations = serializers.SerializerMethodField()
     reported_by = serializers.SerializerMethodField()
     icos = serializers.SerializerMethodField()
     uid = serializers.UUIDField(required=False)
@@ -466,8 +467,8 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector",
-                  "environment", "detail", "pattern", "icos", "annotation", "reported_by")
-        read_only_fields = ("id", "uid", "icos", "reported_by")
+                  "environment", "detail", "pattern", "icos", "annotation", "reported_by", "annotations")
+        read_only_fields = ("id", "uid", "icos", "reported_by", "annotations")
 
     def __init__(self, *args, **kwargs):
         is_authenticated = False
@@ -478,20 +479,6 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
 
         if is_authenticated:
             self.fields["cases"] = CaseSimpleSerializer(read_only=True, many=True)
-
-    def validate(self, attrs):
-        id = attrs.get("id")
-        if id:
-            return super(IndicatorDetailSerializer, self).validate(attrs)
-        pattern_type = attrs.get("pattern_type")
-        pattern_subtype = attrs.get("pattern_subtype", None)
-        validates.validate_pattern_type_subtype(pattern_type, pattern_subtype)
-
-        security_category = attrs.get("security_category")
-        security_tags = attrs.get("security_tags", None)
-        validates.validate_security_type_tag(security_category, security_tags)
-
-        return super(IndicatorDetailSerializer, self).validate(attrs)
 
     def get_reported_by(self, obj):
         if obj.user:
@@ -513,6 +500,14 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
                 ico_objs.append(c.ico)
         ico_serializer = ICOListSerializer(ico_objs, many=True)
         return ico_serializer.data
+
+
+    def get_annotations(self, obj):
+        data = []
+        annotations = obj.annotations.all()
+        for annotation in annotations:
+            data.append(annotation.annotation)
+        return data
 
 
 class IndicatorListSerializer(NonNullModelSerializer):
@@ -592,6 +587,17 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     if case_instance.status not in [models.CaseStatus.NEW, models.CaseStatus.PROGRESS]:
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
                     models.CaseIndicator.objects.create(case=case, indicator=indicator)
+                if data["annotation"]:
+                    for annotation in [x.lstrip() for x in data["annotation"].split(",")]:
+                        if len(annotation) == 0:
+                            continue
+                        anno = models.Annotation.objects.filter(annotation=annotation)
+                        if len(anno) > 0:
+                            anno = anno[0]
+                        else:
+                            anno = models.Annotation.objects.create(annotation=annotation)
+                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")
         except exceptions.DataIntegrityError as err:
@@ -621,6 +627,21 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                         models.CaseIndicator.objects.filter(case=case_instance, indicator=instance).delete()
                     if "added" in case:
                         models.CaseIndicator.objects.create(case=case_instance, indicator=instance)
+
+                new_annotations = [x.lstrip() for x in data["annotation"].split(",")]
+                prev_annotations = [annotation.annotation for annotation in instance.annotations.all()]
+                if new_annotations != prev_annotations:
+                    instance.annotations.clear()
+                    for annotation in new_annotations:
+                        if len(annotation) == 0:
+                            continue
+                        anno = models.Annotation.objects.filter(annotation=annotation)
+                        if len(anno) > 0:
+                            anno = anno[0]
+                        else:
+                            anno = models.Annotation.objects.create(annotation=annotation)
+                        models.IndicatorAnnotation.objects.create(indicator=instance, annotation=anno)
+
                 instance = super().update(instance, data)
         except IntegrityError:
             raise exceptions.DataIntegrityError()
@@ -926,11 +947,24 @@ class CasePostSerializer(serializers.ModelSerializer):
                             indi["reporter_info"] = reporter_info
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
-                        new_indicators.append(models.Indicator(**indi))
+                        indicator = models.Indicator(**indi)
+                        new_indicators.append(indicator)
 
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 for indicator in indicator_bulk:
+                    # annotation
+                    for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
+                        if len(annotation) == 0:
+                            continue
+                        anno = models.Annotation.objects.filter(annotation=annotation)
+                        if len(anno) > 0:
+                            anno = anno[0]
+                        else:
+                            anno = models.Annotation.objects.create(annotation=annotation)
+                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                    # case
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
+
                 models.CaseIndicator.objects.bulk_create(m2m_bulk)
 
                 if len(files_data) > api_settings.CASE_ATTACHED_FILE_MAX_LIMIT:
@@ -1383,43 +1417,6 @@ class UppwardRewardInfoPostSerializer(serializers.ModelSerializer):
         except exceptions.DataIntegrityError as err:
             raise err
         return None
-
-
-class ProjectPostSerializer(NonNullModelSerializer):
-    name = serializers.CharField()
-    type = serializers.CharField()
-    subtitle = serializers.CharField()
-    detail = serializers.CharField()
-    category = serializers.CharField()
-    cases = serializers.ListField(required=False)
-
-    class Meta:
-        model = models.ICO
-        fields = ("id", "uid", "name", "symbol", "type", "subtitle", "detail", "category", "website", "opened", "closed", "image", "cases",)
-        read_only_field = ("cases", "image")
-
-    def validate(self, data):
-        return data
-
-    def create(self, validated_data):
-        cases = validated_data.pop("cases", [])
-        try:
-            with transaction.atomic():
-                obj = models.ICO.objects.create(**validated_data)
-                if cases:
-                    for id in cases:
-                        case = models.Case.objects.get(id=id)
-                        if case.status == models.CaseStatus.RELEASED:
-                            raise exceptions.DataIntegrityError("case " + str(id) + " is in released status")
-                        case.ico = obj
-                        case.save()
-        except IntegrityError:
-            raise exceptions.DataIntegrityError()
-        except exceptions.DataIntegrityError as err:
-            raise err
-        except models.Case.DoesNotExist:
-            raise exceptions.DataIntegrityError("case does not exist")
-        return obj
 
 
 class CommentSerializer(NonNullModelSerializer):

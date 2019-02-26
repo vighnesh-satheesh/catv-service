@@ -387,6 +387,7 @@ class Indicator(models.Model):
 
     detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
     annotation = models.CharField(max_length=256, blank=True, null=True)
+    annotations = models.ManyToManyField(Annotation, through='IndicatorAnnotation')
     reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
 
     created = models.DateTimeField(default=now)
@@ -426,6 +427,14 @@ class CaseIndicator(models.Model):
 
     class Meta:
         db_table = 'api_m2m_case_indicator'
+
+
+class IndicatorAnnotation(models.Model):
+    indicator = models.ForeignKey(Indicator, on_delete=models.CASCADE)
+    annotation = models.ForeignKey(Annotation, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'api_m2m_indicator_annotation'
 
 
 class ICO(models.Model):
