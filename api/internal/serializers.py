@@ -40,6 +40,7 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
     annotation = serializers.CharField(required=False)
+    annotations = serializers.SerializerMethodField()
     uid = serializers.UUIDField(required=False)
     id = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
 
@@ -63,6 +64,13 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
         validates.validate_security_type_tag(security_category, security_tags)
 
         return super(IndicatorDetailSerializer, self).validate(attrs)
+
+    def get_annotations(self, obj):
+        data = []
+        annotations = obj.annotations.all()
+        for annotation in annotations:
+            data.append(annotation.annotation)
+        return data
 
 
 class IndicatorPostSerializer(NonNullModelSerializer):
@@ -130,6 +138,18 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     if case_instance.status not in [models.CaseStatus.NEW, models.CaseStatus.PROGRESS]:
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
                     models.CaseIndicator.objects.create(case=case_instance, indicator=indicator)
+
+                if data["annotation"]:
+                    for annotation in [x.lstrip() for x in data["annotation"].split(",")]:
+                        if len(annotation) == 0:
+                            continue
+                        anno = models.Annotation.objects.filter(annotation=annotation)
+                        if len(anno) > 0:
+                            anno = anno[0]
+                        else:
+                            anno = models.Annotation.objects.create(annotation=annotation)
+                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")
         except exceptions.DataIntegrityError as err:
@@ -137,35 +157,6 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         except models.Case.DoesNotExist:
             raise exceptions.DataIntegrityError("case does not exist")
         return indicator
-
-    def update(self, instance, data):
-        indi_objs = models.Indicator.objects.filter(security_category = data["security_category"],
-                                                    pattern = data["pattern"],
-                                                    pattern_type = data["pattern_type"],
-                                                    pattern_subtype = data["pattern_subtype"])
-        cases = data.pop("cases", [])
-        force = data.pop("force", False)
-
-        if len(indi_objs) > 0 and not force:
-            for indicator in  indi_objs:
-                if instance.pk != indicator.pk:
-                    raise exceptions.DataIntegrityError("duplicate indicator")
-
-        try:
-            with transaction.atomic():
-                for case in cases:
-                    case_instance = models.Case.objects.get(id=case["id"])
-                    if "deleted" in case:
-                        models.CaseIndicator.objects.filter(case=case_instance, indicator=instance)
-                    if "added" in case:
-                        models.CaseIndicator.objects.create(case=case_instance, indicator=instance)
-                instance = super().update(instance, data)
-        except IntegrityError:
-            raise exceptions.DataIntegrityError()
-        except exceptions.DataIntegrityError as err:
-            raise err
-
-        return instance
 
 
 class CaseHistoryPostSerializer(serializers.ModelSerializer):
@@ -310,6 +301,17 @@ class CasePostSerializer(serializers.ModelSerializer):
 
                 for indicator in indicator_bulk:
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
+                    # annotation
+                    for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
+                        if len(annotation) == 0:
+                            continue
+                        anno = models.Annotation.objects.filter(annotation=annotation)
+                        if len(anno) > 0:
+                            anno = anno[0]
+                        else:
+                            anno = models.Annotation.objects.create(annotation=annotation)
+                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+
                 models.CaseIndicator.objects.bulk_create(m2m_bulk)
 
                 if len(files_data) > api_settings.CASE_ATTACHED_FILE_MAX_LIMIT:
@@ -340,82 +342,4 @@ class CasePostSerializer(serializers.ModelSerializer):
         except exceptions.DataIntegrityError as err:
             raise err
         return case
-
-    def update(self, instance, validated_data):
-        indicators_data = validated_data.pop("indicators", [])
-        files_data = validated_data.pop("files", [])
-        ico = validated_data.pop("ico", None)
-
-        history_log = Constants.HISTORY_LOG
-        history_log["type"] = "content"
-        history_log["indicatorAdded"] = False
-        history_log["indicatorRemoved"] = False
-        history_log["indicatorUpdated"] = False
-        history_log["fileAdded"] = False
-        history_log["fileRemoved"] = False
-        history_log["titleUpdated"] = instance.title != validated_data['title']
-        history_log["detailUpdated"] = instance.detail != validated_data['detail']
-        history_log["relatedProjectUpdated"] = instance.ico != ico
-
-        if history_log["relatedProjectUpdated"]:
-            validated_data["ico"] = ico
-
-        try:
-            with transaction.atomic():
-                # indicators
-                for indi_item in indicators_data:
-                    if "uid" in indi_item:
-                        indicator = models.Indicator.objects.get(uid=indi_item["uid"])
-                        if "deleted" in indi_item and indi_item["deleted"] is True:
-                            models.CaseIndicator.objects.filter(case=instance, indicator=indicator).delete()
-                            history_log['indicatorRemoved'] = True
-                    else:
-                        indi_item["case"] = instance
-                        indicator = models.Indicator.objects.create(**indi_item)
-                        models.CaseIndicator.objects.create(case=instance, indicator=indicator)
-                        history_log['indicatorAdded'] = True
-                # files
-                for file_item in files_data:
-                    if "uid" not in file_item:  # ignored. file item always has uid.
-                        continue
-                    if "deleted" in file_item and file_item["deleted"] is True:  # deleted
-                        try:
-                            file_obj = models.AttachedFile.objects.get(uid=file_item["uid"])
-                            file_obj.delete()
-                        except models.AttachedFile.DoesNotExist:
-                            pass
-                        history_log['fileRemoved'] = True
-                        continue
-                    file_obj = models.AttachedFile.objects.get(uid=file_item["uid"])
-                    if not file_obj:
-                        continue
-                    if file_obj.case is not None and file_obj.case != instance:  # raise exception when file is for other case.
-                        raise exceptions.DataIntegrityError("file already included in other cases.")
-                    if file_obj.case == instance:
-                        continue
-                    history_log["fileAdded"] = True
-                    file_obj.case = instance
-                    file_obj.save()
-                # case items
-                instance = super().update(instance, validated_data)
-        except IntegrityError:
-            raise exceptions.DataIntegrityError()
-        except exceptions.DataIntegrityError as err:
-            raise err
-        except models.Indicator.DoesNotExist:
-            raise exceptions.DataIntegrityError("indicator does not exist")
-        except TypeError:
-            raise exceptions.DataIntegrityError("TypeError")
-
-        for key, value in history_log.items():
-            if isinstance(value, bool) and value == True:
-                data = {"log": json.dumps(history_log),
-                        "case": instance.pk,
-                        "initiator": self.context["request"].user.pk}
-                ch_serializer = CaseHistoryPostSerializer(data=data)
-                ch_serializer.is_valid(raise_exception=True)
-                ch_serializer.save()
-                break
-
-        return instance
 
