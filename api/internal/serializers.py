@@ -2,6 +2,7 @@ import os
 import time
 from collections import OrderedDict
 from django.db import transaction, IntegrityError
+from django.db.models import Q
 from rest_framework import serializers
 
 import boto3
@@ -112,12 +113,8 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         return data
 
     def create(self, data):
-        dup = models.Indicator.objects.filter(security_category = data["security_category"],
-                                              pattern = data["pattern"],
-                                              pattern_type = data["pattern_type"],
-                                              pattern_subtype = data["pattern_subtype"])
         cases = data.pop("cases", [])
-        force = data.pop("force", False)
+        force = data.pop("force", None)
 
         try:
             user = data.pop("user", None)
@@ -128,8 +125,11 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         except ValueError:
             raise exceptions.DataIntegrityError("invalid user id")
 
-        if len(dup) > 0 and not force:
-            raise exceptions.DataIntegrityError("duplicate indicator")
+        if not force:
+            dup = models.Indicator.objects.filter(pattern = data["pattern"]).order_by('-id')[:1]
+            if len(dup) > 0 and dup[0].security_category == data["security_category"]:
+                raise exceptions.DataIntegrityError("duplicate indicator")
+
         try:
             with transaction.atomic():
                 indicator = models.Indicator.objects.create(**data)
@@ -139,7 +139,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
                     models.CaseIndicator.objects.create(case=case_instance, indicator=indicator)
 
-                if data["annotation"]:
+                if "annotation" in data:
                     for annotation in [x.lstrip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
                             continue
@@ -235,64 +235,31 @@ class CasePostSerializer(serializers.ModelSerializer):
                 indicator_bulk = []
                 new_indicators = []
                 for indi in indicators_data:
-
                     if "uid" in indi:
                         indicator = models.Indicator.objects.get(uid=indi["uid"])
                         indicator_bulk.append(indicator)
                     else:
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
+                        if validated_data["reporter"]:
+                            indi["user"] = validated_data["reporter"]
 
-                        try:
-                            force = indi.pop("force")
-                            if not force:
-                                dup = models.Indicator.objects.filter(security_category=indi["security_category"],
-                                                                          pattern=indi["pattern"],
-                                                                          pattern_type=indi["pattern_type"],
-                                                                          pattern_subtype=indi["pattern_subtype"])
-                                if len(dup) > 0:
-                                    raise exceptions.DataIntegrityError("duplicate indicator")
-
-                            if validated_data["reporter"]:
-                                indi["user"] = validated_data["reporter"]
-                            new_indicators.append(models.Indicator(**indi))
-
-                        except KeyError as e:
-
-                            # KeyError thrown when force option not sent in api request
-                            # when force not set, case should still be added when there are duplicate indicators.
-                            # however, duplicate indicators should be dropped if
-                            # 1) the most recent duplicate has the same security_category as indicator to add
-
-                            # check for duplicate (non-case sensitive) ethereum addresses
+                        force = indi.pop("force", None)
+                        dup = []
+                        if not force:
                             if indi["pattern_subtype"] == "ETH":
-                                # non case sensitive check
-                                # ETH addresses are case insensitive, hence dup check should do case insensitive filtering
-                                dup = models.Indicator.objects.filter(pattern__iexact=indi["pattern"]).order_by("-id")
+                                filter_queries = Q(pattern__iexact=indi["pattern"])
                             else:
-                                # exact patternmatch check
-                                dup = models.Indicator.objects.filter(pattern=indi["pattern"]).order_by("-id")
+                                filter_queries = Q(pattern=indi["pattern"])
+                            dup = models.Indicator.objects.filter(filter_queries).order_by("-id")[:1]
 
-
-                            if len(dup) > 0:
-                                mostRecentDup = dup[0]
-                                if indi["security_category"] is models.IndicatorSecurityCategory.GRAYLIST:
-                                    indi["security_category"] = mostRecentDup.security_category
-                                    if validated_data["reporter"]:
-                                        indi["user"] = validated_data["reporter"]
-                                    new_indicators.append(models.Indicator(**indi))
-                                else:
-                                    if mostRecentDup.security_category != indi["security_category"]:
-                                        # indicator to be added has different security category as its duplicate, should thus be added to portal for investigation
-                                        if validated_data["reporter"]:
-                                            indi["user"] = validated_data["reporter"]
-                                        new_indicators.append(models.Indicator(**indi))
-                                        # else if same security category, do nothing(i.e. drop the indicator to be added), but still continue to post the case (with the other indicators)
+                        if len(dup) > 0 and dup[0].security_category == indi["security_category"]:
+                            if force is False:
+                                raise exceptions.DataIntegrityError("duplicate indicator")
                             else:
-                                # there is no duplicate, so proceed to add indicator to portal
-                                if validated_data["reporter"]:
-                                    indi["user"] = validated_data["reporter"]
-                                new_indicators.append(models.Indicator(**indi))
+                                continue
+                        else:
+                            new_indicators.append(models.Indicator(**indi))
 
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
 
@@ -302,15 +269,16 @@ class CasePostSerializer(serializers.ModelSerializer):
                 for indicator in indicator_bulk:
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
                     # annotation
-                    for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
-                        if len(annotation) == 0:
-                            continue
-                        anno = models.Annotation.objects.filter(annotation=annotation)
-                        if len(anno) > 0:
-                            anno = anno[0]
-                        else:
-                            anno = models.Annotation.objects.create(annotation=annotation)
-                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                    if indicator.annotation:
+                        for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
+                            if len(annotation) == 0:
+                                continue
+                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            if len(anno) > 0:
+                                anno = anno[0]
+                            else:
+                                anno = models.Annotation.objects.create(annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
 
                 models.CaseIndicator.objects.bulk_create(m2m_bulk)
 
