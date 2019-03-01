@@ -48,9 +48,9 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
         fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags", "vector",
-                  "environment", "detail", "pattern", "annotation", "reporter_info")
+                  "environment", "detail", "pattern", "annotation", "reporter_info", "annotations")
         read_only_fields = ("id", "uid", "pattern_type", "pattern_subtype", "security_category", "security_tags",
-                            "vector", "environment", "detail", "pattern", "annotation", "reporter_info")
+                            "vector", "environment", "detail", "pattern", "annotation", "reporter_info", "annotations")
 
     def validate(self, attrs):
         id = attrs.get("id")
