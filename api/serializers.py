@@ -25,7 +25,7 @@ from .multitoken.crypto import decrypt_message
 from .constants import Constants
 from .cache.uppward import UppwardCache
 from indicatorlib import Pattern
-
+from .cache import DefaultCache
 
 class NonNullModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
@@ -106,6 +106,8 @@ class LoginSerializer(serializers.Serializer):
         try:
             user = models.User.objects.get(email__iexact=email)
             ret = user.check_password(password)
+            c = DefaultCache()
+            c.set("user_" + str(user.id), user, 0)
             if ret is False:
                 raise exceptions.AuthenticationCheckError()
         except models.User.DoesNotExist:
@@ -275,6 +277,9 @@ class UserPostSerializer(serializers.ModelSerializer):
                 raise exceptions.DataIntegrityError("duplicate: email")
             else:
                 raise exceptions.DataIntegrityError("")
+
+        c = DefaultCache()
+        c.set("user_" + str(instance.id), instance, 0)
         return instance
 
 
@@ -291,6 +296,9 @@ class UserPostSerializer(serializers.ModelSerializer):
                 raise exceptions.DataIntegrityError("duplicate: nickname")
             else:
                 raise exceptions.DataIntegrityError()
+
+        c = DefaultCache()
+        c.set("user_" + str(instance.id), instance, 0)
         return instance
 
 
@@ -481,6 +489,15 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
             self.fields["cases"] = CaseSimpleSerializer(read_only=True, many=True)
 
     def get_reported_by(self, obj):
+        c = DefaultCache()
+        cached = c.get("user_" + str(obj.user_id))
+        if cached:
+            return {
+                "nickname": cached.nickname,
+                "image": cached.image.url if bool(cached.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": cached.uid
+            }
+
         if obj.user:
             return {
                 "nickname": obj.user.nickname,
@@ -811,13 +828,12 @@ class CaseListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus)
     reporter = serializers.SerializerMethodField()
     owned_by = serializers.SerializerMethodField()
-    indicators = serializers.SerializerMethodField()
     created = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by", "indicators")
-        read_only_fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by", "indicators")
+        fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by")
+        read_only_fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by")
 
     def get_created(self, obj):
         if obj.created is None:
@@ -825,6 +841,15 @@ class CaseListSerializer(NonNullModelSerializer):
         return time.mktime(obj.created.timetuple())
 
     def get_reporter(self, obj):
+        c = DefaultCache()
+        cached = c.get("user_" + str(obj.reporter_id))
+        if cached:
+            return {
+                "nickname": cached.nickname,
+                "image": cached.image.url if bool(cached.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": cached.uid
+            }
+
         if obj.reporter:
             return {
                 "nickname": obj.reporter.nickname,
@@ -839,6 +864,14 @@ class CaseListSerializer(NonNullModelSerializer):
         return None
 
     def get_owned_by(self, obj):
+        c = DefaultCache()
+        cached = c.get("user_" + str(obj.owner_id))
+        if cached:
+            return {
+                "nickname": cached.nickname,
+                "image": cached.image.url if bool(cached.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": cached.uid
+            }
         if obj.owner:
             return {
                 "nickname": obj.owner.nickname,
@@ -846,9 +879,6 @@ class CaseListSerializer(NonNullModelSerializer):
                 "uid": obj.owner.uid
             }
         return None
-
-    def get_indicators(self, obj):
-        return obj.indicators.count()
 
 
 class CaseHistoryPostSerializer(serializers.ModelSerializer):
@@ -1140,6 +1170,14 @@ class CaseDetailSerializer(NonNullModelSerializer):
         return serializer.data
 
     def get_owned_by(self, obj):
+        c = DefaultCache()
+        cached = c.get("user_" + str(obj.owner_id))
+        if cached:
+            return {
+                "nickname": cached.nickname,
+                "image": cached.image.url if bool(cached.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": cached.uid
+            }
         if obj.owner:
             return {
                 "nickname": obj.owner.nickname,
@@ -1148,6 +1186,16 @@ class CaseDetailSerializer(NonNullModelSerializer):
         return None
 
     def get_reported_by(self, obj):
+        c = DefaultCache()
+        cached = c.get("user_" + str(obj.reporter_id))
+        if cached:
+            return {
+                "nickname": cached.nickname,
+                "image": cached.image.url if bool(cached.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": cached.uid
+            }
+
+
         if obj.reporter:
             return {
                 "nickname": obj.reporter.nickname,
@@ -1160,6 +1208,15 @@ class CaseDetailSerializer(NonNullModelSerializer):
         return None
 
     def get_verified_by(self, obj):
+        c = DefaultCache()
+        cached = c.get("user_" + str(obj.verifier_id))
+        if cached:
+            return {
+                "nickname": cached.nickname,
+                "image": cached.image.url if bool(cached.image) else api_settings.S3_USER_IMAGE_DEFAULT,
+                "uid": cached.uid
+            }
+
         if obj.verifier:
             return {
                 "nickname": obj.verifier.nickname,
