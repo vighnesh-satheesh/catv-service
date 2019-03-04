@@ -4,6 +4,7 @@ from django.conf import settings
 import requests
 import json
 import os
+from .cache import DefaultCache
 
 class ApiConfig(AppConfig):
     name = 'api'
@@ -31,5 +32,15 @@ class ApiConfig(AppConfig):
             }
         )
 
+    @classmethod
+    def init_cache(cls, user):
+        c = DefaultCache()
+        users = user.objects.all()
+        for u in users:
+            key = "user_" + str(u.pk)
+            c.set(key, u, 0)
+
     def ready(self):
+        user = self.get_model('User')
         self.send_slack_webhook()
+        self.init_cache(user)
