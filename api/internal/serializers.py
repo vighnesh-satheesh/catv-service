@@ -116,14 +116,6 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         cases = data.pop("cases", [])
         force = data.pop("force", None)
 
-        try:
-            user = data.pop("user", None)
-            if user:
-                data["user"] = models.User.objects.get(id=user)
-        except models.User.DoesNotExist:
-            raise exceptions.DataIntegrityError("invalid user id")
-        except ValueError:
-            raise exceptions.DataIntegrityError("invalid user id")
 
         if not force:
             dup = models.Indicator.objects.filter(pattern = data["pattern"]).order_by('-id')[:1]
@@ -132,6 +124,9 @@ class IndicatorPostSerializer(NonNullModelSerializer):
 
         try:
             with transaction.atomic():
+                user = data.pop("user", None)
+                if user is not None:
+                    data["user"] = models.User.objects.get(id=user)
                 indicator = models.Indicator.objects.create(**data)
                 for case in cases:
                     case_instance = models.Case.objects.get(id=case["id"])
@@ -154,6 +149,8 @@ class IndicatorPostSerializer(NonNullModelSerializer):
             raise exceptions.DataIntegrityError("data integrity error")
         except exceptions.DataIntegrityError as err:
             raise err
+        except models.User.DoesNotExist:
+            raise exceptions.DataIntegrityError("user does not exist")
         except models.Case.DoesNotExist:
             raise exceptions.DataIntegrityError("case does not exist")
         return indicator
@@ -241,8 +238,15 @@ class CasePostSerializer(serializers.ModelSerializer):
                     else:
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
-                        if validated_data["reporter"]:
-                            indi["user"] = validated_data["reporter"]
+
+                        # inherit from the case
+                        if reporter is not None:
+                            indi["user"] = reporter
+                        if "reporter_info" in validated_data:
+                            indi["reporter_info"] = validated_data["reporter_info"]
+                        user = indi.pop("user", None)
+                        if not user:
+                            indi["user"] = models.User.objects.get(id=indi["user"])
 
                         force = indi.pop("force", None)
                         dup = []
@@ -309,5 +313,6 @@ class CasePostSerializer(serializers.ModelSerializer):
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
             raise err
+        except models.User.DoesNotExist:
+            raise exceptions.DataIntegrityError("invalid user/reporter id")
         return case
-
