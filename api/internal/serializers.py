@@ -241,7 +241,7 @@ class CasePostSerializer(serializers.ModelSerializer):
 
                         # inherit from the case
                         if reporter is not None:
-                            indi["user"] = reporter
+                            indi["user"] = models.User.objects.get(id=reporter)
                         else:
                             user = indi.pop("user", None)
                             if user is not None:
