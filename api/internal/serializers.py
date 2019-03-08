@@ -261,7 +261,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                                 filter_queries = Q(pattern=indi["pattern"])
                             dup = models.Indicator.objects.filter(filter_queries).order_by("-id")[:1]
 
-                        if len(dup) > 0 and dup[0].security_category == indi["security_category"]:
+                        if len(dup) > 0 and (dup[0].security_category == indi["security_category"] or dup[0].security_category is models.IndicatorSecurityCategory.WHITELIST):
                             if force is False:
                                 raise exceptions.DataIntegrityError("duplicate indicator")
                             else:
