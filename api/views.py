@@ -185,10 +185,12 @@ class DashboardView(APIView):
             }
         ]
 
-        if user.permission is UserPermission.EXCHANGE:
-            number_of_all_indicators = Indicator.objects.filter(Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk)).count()
-        else:
+        if user.permission is UserPermission.SUPERSENTINEL or \
+                user.permission is UserPermission.SENTINEL:
             number_of_all_indicators = Indicator.objects.count()
+        else:
+            cases[1]["children"] = cases[1]["children"][3:]
+            number_of_all_indicators = Indicator.objects.filter(Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk)).count()
 
         indicators = [
             {
