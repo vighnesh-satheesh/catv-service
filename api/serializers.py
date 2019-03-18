@@ -531,12 +531,11 @@ class IndicatorListSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
     security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
-    cases = CaseSimpleSerializer(many=True)
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "cases", "created", "annotation")
-        read_only_fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "cases", "created")
+        fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "created", "annotation")
+        read_only_fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "created")
 
     def __init__(self, *args, **kwargs):
         is_authenticated = False
@@ -544,9 +543,6 @@ class IndicatorListSerializer(NonNullModelSerializer):
             is_authenticated = kwargs.pop("is_authenticated")
 
         super(IndicatorListSerializer, self).__init__(*args, **kwargs)
-
-        if is_authenticated:
-            self.fields["cases"] = CaseSimpleSerializer(read_only=True, many=True)
 
 
 class IndicatorPostSerializer(NonNullModelSerializer):

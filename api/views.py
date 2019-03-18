@@ -127,28 +127,43 @@ class DashboardView(APIView):
             raise exceptions.AuthenticationCheckError()
         user = request.user
         count_dict = defaultdict(int)
-        total_count = 0
-        my_count = 0
-        try:
-            for item in CaseStatus:
-                count = Case.objects.filter(status=item).count()
-                count_dict["case_all_{0}".format(item.value)] = count
-                total_count += count
-        except Case.DoesNotExist:
-            pass
+        number_of_all_cases = 0
+        number_of_all_my_cases = 0
+        number_of_all_indicators = 0
+        all_cases = []
+        my_cases = []
 
-        try:
-            for item in CaseStatus:
-                count = Case.objects.filter((Q(owner=user.pk) | Q(reporter=user.pk)) & Q(status=item)).count()
-                count_dict["case_my_{0}".format(item.value)] = count
-                my_count += count
-        except Case.DoesNotExist:
-            pass
+        if user.permission is UserPermission.SUPERSENTINEL or \
+            user.permission is UserPermission.SENTINEL:
+            all_cases = Case.objects.filter().values("status").annotate(count=Count("status"))
+            my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
+        else:
+            all_cases = Case.objects.filter(Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | (Q(owner=user.pk) | Q(reporter=user.pk))).values("status").annotate(count=Count("status"))
+            my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
+
+        for item in CaseStatus:
+            all = 0
+            my = 0
+
+            for ac in all_cases:
+                if ac["status"] == item:
+                    all = ac["count"]
+                    break
+            for mc in my_cases:
+                if mc["status"] == item:
+                    my = mc["count"]
+                    break
+
+            count_dict["case_all_{0}".format(item.value)] = all
+            count_dict["case_my_{0}".format(item.value)] = my
+
+            number_of_all_cases += all
+            number_of_all_my_cases += my
 
         cases = [
             {
                 "id": "case_my",
-                "count": my_count,
+                "count": number_of_all_my_cases,
                 "children": [
                     utils.get_dashboard_item("case_my", "new", count_dict),
                     utils.get_dashboard_item("case_my", "progress", count_dict),
@@ -159,7 +174,7 @@ class DashboardView(APIView):
             },
             {
                 "id": "case_all",
-                "count": total_count,
+                "count": number_of_all_cases,
                 "children": [
                     utils.get_dashboard_item("case_all", "new", count_dict),
                     utils.get_dashboard_item("case_all", "progress", count_dict),
@@ -169,40 +184,19 @@ class DashboardView(APIView):
                 ]
             }
         ]
-        if user.permission is UserPermission.EXCHANGE:
-            for status, cnt in count_dict.items():
-                if status in ['case_all_new', 'case_all_progress', 'all_confirmed']:
-                    total_count -= cnt
-            cases[1]["children"] = cases[1]["children"][3:]
-            cases[1]["count"] = total_count
 
-            indicator_attached_filter = Q(num_cases__gt=0) & \
-                                        (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk))
-            indicators = [
-                {
-                    "id": "indicator_attached",
-                    "count": Indicator.objects.annotate(num_cases=Count('cases')).filter(indicator_attached_filter).count(),
-                    "children": []
-                },
-                {
-                    "id": "indicator_unattached",
-                    "count":  Indicator.objects.annotate(num_cases=Count('cases')).filter(num_cases=0).count(),
-                    "children": []
-                }
-            ]
+        if user.permission is UserPermission.EXCHANGE:
+            number_of_all_indicators = Indicator.objects.filter(Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk)).count()
         else:
-            indicators = [
-                {
-                    "id": "indicator_attached",
-                    "count": Indicator.objects.annotate(num_cases=Count('cases')).filter(num_cases__gt=0).count(),
-                    "children": []
-                },
-                {
-                    "id": "indicator_unattached",
-                    "count":  Indicator.objects.annotate(num_cases=Count('cases')).filter(num_cases=0).count(),
-                    "children": []
-                }
-            ]
+            number_of_all_indicators = Indicator.objects.count()
+
+        indicators = [
+            {
+                "id": "indicator_all",
+                "count": number_of_all_indicators,
+                "children": []
+            }
+        ]
 
         notifications = []
         notification_objs = Notification.objects.filter(user=user.pk).order_by('-created')[:100]
@@ -221,14 +215,10 @@ class DashboardView(APIView):
 class CaseFilter(filters.FilterSet):
     user_case = filters.CharFilter(method='filter_user_case')
     case = filters.CharFilter(method='filter_case_board')
-    security_category = filters.CharFilter(method='filter_security_category')
-    pattern_type = filters.CharFilter(method='filter_pattern_type')
-    pattern_subtype = filters.CharFilter(method='filter_pattern_subtype')
-    keyword = filters.CharFilter(method='filter_keyword')
 
     class Meta:
         model = Case
-        fields = ("case", "security_category", "pattern_type", "pattern_subtype", "keyword",)
+        fields = ("case",)
 
     def filter_user_case(self, queryset, name, value):
         usercase_cate = value.split('_')
@@ -245,17 +235,18 @@ class CaseFilter(filters.FilterSet):
             raise exceptions.CaseFilterError()
 
         if action == 'reported':
-            return queryset.filter(reporter = user.pk)
+            return queryset.filter(reporter = user.pk).distinct('id')
         elif action == 'released':
-            return queryset.filter(verifier = user.pk)
+            return queryset.filter(verifier = user.pk).distinct('id')
 
-        return queryset
+        return queryset.distinct('id')
 
     def filter_case_board(self, queryset, name, value):
         case_cate = value.split("_")
         if len(case_cate) not in [1, 2]:
             raise exceptions.CaseFilterError()
         filter = Q()
+        keyword_filter = Q()
         cate = case_cate[0]
         subcate = None
         if len(case_cate) == 2:
@@ -276,47 +267,59 @@ class CaseFilter(filters.FilterSet):
         elif cate == "my":
             filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
 
-        return queryset.filter(filter)
+        security_category = self.request.GET.getlist("security_category") or []
+        pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
+        pattern_type = self.request.GET.getlist("pattern_type") or []
+        keyword = self.request.GET.getlist("keyword") or []
 
-    def filter_security_category(self, queryset, name, value):
-        security_category = self.request.GET.getlist(name) or []
-        filter = Q()
         if len(security_category) > 0:
-            filter &= Q(indicators__security_category__in=security_category)
-        return queryset.filter(filter)
-
-    def filter_pattern_type(self, queryset, name, value):
-        pattern_type = self.request.GET.getlist(name) or []
-        filter = Q()
+            filter &= Q(indicator__security_category__in=security_category)
         if len(pattern_type) > 0:
-            filter &= Q(indicators__pattern_type__in=pattern_type)
-        return queryset.filter(filter)
-
-    def filter_pattern_subtype(self, queryset, name, value):
-        pattern_subtype = self.request.GET.getlist(name) or []
-        filter = Q()
+            filter &= Q(indicator__pattern_type__in=pattern_type)
         if len(pattern_subtype) > 0:
-            filter &= Q(indicators__pattern_subtype__in=pattern_subtype)
-        return queryset.filter(filter)
+            filter &= Q(indicator__pattern_subtype__in=pattern_subtype)
 
-    def filter_keyword(self, queryset, name, value):
-        keyword = self.request.GET.getlist(name) or []
-        filter = Q()
-        for k in keyword:
-            filter |= Q(title__icontains=k)
-            filter |= Q(detail__icontains=k)
-            filter |= Q(indicators__pattern__icontains=k)
-            filter |= Q(indicators__annotation=k)
-            if k in IndicatorPatternType.__members__:
-                filter |= Q(indicators__pattern_type=k)
-            if k in IndicatorPatternSubtype.__members__:
-                filter |= Q(indicators__pattern_subtype=k)
-            if k in IndicatorVector.__members__:
-                filter |= Q(indicators__vector=k)
-            if k in IndicatorEnvironment.__members__:
-                filter |= Q(indicators__environment=k)
+        if len(keyword) > 0:
+            keyword_pattern_type = []
+            keyword_pattern_subtype = []
+            keyword_vector = []
+            keyword_environment = []
+            for idx, k in enumerate(keyword):
+                keyword_filter |= Q(title__icontains=k)
+                keyword_filter |= Q(detail__icontains=k)
+                keyword_filter |= Q(indicators__pattern__icontains=k)
+                keyword_filter |= Q(indicators__annotation=k)
+                try:
+                    IndicatorPatternType(k)
+                    keyword_pattern_type.append(k)
+                except ValueError:
+                    pass
+                try:
+                    IndicatorPatternSubtype(k)
+                    keyword_pattern_subtype.append(k)
+                except ValueError:
+                    pass
+                try:
+                    IndicatorVector(k)
+                    keyword_vector.append(k)
+                except ValueError:
+                    pass
+                try:
+                    IndicatorEnvironment(k)
+                    keyword_environment.append(k)
+                except ValueError:
+                    pass
 
-        return queryset.filter(filter)
+            if len(keyword_pattern_type) > 0:
+                keyword_filter |= Q(indicator__pattern_type__in=keyword_pattern_type)
+            if len(keyword_pattern_subtype) > 0:
+                keyword_filter |= Q(indicator__pattern_subtype__in=keyword_pattern_subtype)
+            if len(keyword_vector) > 0:
+                keyword_filter |= Q(indicator__vector__contains=keyword_vector)
+            if len(keyword_environment) > 0:
+                keyword_filter |= Q(indicator__environment__contains=keyword_environment)
+
+        return queryset.filter(filter & keyword_filter).prefetch_related('indicators')
 
 
 class CaseView(generics.ListCreateAPIView):
@@ -335,7 +338,7 @@ class CaseView(generics.ListCreateAPIView):
         if order_by[1] == "desc":
             key = "-"
         key = key + order_by[0]
-        return self.model.objects.order_by(key)
+        return self.model.objects.distinct('id').order_by(key)
 
     def get_throttles(self):
         ret = []
@@ -523,25 +526,17 @@ class CaseDetailView(APIView):
 
 
 class IndicatorFilter(filters.FilterSet):
-    type = filters.CharFilter(method='filter_type')
-
     class Meta:
         model = Indicator
-        fields = ("type",)
+        fields = ()
 
-    def filter_type(self, queryset, name, value):
-        if self.request.user.permission is UserPermission.EXCHANGE:
-            indicator_attached_filter = Q(num_cases__gt=0) & \
-                                        (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
-        else:
-            indicator_attached_filter = Q(num_cases__gt=0)
+    def filter_queryset(self, request, queryset, view):
+        ftr = Q()
+        if self.request.user.permission is not UserPermission.SUPERSENTINEL or \
+            self.request.user.permission is not UserPermission.SENTINEL:
+            ftr &= (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
 
-        if value == 'attached':
-            return queryset.annotate(num_cases=Count('cases')).filter(indicator_attached_filter)
-        elif value == 'unattached':
-            return queryset.annotate(num_cases=Count('cases')).filter(num_cases=0)
-        else:
-            raise exceptions.IndicatorNotFound()
+        return queryset.filter(ftr)
 
 
 class IndicatorView(generics.ListCreateAPIView):
@@ -836,7 +831,6 @@ class AttachedFileDetailView(APIView):
             file_obj = obj.file.open(mode='rb')
             buf = file_obj.read()
         except Exception as err:
-            print(err)
             raise exceptions.FileNotFound()
         return FileResponse(buf, obj.uid, content_type=obj.type)
 
