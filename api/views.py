@@ -538,7 +538,7 @@ class IndicatorFilter(filters.FilterSet):
         ftr = Q()
         keyword_filter = Q()
 
-        if self.request.user.permission is not UserPermission.SUPERSENTINEL or \
+        if self.request.user.permission is not UserPermission.SUPERSENTINEL and \
             self.request.user.permission is not UserPermission.SENTINEL:
             ftr &= (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
 
