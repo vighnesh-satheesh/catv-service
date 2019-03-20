@@ -528,15 +528,43 @@ class CaseDetailView(APIView):
 
 
 class IndicatorFilter(filters.FilterSet):
+    page = filters.CharFilter(method='filter_queryset')
+
     class Meta:
         model = Indicator
         fields = ()
 
-    def filter_queryset(self, request, queryset, view):
+    def filter_queryset(self, queryset, name, value):
         ftr = Q()
+        keyword_filter = Q()
+
         if self.request.user.permission is not UserPermission.SUPERSENTINEL or \
             self.request.user.permission is not UserPermission.SENTINEL:
             ftr &= (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
+
+        status = self.request.GET.getlist("status") or []
+        security_category = self.request.GET.getlist("security_category") or []
+        pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
+        pattern_type = self.request.GET.getlist("pattern_type") or []
+        keyword = self.request.GET.getlist("keyword") or []
+
+        if len(security_category) > 0:
+            ftr &= Q(security_category__in=security_category)
+        if len(pattern_type) > 0:
+            ftr &= Q(pattern_type__in=pattern_type)
+        if len(pattern_subtype) > 0:
+            ftr &= Q(pattern_subtype__in=pattern_subtype)
+        if len(keyword) > 0:
+            for idx, k in enumerate(keyword):
+                keyword_filter |= Q(title__icontains=k)
+                keyword_filter |= Q(detail__icontains=k)
+                keyword_filter |= Q(pattern__icontains=k)
+                keyword_filter |= Q(annotation=k)
+            ftr &= keyword_filter
+
+        if len(status) > 0:
+            ftr &= Q(cases__status__in=status)
+            return queryset.filter(ftr).prefetch_related('cases')
 
         return queryset.filter(ftr)
 
@@ -551,7 +579,13 @@ class IndicatorView(generics.ListCreateAPIView):
     model = Indicator
 
     def get_queryset(self):
-        return self.model.objects.all().order_by('-created')
+        order_by = self.request.GET.get('order_by') or 'id_desc'
+        order_by = order_by.split('_')
+        key = ""
+        if order_by[1] == "desc":
+            key = "-"
+        key = key + order_by[0]
+        return self.model.objects.distinct('id').order_by(key)
 
     def get_throttles(self):
         ret = []
