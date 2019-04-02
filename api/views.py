@@ -385,40 +385,53 @@ class CaseDetailView(APIView):
             raise exceptions.CaseNotFound()
 
     def get(self, request, pk=None):
-        c = DefaultCache()
-        cached_response = c.get_view_cache(request)
-        if cached_response:
-            return APIResponse(cached_response)
-
         obj = self.get_object(pk)
-        serializer = CaseDetailSerializer(obj, context={"request": request})
+        serializer = CaseDetailSerializer(obj, context={'request': request})
         data = serializer.data
 
-        permission_data = {}
-        if request.user == obj.owner and obj.status == CaseStatus.PROGRESS:
-            permission_data["editable"] = True
-        else:
-            permission_data["editable"] = False
-
-        user_permission = getattr(request.user, "permission", None)
+        user_permission = getattr(request.user, 'permission', None)
         is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
         is_owner = True if request.user == obj.owner else False
 
-        next_status = utils.CASE_STATUS_FSM.next(obj.status, is_super, is_owner)
+        permission_data = {}
+
+        if user_permission == UserPermission.SUPERSENTINEL and obj.status in [CaseStatus.NEW, CaseStatus.PROGRESS]:
+            permission_data['editable'] = True
+            permission_data['deletable'] = True
+
+        if obj.owner == request.user and obj.status == CaseStatus.PROGRESS:
+            permission_data['editable'] = True
+            permission_data['deletable'] = True
+
+        if obj.reporter == request.user and obj.status == CaseStatus.NEW:
+            permission_data['editable'] = True
+            permission_data['deletable'] = True
+
+        if 'editable' not in permission_data:
+            permission_data['editable'] = False
+
+        if 'deletable' not in permission_data:
+            permission_data['deletable'] = False
+
+        next_status = utils.CASE_STATUS_FSM.next(obj.status, is_super, is_owner, user_permission)
         permission_data["status"] = [e.value for e in next_status]
-        return APIResponse(
-            c.set_view_cache(request, {
-                "data": {
-                    "case": data,
-                    "case_permission": permission_data
-                }
-            })
-        )
+
+        return APIResponse({
+            "data": {
+                "case": data,
+                "case_permission": permission_data
+            }
+        })
 
     def put(self, request, pk=None):
         obj = self.get_object(pk)
-        if obj.owner != request.user or obj.status != CaseStatus.PROGRESS:
-            raise exceptions.NotAllowedError()
+        user_permission = getattr(request.user, 'permission', None)
+
+        if user_permission != UserPermission.SUPERSENTINEL:
+            if obj.status == CaseStatus.PROGRESS and obj.owner != request.user:
+                raise exceptions.NotAllowedError()
+            if obj.status == CaseStatus.NEW and obj.reporter != request.user:
+                raise exceptions.NotAllowedError()
 
         serializer = CasePostSerializer(obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)

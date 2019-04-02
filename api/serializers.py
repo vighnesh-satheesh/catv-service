@@ -227,8 +227,9 @@ class UserPostSerializer(serializers.ModelSerializer):
             if not timestamp or not password or not email or not permission:
                 raise exceptions.ValidationError("invalid data")
             # temporary code: accept only exchanges TODO: remove later
-            if permission is not models.UserPermission.EXCHANGE:
+            if permission not in [models.UserPermission.EXCHANGE, models.UserPermission.USER]:
                 raise exceptions.ValidationError("invalid data")
+
             # eof temporary code
             self._validate_new_password(user = None, new_pw = password)
             data['password'] = password

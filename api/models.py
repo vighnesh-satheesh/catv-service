@@ -113,6 +113,7 @@ def generate_api_key():
 
 
 class UserPermission(Enum):
+    USER = 'user'
     EXCHANGE = 'exchange'
     SENTINEL = 'sentinel'
     SUPERSENTINEL = 'supersentinel'

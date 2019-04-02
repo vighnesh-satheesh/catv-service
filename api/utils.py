@@ -11,7 +11,7 @@ from rest_framework import exceptions as rf_exceptions
 from rest_framework.views import exception_handler
 
 from .response import APIResponse
-from .models import CaseStatus
+from .models import CaseStatus, UserPermission
 from . import exceptions
 from .settings import api_settings
 
@@ -113,10 +113,13 @@ class CaseStatusTransition(object):
         (CaseStatus.RELEASED, True): [CaseStatus.REJECTED]
     }
 
-    def next(self, status, is_super, is_owner):
+    def next(self, status, is_super, is_owner, permission):
         super_status = self.super_transit.get((status, is_super), [])
         owner_status = self.owner_transit.get((status, is_owner), [])
-        return set(super_status + owner_status)
+        if permission == UserPermission.USER:
+            return {}
+        else:
+            return set(super_status + owner_status)
 
     def validate(self, status, next_status, is_super, is_owner):
         super_status = self.super_transit.get((status, is_super), [])
