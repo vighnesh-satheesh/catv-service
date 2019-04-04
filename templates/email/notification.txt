@@ -3,5 +3,5 @@ Hi {{ nickname }},
 {{ link }}
 
 Best regards,
-Team Sentinel Protocol
-Uppsala Foundation
+Sentinel Protocol
+Uppsala Security

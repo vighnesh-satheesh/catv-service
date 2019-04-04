@@ -1,7 +1,11 @@
 Hi {{ nickname }},
 
-We are letting you know that your account has been verified and activated.
-Now you might be as well visit the sentinel portal - {{link}} and take a look around.
+We are please to informed you that your Sentinel Portal account has been verified and activated. Now you might as well visit the sentinel portal - {{link}} and take a look around.
+
+For any product related discussion, please visit our Security Forum link below. Registration is required to report incidents or bugs.
+
+https://forum.sentinelprotocol.io/
+
 
 Best regards,
 Team Sentinel Protocol

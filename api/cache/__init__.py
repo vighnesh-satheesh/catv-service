@@ -41,8 +41,8 @@ class DefaultCache:
         if not previous:
             self.delete_key(previous)
         v = "".join(random.choice(string.ascii_letters) for x in range(40))
-        self.set(email + "-activate", v, 60 * 5)
-        self.set(v, email + "-activate", 60 * 5)
+        self.set(email + "-activate", v, 60 * 60)
+        self.set(v, email + "-activate", 60 * 60)
         return v
 
     def get_view_cache(self, request):
