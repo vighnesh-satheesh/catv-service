@@ -133,13 +133,13 @@ class DashboardView(APIView):
         all_cases = []
         my_cases = []
 
-        if user.permission is UserPermission.SUPERSENTINEL or \
-            user.permission is UserPermission.SENTINEL:
+        my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
+
+        if user.permission in [UserPermission.SUPERSENTINEL, user.permission is UserPermission.SENTINEL]:
             all_cases = Case.objects.filter().values("status").annotate(count=Count("status"))
-            my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
-        else:
-            all_cases = Case.objects.filter(Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | (Q(owner=user.pk) | Q(reporter=user.pk))).values("status").annotate(count=Count("status"))
-            my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
+
+        if user.permission is UserPermission.EXCHANGE:
+            all_cases = Case.objects.filter(Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])).values("status").annotate(count=Count("status"))
 
         for item in CaseStatus:
             all = 0
@@ -160,35 +160,68 @@ class DashboardView(APIView):
             number_of_all_cases += all
             number_of_all_my_cases += my
 
-        cases = [
-            {
-                "id": "case_my",
-                "count": number_of_all_my_cases,
-                "children": [
-                    utils.get_dashboard_item("case_my", "new", count_dict),
-                    utils.get_dashboard_item("case_my", "progress", count_dict),
-                    utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                    utils.get_dashboard_item("case_my", "rejected", count_dict),
-                    utils.get_dashboard_item("case_my", "released", count_dict),
-                ]
-            },
-            {
-                "id": "case_all",
-                "count": number_of_all_cases,
-                "children": [
-                    utils.get_dashboard_item("case_all", "new", count_dict),
-                    utils.get_dashboard_item("case_all", "progress", count_dict),
-                    utils.get_dashboard_item("case_all", "confirmed", count_dict),
-                    utils.get_dashboard_item("case_all", "rejected", count_dict),
-                    utils.get_dashboard_item("case_all", "released", count_dict),
-                ]
-            }
-        ]
 
-        if user.permission is UserPermission.USER:
-            cases.pop()
+        if user.permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+            cases = [
+                {
+                    "id": "case_my",
+                    "count": number_of_all_my_cases,
+                    "children": [
+                        utils.get_dashboard_item("case_my", "new", count_dict),
+                        utils.get_dashboard_item("case_my", "progress", count_dict),
+                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
+                        utils.get_dashboard_item("case_my", "rejected", count_dict),
+                        utils.get_dashboard_item("case_my", "released", count_dict),
+                    ]
+                },
+                {
+                    "id": "case_all",
+                    "count": number_of_all_cases,
+                    "children": [
+                        utils.get_dashboard_item("case_all", "new", count_dict),
+                        utils.get_dashboard_item("case_all", "progress", count_dict),
+                        utils.get_dashboard_item("case_all", "confirmed", count_dict),
+                        utils.get_dashboard_item("case_all", "rejected", count_dict),
+                        utils.get_dashboard_item("case_all", "released", count_dict),
+                    ]
+                }
+            ]
         elif user.permission is UserPermission.EXCHANGE:
-            cases[1]["children"] = cases[1]["children"][3:]
+            cases = [
+                {
+                    "id": "case_my",
+                    "count": number_of_all_my_cases,
+                    "children": [
+                        utils.get_dashboard_item("case_my", "new", count_dict),
+                        utils.get_dashboard_item("case_my", "progress", count_dict),
+                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
+                        utils.get_dashboard_item("case_my", "rejected", count_dict),
+                        utils.get_dashboard_item("case_my", "released", count_dict),
+                    ]
+                },
+                {
+                    "id": "case_all",
+                    "count": number_of_all_cases,
+                    "children": [
+                        utils.get_dashboard_item("case_all", "confirmed", count_dict),
+                        utils.get_dashboard_item("case_all", "released", count_dict),
+                    ]
+                }
+            ]
+        else:
+            cases = [
+                {
+                    "id": "case_my",
+                    "count": number_of_all_my_cases,
+                    "children": [
+                        utils.get_dashboard_item("case_my", "new", count_dict),
+                        utils.get_dashboard_item("case_my", "progress", count_dict),
+                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
+                        utils.get_dashboard_item("case_my", "rejected", count_dict),
+                        utils.get_dashboard_item("case_my", "released", count_dict),
+                    ]
+                }
+            ]
 
         if user.permission is UserPermission.SUPERSENTINEL or \
                 user.permission is UserPermission.SENTINEL:
@@ -269,7 +302,7 @@ class CaseFilter(filters.FilterSet):
 
         if cate == "all":
             if self.request.user.permission == UserPermission.EXCHANGE:
-                filter &= (Q(status="released") | Q(status="rejected"))
+                filter &= (Q(status="released") | Q(status="confirmed"))
         elif cate == "my":
             filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
 
