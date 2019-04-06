@@ -57,14 +57,17 @@ class CheckCaseDetailPermission(permissions.BasePermission):
 
 class CaseListPermission(permissions.BasePermission):
     def has_permission(self, request, view):
+        full_path = request.get_full_path()
+        full_path = full_path.split('&')[0]
+
+        if request.method == "POST" and full_path == '/case':
+            return True
+
         if not request and not request.user:
             return False
 
         if request.user.permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
             return True
-
-        full_path = request.get_full_path()
-        full_path = full_path.split('&')[0]
 
         if full_path in ['/case?case=my', '/case?case=my_new', '/case?case=my_progress', '/case?case=my_confirmed', '/case?case=my_rejected', '/case?case=my_released']:
             return True
