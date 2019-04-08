@@ -100,6 +100,21 @@ class ChangePasswordView(APIView):
         except self.model.DoesNotExist:
             raise exceptions.UserNotFound("")
 
+    def get(self, request, code=None):
+        if not code:
+            raise exceptions.PasswordResetCodeNotValid("password reset code is not valid")
+
+        c = DefaultCache()
+        email = c.get_email_by_password_reset_key(code)
+        if not email:
+            raise exceptions.PasswordResetCodeNotValid("password reset code is not valid")
+
+        return APIResponse({
+            "data": {
+                "email": email
+            }
+        })
+
     def put(self, request, format=None):
         data = request.data
         try:
@@ -108,6 +123,7 @@ class ChangePasswordView(APIView):
             raise exceptions.AuthenticationValidationError("invalid data")
         c = DefaultCache()
         v = c.get(code)
+        c.delete_key(code)
         if not v:
             raise exceptions.AuthenticationValidationError("code not found")
         email = v.split("-")[0]

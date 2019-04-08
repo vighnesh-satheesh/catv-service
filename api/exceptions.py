@@ -50,6 +50,9 @@ class FileSizeTooSmall(ValidationError):
 class ICFAlreadyExist(ValidationError):
     default_detail = _('icf api already exists.')
 
+class PasswordResetCodeNotValid(ValidationError):
+    default_detail = _('password reset code is not valid')
+
 #####
 # 401
 #####
