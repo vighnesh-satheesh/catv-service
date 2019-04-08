@@ -27,6 +27,13 @@ class DefaultCache:
         d = c.get(key)
         return True if d is not None else False
 
+    def get_email_by_password_reset_key(self, key):
+        c = self.get_cache()
+        email = c.get(key)
+        if not email or '-password' not in email:
+            return None
+        return email.split('-password')[0]
+
     def set_password_reset_key(self, email):
         previous = self.get(email + "-password")
         if not previous:
