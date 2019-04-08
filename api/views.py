@@ -101,13 +101,14 @@ class ChangePasswordView(APIView):
             raise exceptions.UserNotFound("")
 
     def get(self, request, code=None):
+        msg = "password reset code is not valid"
         if not code:
-            raise exceptions.PasswordResetCodeNotValid("password reset code is not valid")
+            raise exceptions.PasswordResetCodeNotValid(msg)
 
         c = DefaultCache()
         email = c.get_email_by_password_reset_key(code)
         if not email:
-            raise exceptions.PasswordResetCodeNotValid("password reset code is not valid")
+            raise exceptions.PasswordResetCodeNotValid(msg)
 
         return APIResponse({
             "data": {
@@ -123,7 +124,6 @@ class ChangePasswordView(APIView):
             raise exceptions.AuthenticationValidationError("invalid data")
         c = DefaultCache()
         v = c.get(code)
-        c.delete_key(code)
         if not v:
             raise exceptions.AuthenticationValidationError("code not found")
         email = v.split("-")[0]
@@ -131,6 +131,7 @@ class ChangePasswordView(APIView):
         serializer = ChangePasswordSerializer(obj, data=data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        c.delete_key(code)
         return APIResponse({"data": {}})
 
 
