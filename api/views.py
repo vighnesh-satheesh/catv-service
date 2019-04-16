@@ -365,6 +365,8 @@ class CaseFilter(filters.FilterSet):
                     keyword_environment.append(k)
                 except ValueError:
                     pass
+                if k.isdigit():
+                    keyword_filter |= Q(id=k)
 
             if len(keyword_pattern_type) > 0:
                 keyword_filter |= Q(indicator__pattern_type__in=keyword_pattern_type)
@@ -623,10 +625,11 @@ class IndicatorFilter(filters.FilterSet):
             ftr &= Q(pattern_subtype__in=pattern_subtype)
         if len(keyword) > 0:
             for idx, k in enumerate(keyword):
-                keyword_filter |= Q(title__icontains=k)
-                keyword_filter |= Q(detail__icontains=k)
                 keyword_filter |= Q(pattern__icontains=k)
+                keyword_filter |= Q(detail__icontains=k)
                 keyword_filter |= Q(annotation=k)
+                if k.isdigit():
+                    keyword_filter |= Q(id=k)
             ftr &= keyword_filter
 
         if len(status) > 0:
