@@ -135,7 +135,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     models.CaseIndicator.objects.create(case=case_instance, indicator=indicator)
 
                 if "annotation" in data:
-                    for annotation in [x.lstrip() for x in data["annotation"].split(",")]:
+                    for annotation in [x.strip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
                             continue
                         anno = models.Annotation.objects.filter(annotation=annotation)
@@ -278,7 +278,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
                     # annotation
                     if indicator.annotation:
-                        for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
+                        for annotation in [x.strip() for x in indicator.annotation.split(",")]:
                             if len(annotation) == 0:
                                 continue
                             anno = models.Annotation.objects.filter(annotation=annotation)

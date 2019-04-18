@@ -605,7 +605,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
                     models.CaseIndicator.objects.create(case=case, indicator=indicator)
                 if data["annotation"]:
-                    for annotation in [x.lstrip() for x in data["annotation"].split(",")]:
+                    for annotation in [x.strip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
                             continue
                         anno = models.Annotation.objects.filter(annotation=annotation)
@@ -645,7 +645,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     if "added" in case:
                         models.CaseIndicator.objects.create(case=case_instance, indicator=instance)
 
-                new_annotations = [x.lstrip() for x in data["annotation"].split(",")]
+                new_annotations = [x.strip() for x in data["annotation"].split(",")]
                 prev_annotations = [annotation.annotation for annotation in instance.annotations.all()]
                 if new_annotations != prev_annotations:
                     instance.annotations.clear()
@@ -983,7 +983,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 # annotation
                 for indicator in indicator_bulk:
-                    for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
+                    for annotation in [x.strip() for x in indicator.annotation.split(",")]:
                         if len(annotation) == 0:
                             continue
                         anno = models.Annotation.objects.filter(annotation=annotation)
@@ -1059,7 +1059,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                         indicator = models.Indicator.objects.create(**indi_item)
                         models.CaseIndicator.objects.create(case=instance, indicator=indicator)
                         history_log['indicatorAdded'] = True
-                        for annotation in [x.lstrip() for x in indicator.annotation.split(",")]:
+                        for annotation in [x.strip() for x in indicator.annotation.split(",")]:
                             if len(annotation) == 0:
                                 continue
                             anno = models.Annotation.objects.filter(annotation=annotation)
@@ -1067,7 +1067,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                                 anno = anno[0]
                             else:
                                 anno = models.Annotation.objects.create(annotation=annotation)
-                            indicator.annotations.add(anno)
+                            models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
 
                 # files
                 for file_item in files_data:
