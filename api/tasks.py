@@ -16,3 +16,5 @@ def released_indicators():
 
     for indicator in indicators:
         IndicatorCache().set_indicator(indicator.pattern, indicator, indicator.security_category.value)
+
+    return True
