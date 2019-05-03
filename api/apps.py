@@ -21,29 +21,28 @@ class ApiConfig(AppConfig):
             key = "user_" + str(u.pk)
             c.set(key, u, 0)
 
+    @classmethod
+    def send_slack_webhook(cls):
+        if settings.ENVIRONMENT == "development" and os.environ.get("CONTAINER_TYPE") == "portal_api":
+            return True
+        if os.environ.get("CONTAINER_TYPE") == "portal_admin":
+            data = {
+                "text": "PORTAL ADMIN " + settings.ALLOWED_HOSTS[0] + " is ready."
+            }
+        else:
+            data = {
+                "text": "PORTAL API " + settings.API_SETTINGS["WEB_URL"] + " is ready."
+            }
+        r = requests.post(
+            "https://hooks.slack.com/services/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",
+            data=json.dumps(data),
+            headers={
+                "Content-Type": "application/json"
+            }
+        )
+
     def ready(self):
         from .tasks import released_indicators
         self.init_cache(self.get_model('User'))
-        send_slack_webhook.delay()
+        self.send_slack_webhook()
         released_indicators.delay()
-
-
-@ApiConfig.app.task
-def send_slack_webhook():
-    if settings.ENVIRONMENT == "development" and os.environ.get("CONTAINER_TYPE") == "portal_api":
-        return True
-    if os.environ.get("CONTAINER_TYPE") == "portal_admin":
-        data = {
-            "text": "PORTAL ADMIN " + settings.ALLOWED_HOSTS[0] + " is ready."
-        }
-    else:
-        data = {
-            "text": "PORTAL API " + settings.API_SETTINGS["WEB_URL"] + " is ready."
-        }
-    r = requests.post(
-        "https://hooks.slack.com/services/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",
-        data=json.dumps(data),
-        headers={
-            "Content-Type": "application/json"
-        }
-    )
