@@ -46,7 +46,7 @@ class ApiConfig(AppConfig):
         )
 
     def ready(self):
-        from .tasks import save_released_indicator_to_cache
+        #from .tasks import save_released_indicator_to_cache
         self.init_cache(self.get_model('User'))
         self.send_slack_webhook()
-        save_released_indicator_to_cache.delay()
+        #save_released_indicator_to_cache.delay()
