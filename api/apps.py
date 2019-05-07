@@ -2,6 +2,7 @@ from django.apps import AppConfig, apps
 from celery import Celery
 from django.conf import settings
 from .cache import DefaultCache
+from .cache.indicator import IndicatorCache
 from django.conf import settings
 import requests
 import json
@@ -20,6 +21,9 @@ class ApiConfig(AppConfig):
         for u in users:
             key = "user_" + str(u.pk)
             c.set(key, u, 0)
+
+        ic = IndicatorCache()
+        ic.clear_indicator()
 
     @classmethod
     def send_slack_webhook(cls):
@@ -42,7 +46,7 @@ class ApiConfig(AppConfig):
         )
 
     def ready(self):
-        from .tasks import released_indicators
+        from .tasks import save_released_indicator_to_cache
         self.init_cache(self.get_model('User'))
         self.send_slack_webhook()
-        released_indicators.delay()
+        save_released_indicator_to_cache.delay()

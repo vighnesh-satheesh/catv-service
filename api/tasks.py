@@ -1,7 +1,7 @@
 from celery.task.schedules import crontab
 from celery.task import task
 from celery.decorators import periodic_task
-
+from django.db.models import Q
 from .models import Case, Indicator, CaseIndicator, IndicatorSecurityCategory
 from .cache.indicator import IndicatorCache
 
@@ -10,11 +10,26 @@ def get_dashboard_metrics():
     pass
 
 @task()
-@periodic_task(run_every=(crontab(hour="*", minute="0", day_of_week="*")))
-def released_indicators():
-    indicators = Indicator.objects.filter(cases__status = 'released').order_by('pattern', '-created').distinct('pattern')
+@periodic_task(run_every=(crontab(hour="*", minute="*/10", day_of_week="*")))
+def save_released_indicator_to_cache():
+    indicator_cache = IndicatorCache()
+    last_id = indicator_cache.get_last_indicator_id()
 
+    q = Q()
+    q &= Q(cases__status = 'released')
+
+    if last_id:
+        q &= Q(id__gt = last_id)
+
+    indicators = Indicator.objects.filter(q).order_by('pattern', '-created').distinct('pattern')
+
+    max_id = 0
     for indicator in indicators:
-        IndicatorCache().set_indicator(indicator.pattern, indicator, indicator.security_category.value)
+        IndicatorCache().set_indicator(indicator.pattern.lower(), indicator, indicator.security_category.value)
+        if max_id < indicator.id:
+            max_id = max_id
+
+    if max_id > 0:
+        IndicatorCache().set_last_indicator_id(max_id)
 
     return True

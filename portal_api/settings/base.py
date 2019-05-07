@@ -129,15 +129,7 @@ CACHES = {
     'local_indicator': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
-    },
-    'local_indicator_blacklist': {
-        'BACKEND': 'redis_cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/11'
-    },
-    'local_indicator_whitelist': {
-        'BACKEND': 'redis_cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/12'
-    },
+    }
 }
 
 # Internationalization
