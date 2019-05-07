@@ -125,7 +125,19 @@ CACHES = {
             "SOCKET_CONNECT_TIMEOUT": 3,
             "SOCKET_TIMEOUT": 3,
         }
-    }
+    },
+    'local_indicator': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/10'
+    },
+    'local_indicator_blacklist': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/11'
+    },
+    'local_indicator_whitelist': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/12'
+    },
 }
 
 # Internationalization
@@ -260,7 +272,8 @@ djcelery.setup_loader()
 BROKER_URL = API_SETTINGS['CELERY_BROKER_URL']
 CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
-CELERY_IMPORTS = ('api.email.tasks', )
+CELERY_TIMEZONE = 'UTC'
+CELERY_IMPORTS = ('api.tasks',)
 
 # email
 EMAIL_BACK_END = 'django.core.mail.backends.smtp.EmailBackend'

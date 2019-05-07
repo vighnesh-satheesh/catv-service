@@ -21,5 +21,26 @@
         "error_file": "/dev/null",
         "max_restarts": 10,
         "restart_delay": 1000
+    }, {
+        "name": "portal-api-celery-beat",
+        "script": "/app/manage.py",
+        "args": "celery beat --loglevel=INFO",
+        "instances": 1,
+        "exec_interpreter": "python",
+        "exec_mode": "fork_mode",
+        "out_file": "/dev/null",
+        "error_file": "/dev/null",
+        "max_restarts": 10,
+        "restart_delay": 1000
+    },{
+        "name": "redis-server",
+        "script": "/usr/bin/redis-server",
+        "instance": 1,
+        "exec_interpreter": "none",
+        "exec_mode": "fork_mode",
+        "out_file": "/dev/null",
+        "error_file": "/dev/null",
+        "max_restarts": 10,
+        "restart_delay": 1000
     }]
 }

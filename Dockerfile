@@ -27,7 +27,7 @@ WORKDIR /app
 # Install nodejs and pm2
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
 RUN apt-get update && \
-    apt-get install -y nodejs && \
+    apt-get install -y nodejs redis-server && \
     npm install pm2 -g
 
 # Install requirements

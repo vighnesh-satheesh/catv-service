@@ -1,18 +1,27 @@
-from django.apps import AppConfig
+from django.apps import AppConfig, apps
 from celery import Celery
+from django.conf import settings
+from .cache import DefaultCache
 from django.conf import settings
 import requests
 import json
 import os
-from .cache import DefaultCache
 
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = "ApiConfig"
     app = Celery('tasks', broker=settings.BROKER_URL)
+    app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
 
     @classmethod
-    @app.task
+    def init_cache(cls, user_model):
+        c = DefaultCache()
+        users = user_model.objects.all()
+        for u in users:
+            key = "user_" + str(u.pk)
+            c.set(key, u, 0)
+
+    @classmethod
     def send_slack_webhook(cls):
         if settings.ENVIRONMENT == "development" and os.environ.get("CONTAINER_TYPE") == "portal_api":
             return True
@@ -32,15 +41,8 @@ class ApiConfig(AppConfig):
             }
         )
 
-    @classmethod
-    def init_cache(cls, user):
-        c = DefaultCache()
-        users = user.objects.all()
-        for u in users:
-            key = "user_" + str(u.pk)
-            c.set(key, u, 0)
-
     def ready(self):
-        user = self.get_model('User')
+        from .tasks import released_indicators
+        self.init_cache(self.get_model('User'))
         self.send_slack_webhook()
-        self.init_cache(user)
+        released_indicators.delay()
