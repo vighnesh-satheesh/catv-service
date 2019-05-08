@@ -9,10 +9,10 @@ from .cache.indicator import IndicatorCache
 def get_dashboard_metrics():
     pass
 
-"""
 @task()
 @periodic_task(run_every=(crontab(hour="*", minute="*/10", day_of_week="*")))
 def save_released_indicator_to_cache():
+
     indicator_cache = IndicatorCache()
     last_id = indicator_cache.get_last_indicator_id()
 
@@ -32,6 +32,4 @@ def save_released_indicator_to_cache():
 
     if max_id > 0:
         IndicatorCache().set_last_indicator_id(max_id)
-
     return True
-"""
