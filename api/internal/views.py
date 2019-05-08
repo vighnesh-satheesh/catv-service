@@ -79,12 +79,12 @@ class IndicatorInternalView(APIView):
         except ValueError:
             raise exceptions.ValidationError("invalid pattern_subtype")
 
-        """
-        if patterns:
+        indicator_cache = IndicatorCache()
+
+        if indicator_cache.get_last_indicator_id():
             for p in patterns:
                 if not IndicatorCache().get_indicator(p.lower()):
                     patterns.remove(p)
-        """
 
         if security_category:
             filter_queries &= Q(security_category=security_category)
