@@ -15,7 +15,8 @@ from .. import fields
 from ..settings import api_settings
 from ..constants import Constants
 from indicatorlib import Pattern
-
+from ..serializers import CaseTRDBSerializer
+from .. import utils
 
 class NonNullModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
@@ -183,13 +184,14 @@ class CasePostSerializer(serializers.ModelSerializer):
                                           allow_null=True,
                                           max_length=api_settings.CASE_REPORTER_MAX_LEN)
     reporter = serializers.CharField(required=False)
+    release = serializers.BooleanField(required=False)
     ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
 
     class Meta:
         model = models.Case
-        fields = ("title", "detail", "reporter_info", "reporter", "ico", "indicators", "files")
+        fields = ("title", "detail", "reporter_info", "reporter", "ico", "indicators", "files", "release")
         read_only_fields = ("id", "uid", "created")
 
     def validate_files(self, data):
@@ -215,6 +217,7 @@ class CasePostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
+        release = validated_data.pop("release", False)
 
         try:
             reporter = validated_data.pop("reporter", None)
@@ -227,6 +230,8 @@ class CasePostSerializer(serializers.ModelSerializer):
 
         try:
             with transaction.atomic():
+                if release:
+                    validated_data["status"] = models.CaseStatus.RELEASED
                 case = models.Case.objects.create(**validated_data)
                 m2m_bulk = []
                 indicator_bulk = []
@@ -249,8 +254,6 @@ class CasePostSerializer(serializers.ModelSerializer):
 
                         if "reporter_info" in validated_data:
                             indi["reporter_info"] = validated_data["reporter_info"]
-
-
 
                         force = indi.pop("force", None)
                         dup = []
@@ -303,7 +306,7 @@ class CasePostSerializer(serializers.ModelSerializer):
 
                 # save history.
                 history_log = Constants.HISTORY_LOG
-                history_log["msg"] = models.CaseStatus.NEW.value
+                history_log["msg"] = models.CaseStatus.RELEASED.value if release else models.CaseStatus.NEW.value
                 history_log["type"] = "status"
 
                 data = {"log": json.dumps(history_log),
@@ -313,6 +316,12 @@ class CasePostSerializer(serializers.ModelSerializer):
                 ch_serializer = CaseHistoryPostSerializer(data=data)
                 ch_serializer.is_valid(raise_exception=True)
                 ch_serializer.save()
+
+                if release:
+                    case_serializer = CaseTRDBSerializer(case)
+                    data = case_serializer.data
+                    utils.TRDB_CLIENT.push_case("activateCase", data)
+
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
