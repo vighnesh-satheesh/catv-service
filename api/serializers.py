@@ -594,6 +594,9 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         cases = data.pop("cases", [])
         force = data.pop("force", False)
 
+        if data["annotation"] and self.context["request"].user.permission != models.UserPermission.SUPERSENTINEL:
+            data.pop("annotation")
+
         if len(dup) > 0 and not force:
             raise exceptions.DataIntegrityError("duplicate indicator")
         try:
@@ -604,7 +607,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     if case_instance.status not in [models.CaseStatus.NEW, models.CaseStatus.PROGRESS]:
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
                     models.CaseIndicator.objects.create(case=case, indicator=indicator)
-                if data["annotation"]:
+                if "annotation" in data:
                     for annotation in [x.strip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
                             continue
@@ -631,6 +634,9 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         cases = data.pop("cases", [])
         force = data.pop("force", False)
 
+        if data["annotation"] and self.context["request"].user.permission != models.UserPermission.SUPERSENTINEL:
+            data.pop("annotation")
+
         if len(indi_objs) > 0 and not force:
             for indicator in  indi_objs:
                 if instance.pk != indicator.pk:
@@ -645,19 +651,20 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     if "added" in case:
                         models.CaseIndicator.objects.create(case=case_instance, indicator=instance)
 
-                new_annotations = [x.strip() for x in data["annotation"].split(",")]
-                prev_annotations = [annotation.annotation for annotation in instance.annotations.all()]
-                if new_annotations != prev_annotations:
-                    instance.annotations.clear()
-                    for annotation in new_annotations:
-                        if len(annotation) == 0:
-                            continue
-                        anno = models.Annotation.objects.filter(annotation=annotation)
-                        if len(anno) > 0:
-                            anno = anno[0]
-                        else:
-                            anno = models.Annotation.objects.create(annotation=annotation)
-                        models.IndicatorAnnotation.objects.create(indicator=instance, annotation=anno)
+                if "annotation" in data:
+                    new_annotations = [x.strip() for x in data["annotation"].split(",")]
+                    prev_annotations = [annotation.annotation for annotation in instance.annotations.all()]
+                    if new_annotations != prev_annotations:
+                        instance.annotations.clear()
+                        for annotation in new_annotations:
+                            if len(annotation) == 0:
+                                continue
+                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            if len(anno) > 0:
+                                anno = anno[0]
+                            else:
+                                anno = models.Annotation.objects.create(annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(indicator=instance, annotation=anno)
 
                 instance = super().update(instance, data)
         except IntegrityError:
