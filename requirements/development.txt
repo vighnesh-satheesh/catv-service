@@ -28,6 +28,7 @@ idna==2.7
 itypes==1.1.0
 Jinja2==2.10
 jmespath==0.9.3
+kombu==3.0.29
 MarkupSafe==1.0
 openapi-codec==1.3.2
 passlib==1.7.1
