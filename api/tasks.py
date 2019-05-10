@@ -5,6 +5,7 @@ from .models import Case, Indicator, CaseIndicator, IndicatorSecurityCategory
 from .cache.indicator import IndicatorCache
 import datetime
 
+"""
 @periodic_task(run_every=(crontab(hour="23", minute="59", day_of_week="*")))
 def get_dashboard_metrics():
     pass
@@ -31,3 +32,4 @@ def save_released_indicator_to_cache():
     if max_id > 0:
         IndicatorCache().set_last_indicator_id(max_id)
     return True
+"""
