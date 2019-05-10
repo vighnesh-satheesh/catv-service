@@ -668,9 +668,10 @@ class IndicatorView(generics.ListCreateAPIView):
 
     def post(self, request):
         if "indicators" in request.data:
-            serializer = IndicatorPostSerializer(data=request.data["indicators"], many=True)
+            serializer = IndicatorPostSerializer(data=request.data["indicators"], many=True,
+                                                 context={'request': request})
         else:
-            serializer = IndicatorPostSerializer(data=request.data)
+            serializer = IndicatorPostSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         if request.auth is not None:
             indicator_obj = serializer.save(user=request.user)
@@ -724,11 +725,11 @@ class IndicatorDetailView(APIView):
         )
 
     def put(self, request, pk=None):
-        obj = self.get_object(pk)
+        obj = self.get_object(pk, None)
         case_test_objs = obj.cases.filter(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
         if len(case_test_objs) > 0:
             raise exceptions.NotAllowedError()
-        serializer = IndicatorPostSerializer(obj, data=request.data)
+        serializer = IndicatorPostSerializer(obj, data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         indicator_obj = serializer.save()
         result_serializer = IndicatorSimpleListSerializer(indicator_obj)
