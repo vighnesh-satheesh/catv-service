@@ -434,14 +434,17 @@ class CaseDetailView(APIView):
     permission_classes = (IsAuthenticated, permissions.CheckCaseDetailPermission)
     model = Case
 
-    def get_object(self, pk):
+    def get_object(self, pk, request):
         try:
-            return self.model.objects.get(uid__iexact=pk)
+            if request.method == "GET":
+                return self.model.objects.get(uid__iexact=pk)
+            else:
+                return self.model.objects.using("default").get(uid__iexact=pk)
         except self.model.DoesNotExist:
             raise exceptions.CaseNotFound()
 
     def get(self, request, pk=None):
-        obj = self.get_object(pk)
+        obj = self.get_object(pk, request)
         serializer = CaseDetailSerializer(obj, context={'request': request})
         data = serializer.data
 
@@ -480,7 +483,7 @@ class CaseDetailView(APIView):
         })
 
     def put(self, request, pk=None):
-        obj = self.get_object(pk)
+        obj = self.get_object(pk, request)
         user_permission = getattr(request.user, 'permission', None)
 
         if user_permission != UserPermission.SUPERSENTINEL:
@@ -521,7 +524,7 @@ class CaseDetailView(APIView):
             "data": {}})
 
     def patch(self, request, pk=None):
-        obj = self.get_object(pk)
+        obj = self.get_object(pk, request)
         serializer = CasePatchSerializer(obj, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -556,7 +559,7 @@ class CaseDetailView(APIView):
     def delete(self, request, pk=None):
         try:
             with transaction.atomic():
-                obj = self.get_object(pk)
+                obj = self.get_object(pk, request)
                 if obj.status != CaseStatus.PROGRESS:
                     raise exceptions.ValidationError("case cannot be deleted.")
                 if obj.owner != request.user:
