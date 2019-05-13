@@ -107,12 +107,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Databases
+# DATABASES = {
+#     'default': env.db(),
+#     'readonly': env.db('DATABASE_READONLY_URL')
+# }
+#
+# DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
+
+
 DATABASES = {
     'default': env.db(),
-    'readonly': env.db('DATABASE_READONLY_URL')
 }
-
-DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
 
 # Caches
 CACHES = {
@@ -264,7 +269,6 @@ djcelery.setup_loader()
 BROKER_URL = API_SETTINGS['CELERY_BROKER_URL']
 CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
-CELERY_TIMEZONE = 'UTC'
 CELERY_IMPORTS = ('api.tasks',)
 
 # email
