@@ -1015,22 +1015,13 @@ class CasePostSerializer(serializers.ModelSerializer):
                     file_obj.case = case
                     file_obj.save()
 
-                # save history.
-                history_log = Constants.HISTORY_LOG
-                history_log["msg"] = models.CaseStatus.NEW.value
-                history_log["type"] = "status"
-
-                data = {"log": json.dumps(history_log),
-                        "case": case.pk,
-                        "initiator": case.reporter.pk if case.reporter is not None else None
-                        }
-                ch_serializer = CaseHistoryPostSerializer(data=data)
-                ch_serializer.is_valid(raise_exception=True)
-                ch_serializer.save()
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
             raise err
+        except Exception as err:
+            raise err
+
         return case
 
     def update(self, instance, validated_data):

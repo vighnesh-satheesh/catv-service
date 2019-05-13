@@ -22,7 +22,7 @@ from .models import (
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
-    CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer,
+    CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer, CaseHistoryPostSerializer,
     AutoCompleteSerializer, AttachedFilePostSerializer,
     ICODetailSerializer, ICOListSerializer,
     IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
@@ -50,6 +50,7 @@ from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
 
+import json
 
 class HealthCheckView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -410,10 +411,26 @@ class CaseView(generics.ListCreateAPIView):
     def post(self, request, format=None):
         serializer = CasePostSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
+
         if request.auth is not None:
             case = serializer.save(reporter=request.user)
         else:
             case = serializer.save()
+
+        # save history.
+        history_log = Constants.HISTORY_LOG
+        history_log["msg"] = CaseStatus.NEW.value
+        history_log["type"] = "status"
+
+        history_data = {
+            "log": json.dumps(history_log),
+            "case": case.pk,
+            "initiator":  case.reporter.pk if case.reporter else None
+        }
+
+        ch_serializer = CaseHistoryPostSerializer(data=history_data)
+        ch_serializer.is_valid(raise_exception=True)
+        ch_serializer.save()
 
         return APIResponse({
             "data": {
