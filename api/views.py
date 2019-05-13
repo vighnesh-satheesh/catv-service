@@ -436,10 +436,7 @@ class CaseDetailView(APIView):
 
     def get_object(self, pk, request):
         try:
-            if request.method == "GET":
-                return self.model.objects.get(uid__iexact=pk)
-            else:
-                return self.model.objects.using("default").get(uid__iexact=pk)
+            return self.model.objects.get(uid__iexact=pk)
         except self.model.DoesNotExist:
             raise exceptions.CaseNotFound()
 
