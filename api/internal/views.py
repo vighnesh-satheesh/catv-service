@@ -37,7 +37,7 @@ class CaseIntervalView(APIView):
 
         # save history.
         history_log = Constants.HISTORY_LOG
-        history_log["msg"] = CaseStatus.RELEASED.value if case.status == models.CaseStatus.RELEASED.value else CaseStatus.NEW.value
+        history_log["msg"] = CaseStatus.RELEASED.value if case.status == CaseStatus.RELEASED.value else CaseStatus.NEW.value
         history_log["type"] = "status"
 
         data = {"log": json.dumps(history_log),
