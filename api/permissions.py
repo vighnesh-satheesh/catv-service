@@ -1,7 +1,8 @@
 from rest_framework import permissions
+import re
 from .settings import api_settings
 from .models import (
-    UserPermission, CaseStatus
+    UserPermission, CaseStatus, RolePermission, PermissionList
 )
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -58,13 +59,20 @@ class CheckCaseDetailPermission(permissions.BasePermission):
 class CaseListPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         full_path = request.get_full_path()
-        full_path = full_path.split('&')[0]
+        full_path_list = full_path.split('&')
+        full_path = full_path_list[0]
+
+        search_exp = re.compile("user_case.*")
 
         if request.method == "POST" and full_path == '/case':
             return True
 
         if not request and not request.user:
             return False
+
+        if '/case?case=all' in full_path and len(list(filter(search_exp.match, full_path_list))) == 0:
+            perm_dict = RolePermission.get_permission_matrix(request.user.role.id, PermissionList.VIEW_ALL.value)
+            return perm_dict[PermissionList.VIEW_ALL.value]
 
         if request.user.permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
             return True
@@ -75,3 +83,19 @@ class CaseListPermission(permissions.BasePermission):
             return True
 
         return False
+
+
+class APIKeyPermission(permissions.BasePermission):
+    SAFE_METHODS = ['GET', 'POST', 'PUT', 'OPTIONS']
+
+    def has_permission(self, request, view):
+        """
+            The API key renewal action is a PUT method, so we check for it and deny if the user role is insufficient.
+        """
+        if request.method == 'PUT':
+            perm_dict = RolePermission.get_permission_matrix(request.user.role.id, PermissionList.RENEW_KEY.value)
+            return perm_dict[PermissionList.RENEW_KEY.value]
+        elif request.method in self.SAFE_METHODS:
+            return True
+        else:
+            return False

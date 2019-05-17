@@ -103,6 +103,10 @@ class OwnerRequiredError(exceptions.PermissionDenied):
     default_detail = _('case owner required.')
 
 
+class StatusChangeError(exceptions.PermissionDenied):
+    default_detail = _('no access to change the status')
+
+
 #####
 # 409
 #####

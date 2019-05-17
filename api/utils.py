@@ -11,7 +11,7 @@ from rest_framework import exceptions as rf_exceptions
 from rest_framework.views import exception_handler
 
 from .response import APIResponse
-from .models import CaseStatus, UserPermission
+from .models import CaseStatus, UserPermission, RolePermission, PermissionList, get_permission_from_status
 from . import exceptions
 from .settings import api_settings
 
@@ -152,6 +152,14 @@ class CaseStatusTransition(object):
                 raise exceptions.OwnerRequiredError()
             else:
                 raise exceptions.CaseStatusChangeError(status.value, next_status.value)
+
+    def check_access(self, status, role_id):
+        action_code = get_permission_from_status(status.value).value
+        perm_dict = RolePermission.get_permission_matrix(role_id, action_code)
+        if perm_dict[action_code]:
+            return
+        else:
+            raise exceptions.StatusChangeError()
 
 
 CASE_STATUS_FSM = CaseStatusTransition()

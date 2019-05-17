@@ -12,14 +12,18 @@ from .serializers import (
     CasePostSerializer,
     IndicatorPostSerializer,
     IndicatorSimpleListSerializer,
-    IndicatorDetailSerializer
+    IndicatorDetailSerializer,
+    CaseHistoryPostSerializer
 )
+from ..constants import Constants
 
 from rest_framework import exceptions
 from ..response import APIResponse
 from .. import permissions
 from functools import reduce
 from ..cache.indicator import IndicatorCache
+
+import json
 
 class CaseIntervalView(APIView):
     authentication_classes = ()
@@ -30,6 +34,20 @@ class CaseIntervalView(APIView):
         serializer = CasePostSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         case = serializer.save()
+
+        # save history.
+        history_log = Constants.HISTORY_LOG
+        history_log["msg"] = CaseStatus.RELEASED.value if case.status.value == CaseStatus.RELEASED.value else CaseStatus.NEW.value
+        history_log["type"] = "status"
+
+        data = {"log": json.dumps(history_log),
+                "case": case.pk,
+                "initiator": case.reporter.pk if case.reporter is not None else None
+                }
+        ch_serializer = CaseHistoryPostSerializer(data=data)
+        ch_serializer.is_valid(raise_exception=True)
+        ch_serializer.save()
+
         return APIResponse({
             "data": {
                 "case": {
