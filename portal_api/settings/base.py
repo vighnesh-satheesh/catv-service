@@ -108,11 +108,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Databases
 DATABASES = {
-    'default': env.db(),
-    'readonly': env.db('DATABASE_READONLY_URL')
+    'default': env.db()
 }
 
-DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
+# DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
 
 # Caches
 CACHES = {
