@@ -112,11 +112,46 @@ def generate_api_key():
     return "".join(random.choice(string.ascii_letters) for x in range(40))
 
 
+def get_default_role():
+    return Role.objects.filter(role_name=UserPermission.SENTINEL.value).values_list('id', flat=True)[0]
+
+
+def get_permission_from_status(status):
+    return {
+        CaseStatus.NEW.value: PermissionList.CHANGE_NEW,
+        CaseStatus.PROGRESS.value: PermissionList.CHANGE_PROGRESS,
+        CaseStatus.REJECTED.value: PermissionList.CHANGE_REJECT,
+        CaseStatus.CONFIRMED.value: PermissionList.CHANGE_CONFIRM,
+        CaseStatus.RELEASED.value: PermissionList.CHANGE_RELEASE
+    }[status]
+
+
 class UserPermission(Enum):
     USER = 'user'
     EXCHANGE = 'exchange'
     SENTINEL = 'sentinel'
     SUPERSENTINEL = 'supersentinel'
+
+
+class PermissionList(Enum):
+    CHANGE_CONFIRM = 'change_confirm'
+    CHANGE_NAME = 'change_name'
+    CHANGE_PROGRESS = 'change_progress'
+    CHANGE_REJECT = 'change_reject'
+    CHANGE_RELEASE = 'change_release'
+    CREATE_CASE = 'create_case'
+    CREATE_INDICATOR = 'create_indicator'
+    EDIT_CASE = 'edit_case'
+    MODIFY_ALL = 'modify_all'
+    MODIFY_TEAM = 'modify_team'
+    RENEW_KEY = 'renew_key'
+    RESET_PASSWORD = 'reset_password'
+    SEARCH_CASE = 'search_case'
+    SEARCH_INDICATOR = 'search_indicator'
+    VIEW_ALL = 'view_all'
+    VIEW_KEY = 'view_key'
+    VIEW_CASE = 'view_case'
+    CHANGE_NEW = 'change_new'
 
 
 class UserStatus(Enum):
@@ -252,6 +287,46 @@ class FileStatus(IntEnum):
     COMPLETED = 1000
 
 
+class Role(models.Model):
+    role_name = models.CharField(max_length=128, unique=True)
+
+    def __str__(self):
+        return self.role_name
+
+
+class Action(models.Model):
+    resourceid = models.IntegerField(null=True, blank=True)
+    resource = models.CharField(max_length=128, null=True, blank=True)
+    action = models.CharField(max_length=500, null=False, blank=False)
+    codename = models.CharField(max_length=128, null=False, blank=False)
+
+    def __str__(self):
+        return self.action
+
+
+class RolePermission(models.Model):
+    role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='role')
+    action = models.ForeignKey(Action, null=False, blank=False, on_delete=models.CASCADE, related_name='role_action')
+    allowed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.role.role_name + '-' + self.action.resource + '-' + self.action.action
+
+    class Meta:
+        db_table = 'api_role_permission'
+
+    @staticmethod
+    def get_permission_matrix(role_id, action_name=None):
+        if action_name:
+            query_set = RolePermission.objects.values_list('action__codename', 'allowed'). \
+                filter(role__id=role_id, action__codename=action_name)
+        else:
+            query_set = RolePermission.objects.values_list('action__codename', 'allowed'). \
+                filter(role__id=role_id)
+
+        return dict(query_set)
+
+
 # models
 class User(models.Model):
     email = models.EmailField(unique=True)
@@ -263,7 +338,9 @@ class User(models.Model):
     permission = EnumField(enum=UserPermission, default=UserPermission.SENTINEL, max_length=16)
     email_notification = models.BooleanField(default=True)
     image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
-    status = EnumField(enum=UserStatus, default=UserStatus.APPROVED, max_length = 16)
+    status = EnumField(enum=UserStatus, default=UserStatus.APPROVED, max_length=16)
+    role = models.ForeignKey(Role, on_delete=models.PROTECT,
+                             default=get_default_role)
 
     def is_authenticated(self, *args, **kwargs):
         return True
@@ -315,6 +392,19 @@ class User(models.Model):
     def clean(self):
         validates.validate_password(self, self.password, model=True)
         return super(User, self).clean()
+
+
+class RoleUsageLimit(models.Model):
+    role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='usage_role')
+    api_limit = models.IntegerField(null=True, default=5)
+    catv_limit = models.IntegerField(null=True, default=5)
+    cara_limit = models.IntegerField(null=True, default=5)
+
+    class Meta:
+        db_table = 'api_role_usage_limit'
+
+    def __str__(self):
+        return self.role.role_name
 
 
 class Case(models.Model):

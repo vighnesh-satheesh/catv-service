@@ -1210,7 +1210,7 @@ class UserDetailView(APIView):
 
 class IcfView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, permissions.APIKeyPermission,)
     model = Key
 
     def get_object(self, request):

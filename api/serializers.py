@@ -57,6 +57,8 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(required=False, write_only=True, style={'input_type': 'password'})
 
     def __create_success_response(self, user, token):
+        role_matrix = models.RolePermission.get_permission_matrix(user.role.id)
+
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",
             "user": {
@@ -64,6 +66,7 @@ class LoginSerializer(serializers.Serializer):
                 "id": user.uid,
                 "nickname": user.nickname,
                 "permission": user.permission.value,
+                "rolepermissions": role_matrix,
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
                 "status": user.status.value,
                 "email_notification": user.email_notification
@@ -1305,6 +1308,7 @@ class CasePatchSerializer(NonNullModelSerializer):
         is_super = True if user_permission == models.UserPermission.SUPERSENTINEL else False
         is_owner = True if request.user == self.instance.owner else False
 
+        utils.CASE_STATUS_FSM.check_access(status, request.user.role.id)
         utils.CASE_STATUS_FSM.validate(self.instance.status, status, is_super, is_owner)
         return status
 

@@ -10,7 +10,7 @@ from .models import (
     Indicator, ICO, Case, CaseHistory,
     AttachedFile, User, UserStatus,
     UppwardRewardInfo, CaseInvalidateCandidates,
-    Key, EmailSent
+    Key, EmailSent, Action, Role, RolePermission, RoleUsageLimit
 )
 from .email import Email
 from .settings import api_settings
@@ -99,11 +99,12 @@ class UserForm(forms.ModelForm):
 class UserAdmin(admin.ModelAdmin):
     form = UserForm
 
-    list_display = ('id', 'uid', 'email', 'nickname', 'permission')
+    list_display = ('id', 'uid', 'email', 'nickname', 'permission', 'role')
     list_display_links = ('id', 'uid')
     list_filter = [('permission', EnumFieldListFilter), ('status', EnumFieldListFilter), ]
     search_fields = ('id', 'email', 'nickname')
-    fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status', 'email_notification')
+    fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status',
+              'email_notification', 'role')
     readonly_fields = ('id', 'uid', 'created')
 
 
@@ -194,6 +195,24 @@ class EmailSentAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'email', 'type', 'created')
 
 
+class ActionAdmin(admin.ModelAdmin):
+    list_display = ('resource', 'action', 'codename')
+    fields = ('resource', 'action', 'codename')
+    readonly_fields = ('resource', 'action', 'codename')
+
+
+class RolePermissionAdmin(admin.ModelAdmin):
+    fields = ('role', 'get_resource_name', 'action', 'allowed')
+    readonly_fields = ('get_resource_name',)
+
+    def get_resource_name(self, obj):
+        return obj.action.resource
+    get_resource_name.short_description = "Resource"
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(User, UserAdmin)
 admin.site.register(Indicator, IndicatorAdmin)
 admin.site.register(ICO, ICOAdmin)
@@ -204,3 +223,7 @@ admin.site.register(UppwardRewardInfo, UppwardRewardInfoAdmin)
 admin.site.register(CaseInvalidateCandidates, CaseInvalidateCandidatesAdmin)
 admin.site.register(Key, KeyAdmin)
 admin.site.register(EmailSent, EmailSentAdmin)
+admin.site.register(Action, ActionAdmin)
+admin.site.register(Role)
+admin.site.register(RolePermission, RolePermissionAdmin)
+admin.site.register(RoleUsageLimit)
