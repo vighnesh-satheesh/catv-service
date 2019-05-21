@@ -1,0 +1,1 @@
+[{"model": "api.role", "pk": 1, "fields": {"role_name": "communityuser"}}, {"model": "api.role", "pk": 2, "fields": {"role_name": "paiduser"}}, {"model": "api.role", "pk": 3, "fields": {"role_name": "organisation"}}, {"model": "api.role", "pk": 4, "fields": {"role_name": "sentinel"}}, {"model": "api.role", "pk": 5, "fields": {"role_name": "supersentinel"}}]
