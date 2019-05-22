@@ -104,7 +104,7 @@ class UserAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'uid', 'email', 'nickname', 'permission', 'role')
     list_display_links = ('id', 'uid')
-    list_filter = [('permission', EnumFieldListFilter), ('status', EnumFieldListFilter), ]
+    list_filter = [('permission', EnumFieldListFilter), ('status', EnumFieldListFilter), 'role', ]
     search_fields = ('id', 'email', 'nickname')
     fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status',
               'email_notification', 'role')
