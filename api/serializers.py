@@ -57,7 +57,7 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(required=False, write_only=True, style={'input_type': 'password'})
 
     def __create_success_response(self, user, token):
-        role_matrix = models.RolePermission.get_permission_matrix(user.role.id)
+        role_matrix = models.RolePermission.objects.get_permission_matrix(user.role.id)
 
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",

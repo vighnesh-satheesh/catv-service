@@ -113,7 +113,7 @@ def generate_api_key():
 
 
 def get_default_role():
-    return Role.objects.filter(role_name=UserPermission.SENTINEL.value).values_list('id', flat=True)[0]
+    return Role.objects.filter(role_name=UserPermission.COMMUNITYUSER.value).values_list('id', flat=True)[0]
 
 
 def get_permission_from_status(status):
@@ -131,6 +131,7 @@ class UserPermission(Enum):
     EXCHANGE = 'exchange'
     SENTINEL = 'sentinel'
     SUPERSENTINEL = 'supersentinel'
+    COMMUNITYUSER = 'communityuser'
 
 
 class PermissionList(Enum):
@@ -304,27 +305,40 @@ class Action(models.Model):
         return self.action
 
 
+class RolePermissionQuerySet(models.query.QuerySet):
+    def get_permission_matrix_queryset(self, role_id, action_name=None):
+        if action_name:
+            query_set = self.all().values_list('action__codename', 'allowed'). \
+                filter(role__id=role_id, action__codename=action_name)
+        else:
+            query_set = self.all().values_list('action__codename', 'allowed'). \
+                filter(role__id=role_id)
+
+        return query_set
+
+
+class RolePermissionManager(models.Manager):
+    use_for_related_fields = True
+
+    def get_queryset(self):
+        return RolePermissionQuerySet(self.model)
+
+    def get_permission_matrix(self, role_id, action_name=None):
+        query_set = self.get_queryset().get_permission_matrix_queryset(role_id, action_name)
+        return dict(query_set)
+
+
 class RolePermission(models.Model):
     role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='role')
     action = models.ForeignKey(Action, null=False, blank=False, on_delete=models.CASCADE, related_name='role_action')
     allowed = models.BooleanField(default=False)
+    objects = RolePermissionManager()
 
     def __str__(self):
         return self.role.role_name + '-' + self.action.resource + '-' + self.action.action
 
     class Meta:
         db_table = 'api_role_permission'
-
-    @staticmethod
-    def get_permission_matrix(role_id, action_name=None):
-        if action_name:
-            query_set = RolePermission.objects.values_list('action__codename', 'allowed'). \
-                filter(role__id=role_id, action__codename=action_name)
-        else:
-            query_set = RolePermission.objects.values_list('action__codename', 'allowed'). \
-                filter(role__id=role_id)
-
-        return dict(query_set)
 
 
 # models
