@@ -44,7 +44,7 @@ class CaseIntervalView(APIView):
         CaseHistory.objects.create(
             case=case,
             log=json.dumps(history_log),
-            initiator=case.reporter.pk if case.reporter is not None else None
+            initiator=case.reporter if case.reporter is not None else None
         )
 
         return APIResponse({
