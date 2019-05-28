@@ -14,12 +14,13 @@ from .serializers import (
     IndicatorPostSerializer,
     IndicatorSimpleListSerializer,
     IndicatorDetailSerializer,
-    CaseHistoryPostSerializer
+    CaseHistoryPostSerializer,
 )
 from ..constants import Constants
 
 from rest_framework import exceptions
 from ..response import APIResponse
+from django.db.models.functions import Lower
 from .. import permissions
 from functools import reduce
 from ..cache.indicator import IndicatorCache
@@ -108,7 +109,7 @@ class IndicatorInternalView(APIView):
         if pattern:
             filter_queries &= Q(pattern__iexact=pattern)
         if patterns:
-            filter_queries &= reduce(lambda q, p: q|Q(pattern__iexact=p), patterns, Q())
+            filter_queries &= Q(pattern_lower__in=patterns)
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
@@ -116,7 +117,7 @@ class IndicatorInternalView(APIView):
         if security_tags:
             filter_queries &= Q(security_tags__icontains=security_tags)
 
-        indicators = Indicator.objects.filter(filter_queries).distinct('id').order_by('pk')
+        indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).distinct('id').order_by('pk')
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
         return APIResponse({
             "data": result_serializer.data
