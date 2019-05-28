@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from ..models import (
     Case,
     CaseStatus,
+    CaseHistory,
     Indicator,
     IndicatorPatternType,
     IndicatorPatternSubtype
@@ -40,13 +41,11 @@ class CaseIntervalView(APIView):
         history_log["msg"] = CaseStatus.RELEASED.value if case.status.value == CaseStatus.RELEASED.value else CaseStatus.NEW.value
         history_log["type"] = "status"
 
-        data = {"log": json.dumps(history_log),
-                "case": case.pk,
-                "initiator": case.reporter.pk if case.reporter is not None else None
-                }
-        ch_serializer = CaseHistoryPostSerializer(data=data)
-        ch_serializer.is_valid(raise_exception=True)
-        ch_serializer.save()
+        CaseHistory.objects.create(
+            case=case,
+            log=json.dumps(history_log),
+            initiator=case.reporter if case.reporter is not None else None
+        )
 
         return APIResponse({
             "data": {

@@ -71,7 +71,8 @@ class CaseListPermission(permissions.BasePermission):
             return False
 
         if '/case?case=all' in full_path and len(list(filter(search_exp.match, full_path_list))) == 0:
-            perm_dict = RolePermission.get_permission_matrix(request.user.role.id, PermissionList.VIEW_ALL.value)
+            perm_dict = RolePermission.objects.\
+                get_permission_matrix(request.user.role.id, PermissionList.VIEW_ALL.value)
             return perm_dict[PermissionList.VIEW_ALL.value]
 
         if request.user.permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
@@ -93,7 +94,7 @@ class APIKeyPermission(permissions.BasePermission):
             The API key renewal action is a PUT method, so we check for it and deny if the user role is insufficient.
         """
         if request.method == 'PUT':
-            perm_dict = RolePermission.get_permission_matrix(request.user.role.id, PermissionList.RENEW_KEY.value)
+            perm_dict = RolePermission.objects.get_permission_matrix(request.user.role.id, PermissionList.RENEW_KEY.value)
             return perm_dict[PermissionList.RENEW_KEY.value]
         elif request.method in self.SAFE_METHODS:
             return True

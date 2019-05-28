@@ -4,6 +4,7 @@ from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.hashers import (check_password, make_password)
 import django.forms as forms
+from django.core.exceptions import ObjectDoesNotExist
 # import ModelForm, PasswordInput
 
 from .models import (
@@ -89,7 +90,9 @@ class UserForm(forms.ModelForm):
                     sender = e.EMAIL_SENDER["NO-REPLY"],
                     recipient = [user.email]
                 )
-        except Exception as e:
+        except ObjectDoesNotExist:
+            m.set_password(self.cleaned_data["password"])
+        except Exception:
             pass
         if commit:
             m.save()
@@ -101,7 +104,7 @@ class UserAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'uid', 'email', 'nickname', 'permission', 'role')
     list_display_links = ('id', 'uid')
-    list_filter = [('permission', EnumFieldListFilter), ('status', EnumFieldListFilter), ]
+    list_filter = [('permission', EnumFieldListFilter), ('status', EnumFieldListFilter), 'role', ]
     search_fields = ('id', 'email', 'nickname')
     fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status',
               'email_notification', 'role')
