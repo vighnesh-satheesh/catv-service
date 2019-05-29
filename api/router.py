@@ -17,6 +17,7 @@ urlpatterns = [
 # Internal APIs
 urlpatterns += [
     url(r'^internal/indicator/?$', views_internal.IndicatorInternalView.as_view(), name='internal-indicator'),
+    url(r'^internal/indicators/?$', views_internal.IndicatorInternalPostView.as_view(), name='internal-indicator-post'),
     url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(), name='internal-case')
 ]
 

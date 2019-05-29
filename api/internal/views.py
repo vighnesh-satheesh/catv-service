@@ -59,6 +59,43 @@ class CaseIntervalView(APIView):
         })
 
 
+class IndicatorInternalPostView(APIView):
+    authentication_classes = ()
+    permission_classes = (permissions.InternalOnly,)
+    model = Indicator
+
+    def post(self, request):
+        data = request.data
+        patterns = data['patterns'] if 'patterns' in data else []
+        pattern_type = data['pattern_type'] if 'pattern_type' in data else None
+        pattern_subtype = data['pattern_subtype'] if 'pattern_subtype' else None
+        security_category = data['security_category'] if 'security_category' else None
+        security_tags = data['security_tags'] if 'security_tags' in data else None
+
+        if pattern_type is None or pattern_subtype is None or len(patterns) == 0:
+            raise exceptions.ValidationError("pattern, pattern_type and pattern_subtype are required")
+
+        filter_queries = Q(cases__status__in=[CaseStatus.RELEASED])
+
+        if patterns:
+            filter_queries &= Q(pattern_lower__in=patterns)
+        if pattern_type:
+            filter_queries &= Q(pattern_type=pattern_type)
+        if pattern_subtype:
+            filter_queries &= Q(pattern_subtype=pattern_subtype)
+        if security_category:
+            filter_queries &= Q(security_category=security_category)
+        if security_tags:
+            filter_queries &= Q(security_tags__icontains=security_tags)
+
+        indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).distinct('id').order_by('pk')
+        result_serializer = IndicatorDetailSerializer(indicators, many=True)
+
+        return APIResponse({
+            "data": result_serializer.data
+        })
+
+
 class IndicatorInternalView(APIView):
     authentication_classes = ()
     permission_classes = (permissions.InternalOnly,)
