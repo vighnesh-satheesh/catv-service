@@ -69,7 +69,7 @@ class IndicatorInternalPostView(APIView):
         patterns = data['patterns'] if 'patterns' in data else []
         pattern_type = data['pattern_type'] if 'pattern_type' in data else None
         pattern_subtype = data['pattern_subtype'] if 'pattern_subtype' else None
-        security_category = data['security_category'] if 'security_category' else None
+        security_category = data['security_category'] if 'security_category' in data else None
         security_tags = data['security_tags'] if 'security_tags' in data else None
 
         if pattern_type is None or pattern_subtype is None or len(patterns) == 0:
@@ -77,14 +77,14 @@ class IndicatorInternalPostView(APIView):
 
         filter_queries = Q(cases__status__in=[CaseStatus.RELEASED])
 
+        if security_category:
+            filter_queries &= Q(security_category=security_category)
         if patterns:
-            filter_queries &= Q(pattern_lower__in=patterns)
+            filter_queries &= Q(pattern_lower__in=[x.lower() for x in patterns])
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
             filter_queries &= Q(pattern_subtype=pattern_subtype)
-        if security_category:
-            filter_queries &= Q(security_category=security_category)
         if security_tags:
             filter_queries &= Q(security_tags__icontains=security_tags)
 
@@ -146,7 +146,7 @@ class IndicatorInternalView(APIView):
         if pattern:
             filter_queries &= Q(pattern__iexact=pattern)
         if patterns:
-            filter_queries &= Q(pattern_lower__in=patterns)
+            filter_queries &= Q(pattern_lower__in=[x.lower() for x in patterns])
         if pattern_type:
             filter_queries &= Q(pattern_type=pattern_type)
         if pattern_subtype:
