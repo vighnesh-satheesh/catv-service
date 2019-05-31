@@ -126,7 +126,7 @@ class TrackingResults:
             if cur_node.group == "Exchange & DEX":
                 continue
             if item["security_category"].value == "graylist":
-                if item["annotation"]:i
+                if item["annotation"]:
                     cur_node.update(annotation=item["annotation"])
                     cur_node.set_group_from_annotation()
                 else:
