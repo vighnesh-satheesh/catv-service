@@ -113,7 +113,7 @@ def generate_api_key():
 
 
 def get_default_role():
-    return Role.objects.filter(role_name=UserPermission.COMMUNITYUSER.value).values_list('id', flat=True)[0]
+    return Role.objects.filter(role_name='communityuser').values_list('id', flat=True)[0]
 
 
 def get_permission_from_status(status):
@@ -131,7 +131,6 @@ class UserPermission(Enum):
     EXCHANGE = 'exchange'
     SENTINEL = 'sentinel'
     SUPERSENTINEL = 'supersentinel'
-    COMMUNITYUSER = 'communityuser'
 
 
 class PermissionList(Enum):
@@ -153,6 +152,7 @@ class PermissionList(Enum):
     VIEW_KEY = 'view_key'
     VIEW_CASE = 'view_case'
     CHANGE_NEW = 'change_new'
+    QUICKVIEW_ALL_INDICATORS = 'view_shortcut'
 
 
 class UserStatus(Enum):
@@ -702,4 +702,38 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['created'])
+        ]
+
+
+class BloxyDistribution(models.Model):
+    address = models.CharField(null=False, max_length=50)
+    depth_limit = models.IntegerField(null=True)
+    transaction_limit = models.IntegerField(null=True)
+    from_time = models.DateTimeField(null=True)
+    till_time = models.DateTimeField(null=True)
+    result = JSONField(default=list)
+    token_address = models.CharField(null=True, max_length=50)
+    updated = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+
+    class Meta:
+        db_table = 'api_bloxy_distribution'
+        indexes = [
+            models.Index(fields=['address', 'depth_limit', 'from_time', 'till_time'])
+        ]
+
+
+class BloxySource(models.Model):
+    address = models.CharField(null=False, max_length=50)
+    depth_limit = models.IntegerField(null=True)
+    transaction_limit = models.IntegerField(null=True)
+    from_time = models.DateTimeField(null=True)
+    till_time = models.DateTimeField(null=True)
+    result = JSONField(default=list)
+    token_address = models.CharField(null=True, max_length=50)
+    updated = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+
+    class Meta:
+        db_table = 'api_bloxy_source'
+        indexes = [
+            models.Index(fields=['address', 'depth_limit', 'from_time', 'till_time'])
         ]

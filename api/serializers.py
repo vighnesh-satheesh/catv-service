@@ -1,6 +1,8 @@
 import os
 import time
+import re
 from collections import OrderedDict
+import socket
 
 from django.contrib.auth.hashers import (check_password, make_password)
 from django.core.validators import validate_email
@@ -26,6 +28,8 @@ from .constants import Constants
 from .cache.uppward import UppwardCache
 from indicatorlib import Pattern
 from .cache import DefaultCache
+from .catvutils.tracking_results import TrackingResults
+
 
 class NonNullModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
@@ -1583,3 +1587,59 @@ class NotificationSerializer(NonNullModelSerializer):
 
     def get_type(self, obj):
         return obj.type.value
+
+
+class CATVSerializer(serializers.Serializer):
+    wallet_address = serializers.CharField(required=True)
+    source_depth = serializers.IntegerField(required=False, min_value=1, max_value=10)
+    distribution_depth = serializers.IntegerField(required=False, min_value=1, max_value=10)
+    transaction_limit = serializers.IntegerField(required=True, min_value=100, max_value=10000)
+    from_date = serializers.CharField(required=True)
+    to_date = serializers.CharField(required=True)
+    token_address = serializers.CharField(required=False)
+    force_lookup = serializers.BooleanField(required=False, default=False)
+
+    def validate(self, data):
+        if 'source_depth' in data or 'distribution_depth' in data:
+            return data
+        else:
+            raise serializers.ValidationError("Either of source_depth or distribution_depth is needed.")
+
+    def validate_wallet_address(self, value):
+        pattern = re.compile("^0x[a-fA-F0-9]{40}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Token address is not a valid ethereum address.")
+        return value
+
+    def validate_from_date(self, value):
+        try:
+            utils.validate_dateformat(value, '%Y-%m-%d')
+            return value
+        except ValueError:
+            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+
+    def validate_to_date(self, value):
+        try:
+            utils.validate_dateformat(value, '%Y-%m-%d')
+            return value
+        except ValueError:
+            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+
+    def get_tracking_results(self):
+        try:
+            tracking_results = TrackingResults(**self.data)
+            tracking_results.get_tracking_data()
+            tracking_results.create_graph_data()
+            tracking_results.set_annotations_from_db()
+            return tracking_results.make_graph_dict()
+        except socket.timeout:
+            raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
+        except IndexError as e:
+            raise exceptions.FileNotFound(str(e))
+        except KeyError as e:
+            raise exceptions.FileNotFound("Incorrect or missing response from external API.")
+        except Exception as e:
+            raise exceptions.ServerError("Oops, something went wrong.")
+
+
+

@@ -3,6 +3,7 @@ import urllib.parse
 from functools import wraps
 import requests
 import requests.exceptions as re_exceptions
+from datetime import datetime
 
 from django.utils import six
 from django.utils.encoding import force_text
@@ -93,6 +94,23 @@ def retry(ExceptionToCheck, tries=4, delay=3, backoff=2, logger=None):
 
         return f_retry
     return deco_retry
+
+
+def validate_dateformat(value, date_format):
+    datetime.strptime(value, date_format)
+
+
+def create_tracking_cache_pattern(data):
+    wallet_address = data.get("wallet_address", "")
+    source_depth = data.get("source_depth", 0)
+    distribution_depth = data.get("distribution_depth", 0)
+    transaction_limit = data.get("transaction_limit", 0)
+    from_date = data.get("from_date", "")
+    to_date = data.get("to_date", "")
+    token_address = data.get("token_address", "")
+
+    return 'w{0}s{1}d{2}tx{3}fd{4}td{5}tk{6}'.format(wallet_address, source_depth, distribution_depth,
+                                                     transaction_limit, from_date, to_date, token_address)
 
 
 class CaseStatusTransition(object):

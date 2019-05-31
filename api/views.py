@@ -1,4 +1,5 @@
 from collections import defaultdict
+import gzip
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -30,13 +31,13 @@ from .serializers import (
     UserDetailSerializer, UserPostSerializer,
     ICFDetailSerializer, ICFPostSerializer,
     CommentSerializer, CommentPostSerializer,
-    NotificationSerializer
+    NotificationSerializer, CATVSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
-    IndicatorPostThrottle
+    IndicatorPostThrottle, CatvPostThrottle
 )
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
@@ -46,6 +47,7 @@ from . import utils
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .settings import api_settings
 from .cache import DefaultCache
+from .cache.catv import TrackingCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
@@ -1398,3 +1400,28 @@ class NotificationView(APIView):
         return APIResponse({
             "data": ""
         })
+
+
+class CATVView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        tracking_cache = TrackingCache()
+        cache_key = utils.create_tracking_cache_pattern(serializer.data)
+        cached_entry = tracking_cache.get_cache_entry(cache_key)
+        if not serializer.data.get('force_lookup', False) and cached_entry:
+            results = json.loads(gzip.decompress(cached_entry).decode())
+        else:
+            results = serializer.get_tracking_results()
+            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+        return APIResponse({
+            "data": results
+        })
+

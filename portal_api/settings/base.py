@@ -129,6 +129,10 @@ CACHES = {
     'local_indicator': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
+    },
+    'catv_data': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': env.str('API_CATV_CACHE_SERVER')
     }
 }
 
@@ -165,7 +169,8 @@ REST_FRAMEWORK = {
         'casePost': '5/min',
         "signup": "5/min",
         'emailVerification': '5/min',
-        'indicatorPost': '20/min'
+        'indicatorPost': '20/min',
+        'catvPost': '3/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -273,3 +278,8 @@ EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = API_SETTINGS['EMAIL_HOST_USER']
 EMAIL_HOST_PASSWORD = API_SETTINGS['EMAIL_HOST_PASSWORD']
+
+# BLOXY API
+BLOXY_API_KEY = env.str('API_BLOXY_KEY')
+BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://bloxy.info/api/sentinel/distribution_transactions')
+BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://bloxy.info/api/sentinel/source_transactions')
