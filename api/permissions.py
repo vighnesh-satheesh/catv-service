@@ -63,6 +63,7 @@ class CaseListPermission(permissions.BasePermission):
         full_path = full_path_list[0]
 
         search_exp = re.compile("user_case.*")
+        match_user_url = list(filter(search_exp.match, full_path_list))
 
         if request.method == "POST" and full_path == '/case':
             return True
@@ -70,10 +71,13 @@ class CaseListPermission(permissions.BasePermission):
         if not request and not request.user:
             return False
 
-        if '/case?case=all' in full_path and len(list(filter(search_exp.match, full_path_list))) == 0:
-            perm_dict = RolePermission.objects.\
-                get_permission_matrix(request.user.role.id, PermissionList.VIEW_ALL.value)
-            return perm_dict[PermissionList.VIEW_ALL.value]
+        if '/case?case=all' in full_path:
+            if len(match_user_url) == 0:
+                perm_dict = RolePermission.objects.\
+                    get_permission_matrix(request.user.role.id, PermissionList.VIEW_ALL.value)
+                return perm_dict[PermissionList.VIEW_ALL.value]
+            else:
+                return True
 
         if request.user.permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
             return True

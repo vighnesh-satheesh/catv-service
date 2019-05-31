@@ -114,3 +114,13 @@ class StatusChangeError(exceptions.PermissionDenied):
 class DataIntegrityError(exceptions.APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = _('data conflict')
+
+
+class RequestTimeoutError(exceptions.APIException):
+    status_code = status.HTTP_408_REQUEST_TIMEOUT
+    default_detail = _('request timeout')
+
+
+class ServerError(exceptions.APIException):
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    default_detail = _('Something went wrong')

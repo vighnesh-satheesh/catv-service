@@ -30,6 +30,10 @@ class IndicatorPostThrottle(UserRateThrottle):
     scope = "indicatorPost"
 
 
+class CatvPostThrottle(UserRateThrottle):
+    scope = "catvPost"
+
+
 """
 # login, changepassword api
 class UserAuthenticationRateThrottle(SimpleRateThrottle):

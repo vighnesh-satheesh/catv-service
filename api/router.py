@@ -48,6 +48,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^comment/(?P<type>[a-z\-]+)/(?P<pk>[0-9]+)/?$', views.CommentView.as_view(), name='comment-view'),
         url(r'^notification/?$', views.NotificationView.as_view(), name='notification-view-single'),
         url(r'^notification/(?P<uid>[0-9a-z\-]+)/?$', views.NotificationView.as_view(), name='notification-view-uid'),
+        url(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
     ]
 
 
