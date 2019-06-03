@@ -344,6 +344,7 @@ class RolePermission(models.Model):
 # models
 class User(models.Model):
     email = models.EmailField(unique=True)
+    address = models.CharField(unique=True, null=True, max_length=128)
     nickname = models.CharField(max_length=128, unique=True)
     password = models.CharField(max_length=128)
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -379,6 +380,11 @@ class User(models.Model):
         try:
             if kwargs["password"] is not None:
                 self.set_password(kwargs["password"])
+        except KeyError:
+            pass
+        try:
+            if kwargs["address"] is not None:
+                self.address = kwargs["address"]
         except KeyError:
             pass
         try:

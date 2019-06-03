@@ -69,6 +69,7 @@ class LoginSerializer(serializers.Serializer):
                 "email": user.email,
                 "id": user.uid,
                 "nickname": user.nickname,
+                "address": user.address,
                 "permission": user.permission.value,
                 "rolepermissions": role_matrix,
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
@@ -190,6 +191,7 @@ class UserPostSerializer(serializers.ModelSerializer):
     permission = fields.EnumField(enum=models.UserPermission, required=False)
     email = serializers.CharField(required=False)
     nickname = serializers.CharField(required=True)
+    address = serializers.CharField(allow_blank=True, required=False)
     email_notification = serializers.BooleanField(required=False)
     password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
     old_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
@@ -200,7 +202,7 @@ class UserPostSerializer(serializers.ModelSerializer):
                                    use_url=False)
     class Meta:
         model = models.User
-        fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password", "email_notification")
+        fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password", "email_notification", "address")
 
 
     def get_created(self, obj):
@@ -271,6 +273,9 @@ class UserPostSerializer(serializers.ModelSerializer):
             else:
                 data["token"] = token.key
             data["id"] = user.uid
+            address = request.data.get("address", None)
+            if address != "":
+                data["address"] = address
 
         if len(data["nickname"]) < 4 or len(data["nickname"]) > 32:
             raise exceptions.ValidationError("invalid nickname length")
@@ -300,7 +305,8 @@ class UserPostSerializer(serializers.ModelSerializer):
                 password = validated_data.get("new_password", None),
                 image = validated_data.get("image"),
                 nickname = validated_data["nickname"],
-                email_notification = validated_data["email_notification"]
+                email_notification = validated_data["email_notification"],
+                address = validated_data["address"]
             )
         except IntegrityError as e:
             if "nickname" in str(e):
