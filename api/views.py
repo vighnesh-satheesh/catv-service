@@ -13,6 +13,7 @@ from django.db import transaction, IntegrityError
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.db import connection
 
 from .models import (
     User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment,
@@ -242,17 +243,23 @@ class DashboardView(APIView):
                     ]
                 }
             ]
-
+        cursor = connection.cursor()
         if user.permission is UserPermission.SUPERSENTINEL or \
                 user.permission is UserPermission.SENTINEL:
-            number_of_all_indicators = Indicator.objects.count()
+            cursor.execute('SELECT count(*) from api_indicator')
         else:
-            number_of_all_indicators = Indicator.objects.filter(Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk)).count()
+            cursor.execute('\
+            SELECT COUNT(*) FROM api_indicator AS i \
+            JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
+            JOIN api_case as c ON ci.case_id = c.id \
+            WHERE c.status = \'released\' OR c.status = \'confirmed\' OR i.user_id=' + str(user.pk))
+
+        row = cursor.fetchone()
 
         indicators = [
             {
                 "id": "indicator_all",
-                "count": number_of_all_indicators,
+                "count": row[0],
                 "children": []
             }
         ]
