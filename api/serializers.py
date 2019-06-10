@@ -997,15 +997,16 @@ class CasePostSerializer(serializers.ModelSerializer):
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 # annotation
                 for indicator in indicator_bulk:
-                    for annotation in [x.strip() for x in indicator.annotation.split(",")]:
-                        if len(annotation) == 0:
-                            continue
-                        anno = models.Annotation.objects.filter(annotation=annotation)
-                        if len(anno) > 0:
-                            anno = anno[0]
-                        else:
-                            anno = models.Annotation.objects.create(annotation=annotation)
-                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                    if indicator.annotation:
+                        for annotation in [x.strip() for x in indicator.annotation.split(",")]:
+                            if len(annotation) == 0:
+                                continue
+                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            if len(anno) > 0:
+                                anno = anno[0]
+                            else:
+                                anno = models.Annotation.objects.create(annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
                     # case
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
 
