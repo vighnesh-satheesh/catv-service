@@ -61,7 +61,7 @@ class CacheLeftPanelValuesTask(Task):
                             WHERE c.status = \'released\' OR c.status = \'confirmed\''\
             )
             row = cursor.fetchone()
-            dashboard_obj['indicators']['rc'] = row[0]
+            dashboard_obj['indicators']['cr'] = row[0]
             c = DefaultCache()
             c.set('left_panel_values', dashboard_obj, 0)
         return True
