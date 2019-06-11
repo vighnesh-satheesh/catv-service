@@ -52,6 +52,7 @@ from .cache.catv import TrackingCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
+from .tasks import CacheLeftPanelValuesTask
 
 import json
 
@@ -147,6 +148,9 @@ class DashboardView(APIView):
         if request.user is None or request.auth is None:
             raise exceptions.AuthenticationCheckError()
         user = request.user
+
+        c = DefaultCache()
+        lpv = c.get('left_panel_values')
         number_of_all_indicators = 0
         all_cases = []
         my_cases = []
@@ -173,8 +177,11 @@ class DashboardView(APIView):
             }
         ]
         with connection.cursor() as cursor:
-            cursor.execute('SELECT status, reporter_id, owner_id FROM api_case')
-            row = cursor.fetchall()
+            if not lpv:
+                cursor.execute('SELECT status, reporter_id, owner_id FROM api_case')
+                row = cursor.fetchall()
+            else:
+                row = lpv['cases']
             for r in row:
                 status = r[0]
                 reporter_id = r[1]
@@ -199,18 +206,25 @@ class DashboardView(APIView):
             case["count"] = count
 
         with connection.cursor() as cursor:
-            if user.permission is UserPermission.SUPERSENTINEL or \
-                    user.permission is UserPermission.SENTINEL:
-                cursor.execute('SELECT count(*) from api_indicator')
+            if lpv:
+                if user.permission is UserPermission.SUPERSENTINEL or \
+                        user.permission is UserPermission.SENTINEL:
+                    number_of_all_indicators = lpv['indicators']['all']
+                else:
+                    number_of_all_indicators = lpv['indicators']['cr']
             else:
-                cursor.execute('\
-                SELECT COUNT(*) FROM api_indicator AS i \
-                    JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
-                    JOIN api_case as c ON ci.case_id = c.id \
-                    WHERE c.status = \'released\' OR c.status = \'confirmed\' OR i.user_id=' + str(user.pk))
-
-            row = cursor.fetchone()
-            number_of_all_indicators = row[0]
+                sql = ''
+                if user.permission is UserPermission.SUPERSENTINEL or \
+                        user.permission is UserPermission.SENTINEL:
+                    sql = 'SELECT count(*) from api_indicator'
+                else:
+                    sql = 'SELECT COUNT(*) FROM api_indicator AS i \
+                        JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
+                        JOIN api_case as c ON ci.case_id = c.id \
+                        WHERE c.status = \'released\' OR c.status = \'confirmed\''
+                cursor.execute(sql)
+                row = cursor.fetchone()
+                number_of_all_indicators = row[0]
 
         indicators = [
             {
@@ -224,6 +238,9 @@ class DashboardView(APIView):
         notification_objs = Notification.objects.filter(user=user.pk).order_by('-created')[:100]
         if notification_objs:
             notifications = NotificationSerializer(notification_objs, many=True).data
+
+        if not lpv:
+            CacheLeftPanelValuesTask().delay()
 
         return APIResponse({
             "data": {
@@ -397,6 +414,9 @@ class CaseView(generics.ListCreateAPIView):
         ch_serializer.is_valid(raise_exception=True)
         ch_serializer.save()
 
+        c = DefaultCache()
+        c.delete_key('left_panel_values')
+
         return APIResponse({
             "data": {
                 "case": {
@@ -509,6 +529,7 @@ class CaseDetailView(APIView):
         serializer.save()
 
         c = DefaultCache()
+        c.delete_key('left_panel_values')
         c.delete_view_cache(request)
 
         if obj.reporter and obj.reporter.email_notification:
@@ -573,8 +594,8 @@ class CaseDetailView(APIView):
         obj.delete()
 
         c = DefaultCache()
+        c.delete_key('left_panel_values')
         c.delete_view_cache(request)
-
         return APIResponse({"data": {}})
 
 
@@ -660,6 +681,10 @@ class IndicatorView(generics.ListCreateAPIView):
         else:
             indicator_obj = serializer.save()
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
+
+        c = DefaultCache()
+        c.delete_key('left_panel_values')
+
         return APIResponse({
             "data": result_serializer.data
         })
@@ -736,6 +761,7 @@ class IndicatorDetailView(APIView):
         except IntegrityError:
             raise exceptions.DataIntegrityError("")
         c = DefaultCache()
+        c.delete_key('left_panel_values')
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
 
