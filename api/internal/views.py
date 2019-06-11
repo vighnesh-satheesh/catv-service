@@ -23,6 +23,7 @@ from ..response import APIResponse
 from django.db.models.functions import Lower
 from .. import permissions
 from functools import reduce
+from ..cache import DefaultCache
 
 import json
 
@@ -46,6 +47,9 @@ class CaseIntervalView(APIView):
             log=json.dumps(history_log),
             initiator=case.reporter if case.reporter is not None else None
         )
+
+        c = DefaultCache()
+        c.delete_key('left_panel_values')
 
         return APIResponse({
             "data": {
@@ -90,6 +94,9 @@ class IndicatorInternalPostView(APIView):
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).distinct('id').order_by('pk')
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
 
+        c = DefaultCache()
+        c.delete_key('left_panel_values')
+
         return APIResponse({
             "data": result_serializer.data
         })
@@ -108,6 +115,10 @@ class IndicatorInternalView(APIView):
         serializer.is_valid(raise_exception=True)
         indicator_obj = serializer.save()
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
+
+        c = DefaultCache()
+        c.delete_key('left_panel_values')
+
         return APIResponse({
             "data": result_serializer.data
         })
