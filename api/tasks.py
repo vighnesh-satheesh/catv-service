@@ -2,7 +2,6 @@ from celery.task.schedules import crontab
 from celery.decorators import periodic_task
 from django.db.models import Q
 from .models import Case, Indicator, CaseIndicator, IndicatorSecurityCategory
-from .cache.indicator import IndicatorCache
 import datetime
 
 """

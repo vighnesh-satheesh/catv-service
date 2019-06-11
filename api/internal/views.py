@@ -23,7 +23,6 @@ from ..response import APIResponse
 from django.db.models.functions import Lower
 from .. import permissions
 from functools import reduce
-from ..cache.indicator import IndicatorCache
 
 import json
 
@@ -133,13 +132,6 @@ class IndicatorInternalView(APIView):
             IndicatorPatternSubtype(pattern_subtype)
         except ValueError:
             raise exceptions.ValidationError("invalid pattern_subtype")
-
-        indicator_cache = IndicatorCache()
-
-        if indicator_cache.get_last_indicator_id():
-            for p in patterns:
-                if not IndicatorCache().get_indicator(p.lower()):
-                    patterns.remove(p)
 
         if security_category:
             filter_queries &= Q(security_category=security_category)

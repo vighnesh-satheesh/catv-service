@@ -126,7 +126,7 @@ CACHES = {
             "SOCKET_TIMEOUT": 3,
         }
     },
-    'local_indicator': {
+    'local_cache': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
     },
