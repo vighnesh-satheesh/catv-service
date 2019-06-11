@@ -147,119 +147,75 @@ class DashboardView(APIView):
         if request.user is None or request.auth is None:
             raise exceptions.AuthenticationCheckError()
         user = request.user
-        count_dict = defaultdict(int)
-        number_of_all_cases = 0
-        number_of_all_my_cases = 0
         number_of_all_indicators = 0
         all_cases = []
         my_cases = []
-
-        my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
-
-        if user.permission in [UserPermission.SUPERSENTINEL, user.permission is UserPermission.SENTINEL]:
-            all_cases = Case.objects.filter().values("status").annotate(count=Count("status"))
+        cases = []
+        for item in CaseStatus:
+            my_cases.append({
+                "id": "case_my_{0}".format(item.value),
+                "count": 0
+            })
+            all_cases.append({
+                "id": "case_all_{0}".format(item.value),
+                "count": 0
+            })
+        cases = [
+            {
+                "id": "case_all",
+                "count": 0,
+                "children": all_cases
+            },
+            {
+                "id": "case_my",
+                "count": 0,
+                "children": my_cases
+            }
+        ]
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT status, reporter_id, owner_id FROM api_case')
+            row = cursor.fetchall()
+            for r in row:
+                status = r[0]
+                reporter_id = r[1]
+                owner_id = r[2]
+                for case in cases:
+                    if "my" in case["id"] and user.pk != reporter_id and user.pk != owner_id:
+                        continue
+                    for c in case["children"]:
+                        if status not in c["id"]:
+                            continue
+                        c["count"] += 1
 
         if user.permission is UserPermission.EXCHANGE:
-            all_cases = Case.objects.filter(Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])).values("status").annotate(count=Count("status"))
+            cases[1]["children"]  = [c for c in cases[1]["children"] if "confirmed" in c["id"] or "released" in c["id"]]
+        elif user.permission is UserPermission.USER:
+            cases = cases[1:]
 
-        for item in CaseStatus:
-            all = 0
-            my = 0
+        for case in cases:
+            count = 0
+            for c in case["children"]:
+                count += c["count"]
+            case["count"] = count
 
-            for ac in all_cases:
-                if ac["status"] == item:
-                    all = ac["count"]
-                    break
-            for mc in my_cases:
-                if mc["status"] == item:
-                    my = mc["count"]
-                    break
+        with connection.cursor() as cursor:
+            if user.permission is UserPermission.SUPERSENTINEL or \
+                    user.permission is UserPermission.SENTINEL:
+                cursor.execute('SELECT count(*) from api_indicator')
+            else:
+                cursor.execute('\
+                SELECT COUNT(*) FROM api_indicator AS i \
+                    JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
+                    JOIN api_case as c ON ci.case_id = c.id \
+                    WHERE c.status = \'released\' OR c.status = \'confirmed\' OR i.user_id=' + str(user.pk))
 
-            count_dict["case_all_{0}".format(item.value)] = all
-            count_dict["case_my_{0}".format(item.value)] = my
-
-            number_of_all_cases += all
-            number_of_all_my_cases += my
-
-
-        if user.permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
-            cases = [
-                {
-                    "id": "case_my",
-                    "count": number_of_all_my_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_my", "new", count_dict),
-                        utils.get_dashboard_item("case_my", "progress", count_dict),
-                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_my", "rejected", count_dict),
-                        utils.get_dashboard_item("case_my", "released", count_dict),
-                    ]
-                },
-                {
-                    "id": "case_all",
-                    "count": number_of_all_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_all", "new", count_dict),
-                        utils.get_dashboard_item("case_all", "progress", count_dict),
-                        utils.get_dashboard_item("case_all", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_all", "rejected", count_dict),
-                        utils.get_dashboard_item("case_all", "released", count_dict),
-                    ]
-                }
-            ]
-        elif user.permission is UserPermission.EXCHANGE:
-            cases = [
-                {
-                    "id": "case_my",
-                    "count": number_of_all_my_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_my", "new", count_dict),
-                        utils.get_dashboard_item("case_my", "progress", count_dict),
-                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_my", "rejected", count_dict),
-                        utils.get_dashboard_item("case_my", "released", count_dict),
-                    ]
-                },
-                {
-                    "id": "case_all",
-                    "count": number_of_all_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_all", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_all", "released", count_dict),
-                    ]
-                }
-            ]
-        else:
-            cases = [
-                {
-                    "id": "case_my",
-                    "count": number_of_all_my_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_my", "new", count_dict),
-                        utils.get_dashboard_item("case_my", "progress", count_dict),
-                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_my", "rejected", count_dict),
-                        utils.get_dashboard_item("case_my", "released", count_dict),
-                    ]
-                }
-            ]
-        cursor = connection.cursor()
-        if user.permission is UserPermission.SUPERSENTINEL or \
-                user.permission is UserPermission.SENTINEL:
-            cursor.execute('SELECT count(*) from api_indicator')
-        else:
-            cursor.execute('\
-            SELECT COUNT(*) FROM api_indicator AS i \
-            JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
-            JOIN api_case as c ON ci.case_id = c.id \
-            WHERE c.status = \'released\' OR c.status = \'confirmed\' OR i.user_id=' + str(user.pk))
-
-        row = cursor.fetchone()
+            row = cursor.fetchone()
+            number_of_all_indicators = row[0]
 
         indicators = [
             {
                 "id": "indicator_all",
-                "count": row[0],
+                "count": number_of_all_indicators,
                 "children": []
             }
         ]
