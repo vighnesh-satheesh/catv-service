@@ -63,7 +63,7 @@ class CacheLeftPanelValuesTask(Task):
             row = cursor.fetchone()
             dashboard_obj['indicators']['cr'] = row[0]
             c = DefaultCache()
-            c.set('left_panel_values', dashboard_obj, 0)
+            c.set('left_panel_values', dashboard_obj, 60 * 60)
         return True
 
 tasks.register(CacheLeftPanelValuesTask)
