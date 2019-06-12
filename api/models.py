@@ -445,6 +445,7 @@ class Case(models.Model):
 
     class Meta:
         indexes = [
+            models.Index(fields=['uid']),
             models.Index(fields=['status', ]),
             models.Index(fields=['owner', ]),
             models.Index(fields=['created', ]),
@@ -502,6 +503,7 @@ class Indicator(models.Model):
     class Meta:
         indexes = [
             GistIndex(fields=['pattern_tree', ]),
+            models.Index(fields=['uid']),
             models.Index(fields=['pattern_tree', ]),
             models.Index(fields=['user']),
         ]
