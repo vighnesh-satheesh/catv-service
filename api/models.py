@@ -289,7 +289,10 @@ class FileStatus(IntEnum):
 
 
 class RewardSetting(models.Model):
-    min_token = models.IntegerField(null=True, blank=True)
+    min_token = models.BigIntegerField(null=True, blank=True)
+    token_abi = models.CharField(null=True, blank=True, max_length=5196)
+    token_address = models.CharField(null=True, blank=True, max_length=512)
+
 
     def __int__(self):
         return self.min_token
@@ -363,6 +366,7 @@ class User(models.Model):
     status = EnumField(enum=UserStatus, default=UserStatus.APPROVED, max_length=16)
     role = models.ForeignKey(Role, on_delete=models.PROTECT,
                              default=get_default_role)
+    points = models.BigIntegerField(null=False, blank=False)
 
     def is_authenticated(self, *args, **kwargs):
         return True
@@ -392,6 +396,11 @@ class User(models.Model):
         try:
             if kwargs["address"] is not None:
                 self.address = kwargs["address"]
+        except KeyError:
+            pass
+        try:
+            if kwargs["points"] is not None:
+                self.points = kwargs["points"]
         except KeyError:
             pass
         try:
