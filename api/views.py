@@ -1428,7 +1428,7 @@ class Metrics(APIView):
         tz = request.query_params.get('timezone', None)
         rng = request.query_params.get('range', None)
 
-        if not timezone or not range:
+        if not timezone or not rng:
             raise exceptions.ValidationError("timezone or type is not provided.")
 
         rng = int(rng)
@@ -1451,10 +1451,6 @@ class Metrics(APIView):
                     'count': 0,
                 }
             }
-
-        return APIResponse({
-            "data": data_dict
-        })
 
         c = DefaultCache()
         indicators = c.get('metrics_indicators')

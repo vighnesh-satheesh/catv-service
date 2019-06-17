@@ -13,7 +13,7 @@ def cache_metrics_task():
     with connections['default'].cursor() as cursor:
         cursor.execute( \
             'SELECT \
-            id, security_type, pattern, created, security_tags, pattern_type, pattern_subtype \
+            id, uid, security_type, pattern, created, security_tags, pattern_type, pattern_subtype \
             FROM api_indicator \
             where created > ' + '\'' + month_ago + '\' \
                 order by created desc')
