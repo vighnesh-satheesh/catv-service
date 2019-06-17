@@ -200,7 +200,7 @@ class DashboardView(APIView):
                         c["count"] += 1
 
         if user.permission is UserPermission.EXCHANGE:
-            cases[1]["children"]  = [c for c in cases[1]["children"] if "confirmed" in c["id"] or "released" in c["id"]]
+            cases[0]["children"]  = [c for c in cases[0]["children"] if "confirmed" in c["id"] or "released" in c["id"]]
         elif user.permission is UserPermission.USER:
             cases = cases[1:]
 
