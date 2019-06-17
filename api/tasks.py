@@ -4,9 +4,10 @@ from celery.registry import tasks
 from django.db.models import Q
 from django.db import connection, connections
 from .cache import DefaultCache
+from celery.schedules import crontab
 import datetime
 
-@periodic_task(run_every=(datetime.timedelta(minutes=5)))
+@periodic_task(run_every=crontab(minute='*/5'))
 def cache_metrics_task():
     month_ago = (datetime.datetime.now() - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
     c = DefaultCache()
