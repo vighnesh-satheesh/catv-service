@@ -9,6 +9,7 @@ from rest_framework.renderers import JSONRenderer
 
 from django_filters import rest_framework as filters
 from django.db.models import Q, Count
+from django.db.models.functions import TruncDate
 from django.db import transaction, IntegrityError
 
 from django.utils.decorators import method_decorator
@@ -52,8 +53,12 @@ from .cache.catv import TrackingCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
-from .tasks import CacheLeftPanelValuesTask
+from .tasks import CacheLeftPanelValuesTask, CacheMetricsTask
+from django.utils import timezone
+from django.utils.timezone import make_aware
 
+import datetime
+import pytz
 import json
 
 class HealthCheckView(APIView):
@@ -1414,3 +1419,118 @@ class CATVView(APIView):
             "data": results
         })
 
+
+class Metrics(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+
+    def get(self, request, format=None):
+        tz = request.query_params.get('timezone', None)
+        rng = request.query_params.get('range', None)
+
+        if not timezone or not range:
+            raise exceptions.ValidationError("timezone or type is not provided.")
+
+        rng = int(rng)
+
+        now_date = datetime.datetime.now(pytz.timezone(tz))
+        start_date = now_date - datetime.timedelta(days=rng - 1)
+        unaware_std = datetime.datetime.strptime(start_date.strftime('%Y-%m-%d') + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
+        aware_startdate = pytz.timezone(tz).localize(unaware_std)
+        data_dict = {}
+        for d in range(rng):
+            key = (now_date - datetime.timedelta(days=d)).strftime('%Y-%m-%d')
+            data_dict[key] = {
+                'indicator': {
+                    'count': 0,
+                    'security_tags': {},
+                    'pattern_type': {},
+                    'pattern_subtype': {}
+                },
+                'case': {
+                    'count': 0,
+                }
+            }
+
+        return APIResponse({
+            "data": data_dict
+        })
+
+        c = DefaultCache()
+        indicators = c.get('metrics_indicators')
+        cases = c.get('metrics_cases')
+        cached = True
+
+        if not indicators or not cases:
+            cached = False
+            CacheMetricsTask().delay()
+            cases = Case\
+                .objects \
+                .filter(created__gte=aware_startdate) \
+                .annotate(created_date=TruncDate('created')) \
+                .values('created', 'created_date') \
+                .annotate(count=Count('id')) \
+                .order_by('-created')
+
+            indicators = Indicator.\
+                objects\
+                .filter(created__gte=aware_startdate)\
+                .annotate(created_date=TruncDate('created'))\
+                .values('created', 'created_date', 'security_tags', 'pattern_type', 'pattern_subtype')\
+                .annotate(count=Count('id'))\
+                .order_by('-created')
+
+        for indicator in indicators:
+            if cached:
+                if indicator[0] < aware_startdate:
+                    break
+                created = indicator[0]
+                security_tags = indicator[1]
+                pattern_type = indicator[2]
+                pattern_subtype = indicator[3]
+            else:
+                created = indicator['created']
+                security_tags = indicator['security_tags']
+                pattern_type = indicator['pattern_type'].value
+                pattern_subtype = indicator['pattern_subtype'].value
+            key = created.astimezone(pytz.timezone(tz)).strftime('%Y-%m-%d')
+            indi = data_dict[key]['indicator']
+
+            if cached:
+                indi['count'] += 1
+            else:
+                indi['count'] += indicator['count']
+
+            if security_tags:
+                for tag in security_tags:
+                    if tag in indi['security_tags']:
+                        indi['security_tags'][tag] += 1
+                    else:
+                        indi['security_tags'][tag] = 1
+
+            if pattern_type in indi['pattern_type']:
+                indi['pattern_type'][pattern_type] += 1
+            else:
+                indi['pattern_type'][pattern_type] = 1
+
+            if pattern_subtype in indi['pattern_subtype']:
+                indi['pattern_subtype'][pattern_subtype] += 1
+            else:
+                indi['pattern_subtype'][pattern_subtype] = 1
+
+        for case in cases:
+            if cached:
+                if case[0] < aware_startdate:
+                    break
+                created = case[0]
+            else:
+                created = case['created']
+            key = created.astimezone(pytz.timezone(tz)).strftime('%Y-%m-%d')
+            if not cached:
+                data_dict[key]['case']['count'] += case['count']
+            else:
+                data_dict[key]['case']['count'] += 1
+
+        return APIResponse({
+            "data": data_dict
+        })
