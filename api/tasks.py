@@ -7,7 +7,6 @@ from .cache import DefaultCache
 from celery.schedules import crontab
 import datetime
 
-@periodic_task(name='api.tasks.cache_metrics_task', run_every=crontab(minute='*/5'))
 def cache_metrics_task():
     month_ago = (datetime.datetime.now() - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
     c = DefaultCache()
