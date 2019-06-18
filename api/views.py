@@ -1459,7 +1459,7 @@ class Metrics(APIView):
 
         if not indicators or not cases:
             cached = False
-            CacheMetricsTask().delay()
+            #CacheMetricsTask().delay()
             cases = Case\
                 .objects \
                 .filter(created__gte=aware_startdate) \
