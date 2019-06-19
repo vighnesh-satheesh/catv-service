@@ -447,11 +447,7 @@ class CaseDetailView(APIView):
         except self.model.DoesNotExist:
             raise exceptions.CaseNotFound()
 
-    def get(self, request, pk=None):
-        obj = self.get_object(pk, request)
-        serializer = CaseDetailSerializer(obj, context={'request': request})
-        data = serializer.data
-
+    def get_permission(self, request, obj, status):
         user_permission = getattr(request.user, 'permission', None)
         is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
         is_owner = True if request.user == obj.owner else False
@@ -462,11 +458,11 @@ class CaseDetailView(APIView):
             permission_data['editable'] = True
             permission_data['deletable'] = True
 
-        if obj.owner == request.user and obj.status == CaseStatus.PROGRESS:
+        if obj.owner == request.user and status == CaseStatus.PROGRESS:
             permission_data['editable'] = True
             permission_data['deletable'] = True
 
-        if obj.reporter == request.user and obj.status == CaseStatus.NEW:
+        if obj.reporter == request.user and status == CaseStatus.NEW:
             permission_data['editable'] = True
             permission_data['deletable'] = True
 
@@ -476,8 +472,20 @@ class CaseDetailView(APIView):
         if 'deletable' not in permission_data:
             permission_data['deletable'] = False
 
-        next_status = utils.CASE_STATUS_FSM.next(obj.status, is_super, is_owner, user_permission)
+        next_status = utils.CASE_STATUS_FSM.next(status, is_super, is_owner, user_permission)
         permission_data["status"] = [e.value for e in next_status]
+        return permission_data
+
+    def get(self, request, pk=None):
+        obj = self.get_object(pk, request)
+        serializer = CaseDetailSerializer(obj, context={'request': request})
+        data = serializer.data
+
+        user_permission = getattr(request.user, 'permission', None)
+        is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
+        is_owner = True if request.user == obj.owner else False
+
+        permission_data = self.get_permission(request, obj, obj.status)
 
         return APIResponse({
             "data": {
@@ -537,6 +545,8 @@ class CaseDetailView(APIView):
         c.delete_key('left_panel_values')
         c.delete_view_cache(request)
 
+        permission_data = self.get_permission(request, obj, CaseStatus(request.data['status']))
+
         if obj.reporter and obj.reporter.email_notification:
             notification = Notification.objects.create(
                 user=obj.reporter,
@@ -559,16 +569,23 @@ class CaseDetailView(APIView):
                               sender = e.EMAIL_SENDER["NO-REPLY"],
                               recipient = [obj.reporter.email])
 
-        return APIResponse({"data": {}})
+        return APIResponse({"data": {
+            'case_permission': permission_data
+        }})
 
     def delete(self, request, pk=None):
         try:
             with transaction.atomic():
                 obj = self.get_object(pk, request)
-                if obj.status != CaseStatus.PROGRESS:
+
+                if obj.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
                     raise exceptions.ValidationError("case cannot be deleted.")
-                if obj.owner != request.user:
+
+                if (request.user.permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]) and \
+                        (obj.status == CaseStatus.NEW and obj.reporter != request.user or \
+                         (obj.status in [CaseStatus.PROGRESS, CaseStatus.REJECTED] and obj.owner != request.user)):
                     raise exceptions.OwnerRequiredError()
+
                 CaseIndicator.objects.filter(case = obj).delete()
 
         except Case.DoesNotExist:
@@ -704,7 +721,7 @@ class IndicatorDetailView(APIView):
     permission_classes = (AllowAny,)
     model = Indicator
 
-    def get_object(self, pk, pattern):
+    def get_object(self, pk=None, pattern=None):
         if not pk and not pattern:
             raise exceptions.IndicatorNotFound()
         if pk:
@@ -759,6 +776,11 @@ class IndicatorDetailView(APIView):
                 for case in cases:
                     if case.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
                         raise exceptions.ValidationError("has confirmed or released attached cases.")
+
+                if (request.user.permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]) and \
+                        indicator.user != request.user:
+                    raise exceptions.NotAllowedError()
+
                 CaseIndicator.objects.filter(indicator=indicator).delete()
                 indicator.delete()
         except Indicator.DoesNotExist:
