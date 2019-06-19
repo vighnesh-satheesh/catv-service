@@ -1,42 +1,29 @@
-from celery.task.schedules import crontab
 from celery.decorators import periodic_task
 from celery.task import Task
 from celery.registry import tasks
 from django.db.models import Q
 from django.db import connection, connections
 from .cache import DefaultCache
-from .models import (
-    User, Case, Indicator, CaseStatus,
-)
+from celery.schedules import crontab
+import datetime
 
-"""
-@periodic_task(run_every=(crontab(hour="23", minute="59", day_of_week="*")))
-def get_dashboard_metrics():
-    pass
-
-@periodic_task(run_every=(datetime.timedelta(minutes=10)))
-def save_released_indicator_to_cache():
-    indicator_cache = IndicatorCache()
-    last_id = indicator_cache.get_last_indicator_id()
-
-    q = Q()
-    q &= Q(cases__status = 'released')
-
-    if last_id:
-        q &= Q(id__gt = last_id)
-
-    indicators = Indicator.objects.filter(q).order_by('pattern', '-created').distinct('pattern')
-
-    max_id = 0
-    for indicator in indicators:
-        IndicatorCache().set_indicator(indicator.pattern.lower(), indicator, indicator.security_category.value)
-        if max_id < indicator.id:
-            max_id = max_id
-
-    if max_id > 0:
-        IndicatorCache().set_last_indicator_id(max_id)
+def cache_metrics_task():
+    month_ago = (datetime.datetime.now() - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
+    c = DefaultCache()
+    with connections['default'].cursor() as cursor:
+        cursor.execute( \
+            'SELECT \
+            id, uid, security_category, pattern, created, security_tags, pattern_type, pattern_subtype \
+            FROM api_indicator \
+            where created > ' + '\'' + month_ago + '\' \
+                order by created desc')
+        rows = cursor.fetchall()
+        c.set('metrics_indicators', rows, 60 * 6)
+        cursor.execute('SELECT created from api_case where created > \'' + month_ago + '\' order by created desc')
+        rows = cursor.fetchall()
+        c.set('metrics_cases', rows, 60 * 6)
     return True
-"""
+
 
 class CacheLeftPanelValuesTask(Task):
     def run(self, *args, **kwargs):
@@ -66,4 +53,11 @@ class CacheLeftPanelValuesTask(Task):
             c.set('left_panel_values', dashboard_obj, 60 * 60)
         return True
 
+
+class CacheMetricsTask(Task):
+    def run(self, *args, **kwargs):
+        cache_metrics_task()
+        return True
+
 tasks.register(CacheLeftPanelValuesTask)
+tasks.register(CacheMetricsTask)
