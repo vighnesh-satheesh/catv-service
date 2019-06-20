@@ -1286,12 +1286,14 @@ class CaseTRDBSerializer(NonNullModelSerializer):
     def get_owned_by(self, obj):
         if obj.owner:
             return {"id": str(obj.owner.uid)}
-        return None
+        else:
+            return {"id": ""}
 
     def get_reported_by(self, obj):
         if obj.reporter:
             return {"id": str(obj.reporter.uid)}
-        return None
+        else:
+            return {"id": ""}
 
     def get_verified_by(self, obj):
         if obj.verifier:
