@@ -62,18 +62,17 @@ class CacheMetricsTask(Task):
 
 
 class CatvHistoryTask(Task):
-    def run(self, entry, run_now):
-        if not run_now:
-            self.apply_async(args=[entry, True, ], countdown=10)
-        else:
-            with connections['default'].cursor() as cursor:
-                query = ("INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth,"
-                         "distribution_depth,transaction_limit,from_date,to_date,logged_time) "
-                         "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);")
-                data = (entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
-                        entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
-                        entry['from_date'], entry['to_date'], now(),)
-                cursor.execute(query, data)
+    def run(self, *args, **kwargs):
+        entry = kwargs['history']
+        with connections['default'].cursor() as cursor:
+            query = ("INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth,"
+                     "distribution_depth,transaction_limit,from_date,to_date,logged_time) "
+                     "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);")
+            data = (entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
+                    entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
+                    entry['from_date'], entry['to_date'], now(),)
+            cursor.execute(query, data)
+        return True
 
 
 tasks.register(CacheLeftPanelValuesTask)

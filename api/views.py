@@ -1435,7 +1435,7 @@ class CATVView(APIView):
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
         history = serializer.data
         history.update({'user_id': request.user.id})
-        CatvHistoryTask().run(history, False)
+        CatvHistoryTask().delay(history=history)
         return APIResponse({
             "data": results
         })
