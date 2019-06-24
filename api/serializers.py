@@ -605,7 +605,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         cases = data.pop("cases", [])
         force = data.pop("force", False)
 
-        if data["annotation"] and self.context["request"].user.permission != models.UserPermission.SUPERSENTINEL:
+        if "annotation" in data and self.context["request"].user.permission != models.UserPermission.SUPERSENTINEL:
             data.pop("annotation")
 
         if len(dup) > 0 and not force:
@@ -617,7 +617,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     case_instance = models.Case.objects.get(id=case["id"])
                     if case_instance.status not in [models.CaseStatus.NEW, models.CaseStatus.PROGRESS]:
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
-                    models.CaseIndicator.objects.create(case=case, indicator=indicator)
+                    models.CaseIndicator.objects.create(case=case_instance, indicator=indicator)
                 if "annotation" in data:
                     for annotation in [x.strip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
