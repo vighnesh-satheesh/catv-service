@@ -115,9 +115,13 @@ class TrackingResults:
         query_list &= Q(pattern_lower__in=[addr.lower() for addr in addr_list])
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).distinct('id').\
             values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail', 'pattern_subtype',
-                   'pattern_type', 'annotation').order_by('pk')
+                   'pattern_type', 'annotation').order_by('-id')
+        seen_indicators = []
 
         for item in indicators:
+            if item['pattern'].lower() in seen_indicators:
+                continue
+
             cur_node = nc.get_node(item["pattern"].lower())
             cur_node.update(trdb_info={**item, 'uid': str(item['uid']),
                                        'security_category': item['security_category'].value,
@@ -141,6 +145,8 @@ class TrackingResults:
                 else:
                     kwargs["annotation"] = ""
                 cur_node.update(**kwargs)
+            nc.update_node(item['pattern'].lower(), cur_node)
+            seen_indicators.append(item['pattern'].lower())
         return nc
 
     def set_annotations_from_db(self):
