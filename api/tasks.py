@@ -6,21 +6,17 @@ from django.db import connections
 from django.utils.timezone import now
 
 from .cache import DefaultCache
+from .constants import Constants
 
 
 def cache_metrics_task():
     month_ago = (datetime.datetime.now() - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
     c = DefaultCache()
     with connections['default'].cursor() as cursor:
-        cursor.execute( \
-            'SELECT \
-            id, uid, security_category, pattern, created, security_tags, pattern_type, pattern_subtype \
-            FROM api_indicator \
-            where created > ' + '\'' + month_ago + '\' \
-                order by created desc')
+        cursor.execute(Constants.QUERIES["SELECT_INDICATORS_WITHIN_DATE"], (month_ago,))
         rows = cursor.fetchall()
         c.set('metrics_indicators', rows, 60 * 6)
-        cursor.execute('SELECT created from api_case where created > \'' + month_ago + '\' order by created desc')
+        cursor.execute(Constants.QUERIES['SELECT_CASE_BY_CREATED'], (month_ago,))
         rows = cursor.fetchall()
         c.set('metrics_cases', rows, 60 * 6)
     return True
@@ -36,18 +32,13 @@ class CacheLeftPanelValuesTask(Task):
             }
         }
         with connections['default'].cursor() as cursor:
-            cursor.execute('SELECT status, reporter_id, owner_id FROM api_case')
+            cursor.execute(Constants.QUERIES['SELECT_CASE_DETAILS'])
             row = cursor.fetchall()
             dashboard_obj['cases'] = row
-            cursor.execute('SELECT count(*) from api_indicator')
+            cursor.execute(Constants.QUERIES['SELECT_INDICATOR_COUNT'])
             row = cursor.fetchone()
             dashboard_obj['indicators']['all'] = row[0]
-            cursor.execute(\
-                'SELECT COUNT(*) FROM api_indicator AS i \
-                            JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
-                            JOIN api_case as c ON ci.case_id = c.id \
-                            WHERE c.status = \'released\' OR c.status = \'confirmed\''\
-            )
+            cursor.execute(Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'], ('released', 'confirmed',))
             row = cursor.fetchone()
             dashboard_obj['indicators']['cr'] = row[0]
             c = DefaultCache()
@@ -64,17 +55,27 @@ class CacheMetricsTask(Task):
 class CatvHistoryTask(Task):
     def run(self, *args, **kwargs):
         entry = kwargs['history']
+        query_list = [Constants.QUERIES['INSERT_USER_CATV_HISTORY'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
+        query_data = [(entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
+                       entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
+                       entry['from_date'], entry['to_date'], now(),),
+                      (entry['user_id'],)]
+
         with connections['default'].cursor() as cursor:
-            query = ("INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth,"
-                     "distribution_depth,transaction_limit,from_date,to_date,logged_time) "
-                     "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);")
-            data = (entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
-                    entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
-                    entry['from_date'], entry['to_date'], now(),)
-            cursor.execute(query, data)
+            for query, data in zip(query_list, query_data):
+                cursor.execute(query, data)
+        return True
+
+
+class CheckUpdateUsageQuotaTask(Task):
+    def run(self, *args, **kwargs):
+        query = Constants.QUERIES['REFILL_USER_USAGE_QUOTA']
+        with connections['default'].cursor() as cursor:
+            cursor.execute(query)
         return True
 
 
 tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CacheMetricsTask)
 tasks.register(CatvHistoryTask)
+tasks.register(CheckUpdateUsageQuotaTask)

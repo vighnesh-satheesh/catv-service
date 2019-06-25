@@ -10,7 +10,8 @@ import os
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = "ApiConfig"
-    app = Celery('tasks', broker=settings.BROKER_URL)
+    app = Celery('tasks')
+    app.config_from_object('django.conf:settings')
     app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
 
     @classmethod

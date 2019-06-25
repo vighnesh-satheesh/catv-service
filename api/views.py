@@ -39,7 +39,7 @@ from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
-    IndicatorPostThrottle, CatvPostThrottle
+    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle
 )
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
@@ -1420,7 +1420,7 @@ class CATVView(APIView):
 
     def get_throttles(self):
         if self.request.method.lower() == 'post':
-            return [CatvPostThrottle(), ]
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
 
     def post(self, request):
         serializer = CATVSerializer(data=request.data, context={"request": request})

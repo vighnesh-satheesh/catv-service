@@ -754,3 +754,19 @@ class CatvHistory(models.Model):
 
     class Meta:
         db_table = 'api_catv_history'
+        indexes = [
+            models.Index(fields=['user', ]),
+        ]
+
+
+class Usage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    api_calls_left = models.IntegerField(default=0)
+    catv_calls_left = models.IntegerField(default=0)
+    cara_calls_left = models.IntegerField(default=0)
+    last_renewal_at = models.DateTimeField(null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', ]),
+        ]
