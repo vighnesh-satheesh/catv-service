@@ -860,27 +860,31 @@ class SearchView(generics.ListAPIView):
         if not self.request.auth:
             raise exceptions.AuthenticationCheckError()
 
-        filter_queries = Q(id=0)
+        case_filter_queries = Q(id=0)
+        indicator_filter_queries = Q(id=0)
         if query.isdigit():
-            filter_queries = Q(id=int(query))
-        if len(query) > 1 and filter_queries is None:
-            filter_queries = Q(title__icontains=query)
-        elif len(query) > 1 and filter_queries is not None:
-            filter_queries |= Q(title__icontains=query)
+            case_filter_queries = Q(id=int(query))
+            indicator_filter_queries = Q(id=int(query))
+        if len(query) > 1 and case_filter_queries is None:
+            case_filter_queries |= Q(title__ilike=query)
+        elif len(query) > 1 and case_filter_queries is not None:
+            case_filter_queries |= Q(title__ilike=query)
+            case_filter_queries |= Q(ico__symbol__ilike=query)
 
         if len(query) > 1:
-            filter_queries |= Q(indicator__pattern__icontains=query)
-            filter_queries |= Q(indicator__pattern_subtype__icontains=query)
-            filter_queries |= Q(ico__symbol__icontains=query)
+            indicator_filter_queries = Q(indicator__pattern__ilike=query)
+            indicator_filter_queries |= Q(indicator__pattern_subtype__ilike=query)
 
         if self.request.user.permission is UserPermission.EXCHANGE:
-            filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(reporter=self.request.user.pk)
+            case_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
+                                   Q(reporter=self.request.user.pk)
+            indicator_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
+                                        Q(reporter=self.request.user.pk)
 
-        objs = Case.objects \
-            .filter(filter_queries) \
-            .select_related('ico') \
-            .distinct('id') \
-            .order_by('-pk')
+        case_indicator_results = Case.objects.filter(indicator_filter_queries).select_related('ico').distinct('id')
+        case_results = Case.objects.filter(case_filter_queries).select_related('ico').distinct('id')
+
+        objs = case_indicator_results.union(case_results).order_by('-pk')
 
         return objs
 

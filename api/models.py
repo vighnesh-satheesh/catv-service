@@ -10,10 +10,11 @@ from django.contrib.auth.hashers import (
     check_password, make_password,
 )
 from django.contrib.postgres.fields import ArrayField, JSONField
-from django.contrib.postgres.indexes import GistIndex
+from django.contrib.postgres.indexes import GistIndex, GinIndex
 from django.utils.safestring import mark_safe
 from django.template.defaultfilters import truncatechars
 from django.utils.timezone import now
+from django.db.models.lookups import IContains
 
 import random, string
 import magic
@@ -288,6 +289,27 @@ class FileStatus(IntEnum):
     COMPLETED = 1000
 
 
+class PostgresILike(IContains):
+    lookup_name = 'ilike'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return '%s ILIKE %s' % (lhs, rhs), params
+
+
+class CustomGinIndex(GinIndex):
+    def create_sql(self, model, schema_editor, using=''):
+        statement = super().create_sql(model, schema_editor)
+        statement.template = "CREATE INDEX %(name)s ON %(table)s%(using)s (%(columns)s gin_trgm_ops)%(extra)s"
+        return statement
+
+
+models.CharField.register_lookup(PostgresILike)
+models.TextField.register_lookup(PostgresILike)
+
+
 class Role(models.Model):
     role_name = models.CharField(max_length=128, unique=True)
 
@@ -449,6 +471,7 @@ class Case(models.Model):
             models.Index(fields=['status', ]),
             models.Index(fields=['owner', ]),
             models.Index(fields=['created', ]),
+            CustomGinIndex(fields=['title', ]),
         ]
 
     def save(self, *args, **kargs):
@@ -506,6 +529,8 @@ class Indicator(models.Model):
             models.Index(fields=['uid']),
             models.Index(fields=['pattern_tree', ]),
             models.Index(fields=['user']),
+            CustomGinIndex(fields=['pattern', ]),
+            CustomGinIndex(fields=['pattern_subtype', ]),
         ]
 
     @property
