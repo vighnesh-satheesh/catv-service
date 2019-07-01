@@ -1551,10 +1551,10 @@ class Metrics(APIView):
             filters = Q()
             if user_permission not in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
                 filters &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
-            indicators = Indicator.objects.filter(filters).order_by('-id')[:50]
+            indicators = Indicator.objects.filter(filters).order_by('-id')[:100]
             indicators_serializer = IndicatorLatestRecordSerializer(indicators, many=True)
             latest_indicators = indicators_serializer.data
-            c.set(indicator_cache_key, latest_indicators, 60 * 5)
+            c.set(latest_indicator_cache_key, latest_indicators, 60 * 5)
 
         return APIResponse({
             "data": {
