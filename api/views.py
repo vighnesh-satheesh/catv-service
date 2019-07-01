@@ -29,6 +29,7 @@ from .serializers import (
     AutoCompleteSerializer, AttachedFilePostSerializer,
     ICODetailSerializer, ICOListSerializer,
     IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
+    IndicatorLatestRecordSerializer,
     UppwardRewardInfoPostSerializer,
     UserDetailSerializer, UserPostSerializer,
     ICFDetailSerializer, ICFPostSerializer,
@@ -50,6 +51,7 @@ from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .settings import api_settings
 from .cache import DefaultCache
 from .cache.catv import TrackingCache
+from .cache.local import LocalCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
@@ -1447,11 +1449,12 @@ class CATVView(APIView):
 
 class Metrics(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, format=None):
         tz = request.query_params.get('timezone', None)
         rng = request.query_params.get('range', None)
+        user_permission = getattr(request.user, 'permission', None)
 
         if not timezone or not rng:
             raise exceptions.ValidationError("timezone or type is not provided.")
@@ -1462,10 +1465,10 @@ class Metrics(APIView):
         start_date = now_date - datetime.timedelta(days=rng - 1)
         unaware_std = datetime.datetime.strptime(start_date.strftime('%Y-%m-%d') + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
         aware_startdate = pytz.timezone(tz).localize(unaware_std)
-        data_dict = {}
+        date_dict = {}
         for d in range(rng):
             key = (now_date - datetime.timedelta(days=d)).strftime('%Y-%m-%d')
-            data_dict[key] = {
+            date_dict[key] = {
                 'indicator': {
                     'count': 0,
                     'security_tags': {},
@@ -1476,88 +1479,86 @@ class Metrics(APIView):
                     'count': 0,
                 }
             }
+        indicator_cache_key = 'metrics_indicators_{0}_{1}'.format(str(rng), tz)
+        case_cache_key = 'metrics_cases_{0}_{1}'.format(str(rng), tz)
 
-        c = DefaultCache()
-        indicators = c.get('metrics_indicators')
-        cases = c.get('metrics_cases')
-        cached = True
+        if user_permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+            latest_indicator_cache_key = 'metrics_indicators_{0}'.format('sentinel')
+        else:
+            latest_indicator_cache_key = 'metrics_indicators_{0}'.format('non-sentinel')
 
-        if not indicators or not cases:
-            cached = False
-            #CacheMetricsTask().delay()
-            cases = Case\
-                .objects \
-                .filter(created__gte=aware_startdate) \
-                .annotate(created_date=TruncDate('created')) \
-                .values('created', 'created_date') \
-                .annotate(count=Count('id')) \
-                .order_by('-created')
+        c = LocalCache()
+        indicators = c.get(indicator_cache_key)
+        cases = c.get(case_cache_key)
+        latest_indicators = c.get(latest_indicator_cache_key)
+        cached = True if (indicators != None and cases != None) else False
 
-            indicators = Indicator.\
-                objects\
-                .filter(created__gte=aware_startdate)\
-                .annotate(created_date=TruncDate('created'))\
-                .values('created', 'created_date', 'security_tags', 'pattern_type', 'pattern_subtype')\
-                .annotate(count=Count('id'))\
-                .order_by('-created')
+        if not cached:
+            case_row_query = \
+                'SELECT '\
+                'count(id), date_trunc(\'day\', created AT TIME ZONE \'' + tz + '\') as d '\
+                'FROM api_case ' \
+                'WHERE created AT TIME ZONE \'' + tz + '\' > \'' + aware_startdate.strftime('%Y-%m-%d') + '\' ' \
+                'GROUP BY d'
 
-        for indicator in indicators:
-            if cached:
-                id = indicator[0]
-                uid = indicator[1]
-                security_category = indicator[2]
-                pattern = indicator[3]
-                created = indicator[4]
-                security_tags = indicator[5]
-                pattern_type = indicator[6]
-                pattern_subtype = indicator[7]
+            indicator_row_query = \
+                'SELECT '\
+                'count(id), date_trunc(\'day\', created AT TIME ZONE \'' + tz + '\') as d, pattern_type, pattern_subtype, security_tags '\
+                'FROM api_indicator ' \
+                'WHERE created AT TIME ZONE \'' + tz + '\' > \'' + aware_startdate.strftime('%Y-%m-%d') + '\' ' \
+                'GROUP BY d, pattern_type, pattern_subtype, security_tags'
 
-                if created < aware_startdate:
-                    break
+            with connection.cursor() as cursor:
+                cursor.execute(case_row_query)
+                cases = cursor.fetchall()
+                cursor.execute(indicator_row_query)
+                indicators = cursor.fetchall()
 
-            else:
-                created = indicator['created']
-                security_tags = indicator['security_tags']
-                pattern_type = indicator['pattern_type'].value
-                pattern_subtype = indicator['pattern_subtype'].value
-            key = created.astimezone(pytz.timezone(tz)).strftime('%Y-%m-%d')
-            indi = data_dict[key]['indicator']
-
-            if cached:
-                indi['count'] += 1
-            else:
-                indi['count'] += indicator['count']
-
-            if security_tags:
-                for tag in security_tags:
-                    if tag in indi['security_tags']:
-                        indi['security_tags'][tag] += 1
-                    else:
-                        indi['security_tags'][tag] = 1
-
-            if pattern_type in indi['pattern_type']:
-                indi['pattern_type'][pattern_type] += 1
-            else:
-                indi['pattern_type'][pattern_type] = 1
-
-            if pattern_subtype in indi['pattern_subtype']:
-                indi['pattern_subtype'][pattern_subtype] += 1
-            else:
-                indi['pattern_subtype'][pattern_subtype] = 1
+                c.set(case_cache_key, cases, 60 * 5)
+                c.set(indicator_cache_key, indicators, 60 * 5)
 
         for case in cases:
-            if cached:
-                if case[0] < aware_startdate:
-                    break
-                created = case[0]
+            key = case[1].strftime('%Y-%m-%d')
+            date_dict[key]['case']['count'] += case[0]
+
+        for indicator in indicators:
+            count = indicator[0]
+            date = indicator[1].strftime('%Y-%m-%d')
+            pattern_type = indicator[2]
+            pattern_subtype = indicator[3]
+            security_tags = indicator[4]
+
+            date_dict[date]['indicator']['count'] += count
+
+            if pattern_type in date_dict[date]['indicator']['pattern_type']:
+                date_dict[date]['indicator']['pattern_type'][pattern_type] += count
             else:
-                created = case['created']
-            key = created.astimezone(pytz.timezone(tz)).strftime('%Y-%m-%d')
-            if not cached:
-                data_dict[key]['case']['count'] += case['count']
+                date_dict[date]['indicator']['pattern_type'][pattern_type] = count
+
+            if pattern_subtype in date_dict[date]['indicator']['pattern_subtype']:
+                date_dict[date]['indicator']['pattern_subtype'][pattern_subtype] += count
             else:
-                data_dict[key]['case']['count'] += 1
+                date_dict[date]['indicator']['pattern_subtype'][pattern_subtype] = count
+
+            if security_tags is not None:
+                for tag in security_tags:
+                    if tag in date_dict[date]['indicator']['security_tags']:
+                        date_dict[date]['indicator']['security_tags'][tag] += count
+                    else:
+                        date_dict[date]['indicator']['security_tags'][tag] = count
+
+        if not latest_indicators:
+            filters = Q()
+            if user_permission not in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+                filters &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+            indicators = Indicator.objects.filter(filters).order_by('-id')[:50]
+            indicators_serializer = IndicatorLatestRecordSerializer(indicators, many=True)
+            latest_indicators = indicators_serializer.data
+            c.set(indicator_cache_key, latest_indicators, 60 * 5)
 
         return APIResponse({
-            "data": data_dict
+            "data": {
+                "dates": date_dict,
+                "indicators": latest_indicators
+            }
         })

@@ -560,6 +560,17 @@ class IndicatorListSerializer(NonNullModelSerializer):
         super(IndicatorListSerializer, self).__init__(*args, **kwargs)
 
 
+class IndicatorLatestRecordSerializer(NonNullModelSerializer):
+    security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
+    pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
+    pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
+
+    class Meta:
+        model = models.Indicator
+        fields = ("id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
+        read_only_fields = ("id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
+
+
 class IndicatorPostSerializer(NonNullModelSerializer):
     pattern = serializers.CharField(required=False)
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
