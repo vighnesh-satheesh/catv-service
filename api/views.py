@@ -55,13 +55,14 @@ from .cache.local import LocalCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
-from .tasks import CacheLeftPanelValuesTask, CacheMetricsTask, CatvHistoryTask
+from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicators
 from django.utils import timezone
 from django.utils.timezone import make_aware
 
 import datetime
 import pytz
 import json
+import math
 
 class HealthCheckView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -419,6 +420,7 @@ class CaseView(generics.ListCreateAPIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
 
         return APIResponse({
             "data": {
@@ -541,6 +543,7 @@ class CaseDetailView(APIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
         c.delete_view_cache(request)
 
         permission_data = self.get_permission(request, obj, CaseStatus(request.data['status']))
@@ -615,24 +618,32 @@ class CaseDetailView(APIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
 
 
-class IndicatorFilter(filters.FilterSet):
-    page = filters.CharFilter(method='filter_queryset')
+class IndicatorView(generics.ListCreateAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = Indicator
 
-    class Meta:
-        model = Indicator
-        fields = ()
+    def get_throttles(self):
+        ret = []
+        if self.request.method.lower() == 'get':
+            return ret
+        elif self.request.method.lower() == 'post':
+            return [IndicatorPostThrottle(), ]
+        else:
+            return super(IndicatorView, self).get_throttles()
 
-    def filter_queryset(self, queryset, name, value):
+    def get_filter(self):
         ftr = Q()
         keyword_filter = Q()
 
         if self.request.user.permission is not UserPermission.SUPERSENTINEL and \
-            self.request.user.permission is not UserPermission.SENTINEL:
-            ftr &= (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
+                self.request.user.permission is not UserPermission.SENTINEL:
+            ftr &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
 
         status = self.request.GET.getlist("status") or []
         security_category = self.request.GET.getlist("security_category") or []
@@ -657,37 +668,48 @@ class IndicatorFilter(filters.FilterSet):
 
         if len(status) > 0:
             ftr &= Q(cases__status__in=status)
-            return queryset.filter(ftr).prefetch_related('cases')
 
-        return queryset.filter(ftr)
+        return ftr
 
-
-class IndicatorView(generics.ListCreateAPIView):
-    authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (AllowAny,)
-    pagination_class = CustomPagination
-    filter_backends = (filters.DjangoFilterBackend,)
-    filter_class = IndicatorFilter
-    serializer_class = IndicatorListSerializer
-    model = Indicator
-
-    def get_queryset(self):
-        order_by = self.request.GET.get('order_by') or 'id_desc'
+    def list(self, request, *args, **kwargs):
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        page = self.request.GET.get('page', 1)
         order_by = order_by.split('_')
-        key = ""
-        if order_by[1] == "desc":
-            key = "-"
+        key = ''
+        if order_by[1] == 'desc':
+            key = '-'
         key = key + order_by[0]
-        return self.model.objects.distinct('id').order_by(key)
+        page = int(page)
+        page_size = 25
+        total_items = 0
+        ftr = self.get_filter()
 
-    def get_throttles(self):
-        ret = []
-        if self.request.method.lower() == 'get':
-            return ret
-        elif self.request.method.lower() == 'post':
-            return [IndicatorPostThrottle(), ]
-        else:
-            return super(IndicatorView, self).get_throttles()
+        indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[page_size * (page-1):page_size * page]
+        serializer = IndicatorListSerializer(indicators, many=True)
+
+        if len(ftr) == 0:
+            c = DefaultCache()
+            d = c.get('number_of_indicators')
+            if d:
+                if self.request.user.permission is not UserPermission.SUPERSENTINEL and \
+                        self.request.user.permission is not UserPermission.SENTINEL:
+                    total_items = d['released_confirmed']
+                else:
+                    total_items = d['all']
+            else:
+                CacheNumberOfIndicators().delay()
+
+        if total_items == 0:
+            total_items = self.model.objects.filter(ftr).distinct('id').count()
+
+        return APIResponse({
+            "data": {
+                "indicators": serializer.data,
+                "totalItems": total_items,
+                "totalPages": math.ceil(total_items / page_size),
+                "pageIndex": page
+            }
+        })
 
     def post(self, request):
         if "indicators" in request.data:
@@ -704,14 +726,12 @@ class IndicatorView(generics.ListCreateAPIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
 
         return APIResponse({
             "data": result_serializer.data
         })
 
-    def get_paginated_response(self, data):
-        assert self.paginator is not None
-        return self.paginator.get_paginated_response(data, data_key="indicators")
 
 
 class IndicatorDetailView(APIView):
@@ -787,6 +807,7 @@ class IndicatorDetailView(APIView):
             raise exceptions.DataIntegrityError("")
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
 

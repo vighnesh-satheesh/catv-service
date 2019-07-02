@@ -57,6 +57,7 @@ class CaseIntervalView(APIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
 
         return APIResponse({
             "data": {
@@ -103,6 +104,7 @@ class IndicatorInternalPostView(APIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
 
         return APIResponse({
             "data": result_serializer.data
@@ -125,6 +127,7 @@ class IndicatorInternalView(APIView):
 
         c = DefaultCache()
         c.delete_key('left_panel_values')
+        c.delete_key('number_of_indicators')
 
         return APIResponse({
             "data": result_serializer.data

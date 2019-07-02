@@ -1,5 +1,3 @@
-import datetime
-
 from celery.task import Task
 from celery.registry import tasks
 from django.db import connections
@@ -7,19 +5,6 @@ from django.utils.timezone import now
 
 from .cache import DefaultCache
 from .constants import Constants
-
-
-def cache_metrics_task():
-    month_ago = (datetime.datetime.now() - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
-    c = DefaultCache()
-    with connections['default'].cursor() as cursor:
-        cursor.execute(Constants.QUERIES["SELECT_INDICATORS_WITHIN_DATE"], (month_ago,))
-        rows = cursor.fetchall()
-        c.set('metrics_indicators', rows, 60 * 6)
-        cursor.execute(Constants.QUERIES['SELECT_CASE_BY_CREATED'], (month_ago,))
-        rows = cursor.fetchall()
-        c.set('metrics_cases', rows, 60 * 6)
-    return True
 
 
 class CacheLeftPanelValuesTask(Task):
@@ -46,9 +31,19 @@ class CacheLeftPanelValuesTask(Task):
         return True
 
 
-class CacheMetricsTask(Task):
+class CacheNumberOfIndicators(Task):
     def run(self, *args, **kwargs):
-        cache_metrics_task()
+        with connections['default'].cursor() as cursor:
+            cursor.execute(Constants.QUERIES['SELECT_INDICATOR_COUNT'])
+            all = cursor.fetchone()[0]
+            cursor.execute(Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'], ('released', 'confirmed',))
+            released_confirmed = cursor.fetchone()[0]
+            obj = {
+                "all": all,
+                "released_confirmed": released_confirmed
+            }
+            c = DefaultCache()
+            c.set("number_of_indicators", obj, 60 * 60)
         return True
 
 
@@ -76,6 +71,6 @@ class CheckUpdateUsageQuotaTask(Task):
 
 
 tasks.register(CacheLeftPanelValuesTask)
-tasks.register(CacheMetricsTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
+tasks.register(CacheNumberOfIndicators)
