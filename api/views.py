@@ -724,7 +724,7 @@ class IndicatorDetailView(APIView):
             raise exceptions.IndicatorNotFound()
         if pk:
             try:
-                indicator = self.model.objects.get(uid__iexact=pk)
+                indicator = self.model.objects.get(uid=pk)
             except self.model.DoesNotExist:
                 raise exceptions.IndicatorNotFound()
         elif pattern:
