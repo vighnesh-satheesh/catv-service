@@ -670,7 +670,7 @@ class IndicatorView(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         order_by = self.request.GET.get('order_by', 'id_desc')
         page = self.request.GET.get('page', 1)
-        total_items = self.request.GET.get('total_items', 0)
+        total_items = int(self.request.GET.get('total_items', 0))
         permission = self.request.user.permission
         order_by = order_by.split('_')
         key = ''
