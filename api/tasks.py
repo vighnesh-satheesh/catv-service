@@ -2,7 +2,6 @@ from celery.task import Task
 from celery.registry import tasks
 from django.db import connections
 from django.utils.timezone import now
-
 from .cache import DefaultCache
 from .constants import Constants
 
@@ -27,23 +26,26 @@ class CacheLeftPanelValuesTask(Task):
             row = cursor.fetchone()
             dashboard_obj['indicators']['cr'] = row[0]
             c = DefaultCache()
-            c.set('left_panel_values', dashboard_obj, 60 * 60)
+            c.set(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'], dashboard_obj['indicators'], 60 * 60)
+            c.set(Constants.CACHE_KEY['LEFT_PANEL_VALUES'], dashboard_obj, 60 * 60)
         return True
 
 
-class CacheNumberOfIndicators(Task):
+class CacheNumberOfIndicatorsCases(Task):
     def run(self, *args, **kwargs):
+        data = {
+            'all': 0,
+            'cr': 0
+        }
         with connections['default'].cursor() as cursor:
             cursor.execute(Constants.QUERIES['SELECT_INDICATOR_COUNT'])
-            all = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            data['all'] = row[0]
             cursor.execute(Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'], ('released', 'confirmed',))
-            released_confirmed = cursor.fetchone()[0]
-            obj = {
-                "all": all,
-                "released_confirmed": released_confirmed
-            }
+            row = cursor.fetchone()
+            data['cr'] = row[0]
             c = DefaultCache()
-            c.set("number_of_indicators", obj, 60 * 60)
+            c.set(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'], data, 60 * 60)
         return True
 
 
@@ -73,4 +75,4 @@ class CheckUpdateUsageQuotaTask(Task):
 tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
-tasks.register(CacheNumberOfIndicators)
+tasks.register(CacheNumberOfIndicatorsCases)

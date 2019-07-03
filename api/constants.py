@@ -45,5 +45,22 @@ class Constants:
         "SELECT_INDICATOR_COUNT": "SELECT count(*) from api_indicator;",
         "SELECT_CASE_INDICATOR_COUNT": "SELECT COUNT(*) FROM api_indicator AS i JOIN api_m2m_case_indicator AS ci "
                                        "ON ci.indicator_id = i.id JOIN api_case as c ON ci.case_id = c.id "
-                                       "WHERE c.status = %s OR c.status = %s;"
+                                       "WHERE c.status = %s OR c.status = %s;",
+        "SELECT_LEFT_PANEL_VALUES_CASE": "SELECT status, reporter_id, owner_id FROM api_case",
+        "SELECT_METRICS_CASE": "SELECT count(id), date_trunc('day', created AT TIME ZONE '{0}') as d "
+                               "FROM api_case "
+                               "WHERE created at TIME ZONE '{0}' > '{1}' "
+                               "GROUP BY d",
+        "SELECT_METRICS_INDICATOR": "SELECT count(id), date_trunc('day', created AT TIME ZONE '{0}') as d, " 
+                                    "pattern_type, pattern_subtype, security_tags "
+                                    "FROM api_indicator "
+                                    "WHERE created AT TIME ZONE '{0}' > '{1}' "
+                                    "GROUP BY d, pattern_type, pattern_subtype, security_tags"
+    }
+    CACHE_KEY = {
+        "LEFT_PANEL_VALUES": "left_panel_values",
+        "NUMBER_OF_INDICATORS_CASES": "number_of_cases_indicators",
+        "METRICS_INDICATOR": "metrics_indicators_{0}_{1}",
+        "METRICS_CASE": "metrics_cases_{0}_{1}",
+        "METRICS_LATEST_INDICATORS": "metrics_latest_indicators_{0}"
     }
