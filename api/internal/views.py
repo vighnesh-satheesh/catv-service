@@ -56,8 +56,8 @@ class CaseIntervalView(APIView):
             utils.TRDB_CLIENT.push_case("activateCase", data)
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": {
@@ -103,8 +103,8 @@ class IndicatorInternalPostView(APIView):
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": result_serializer.data
@@ -126,8 +126,8 @@ class IndicatorInternalView(APIView):
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": result_serializer.data

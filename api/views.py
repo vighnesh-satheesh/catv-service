@@ -55,9 +55,8 @@ from .cache.local import LocalCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
-from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicators
+from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases
 from django.utils import timezone
-from django.utils.timezone import make_aware
 
 import datetime
 import pytz
@@ -158,7 +157,7 @@ class DashboardView(APIView):
         user = request.user
 
         c = DefaultCache()
-        lpv = c.get('left_panel_values')
+        lpv = c.get(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
         number_of_all_indicators = 0
         all_cases = []
         my_cases = []
@@ -186,7 +185,7 @@ class DashboardView(APIView):
         ]
         with connection.cursor() as cursor:
             if not lpv:
-                cursor.execute('SELECT status, reporter_id, owner_id FROM api_case')
+                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE'])
                 row = cursor.fetchall()
             else:
                 row = lpv['cases']
@@ -224,12 +223,9 @@ class DashboardView(APIView):
                 sql = ''
                 if user.permission is UserPermission.SUPERSENTINEL or \
                         user.permission is UserPermission.SENTINEL:
-                    sql = 'SELECT count(*) from api_indicator'
+                    sql = Constants.QUERIES['SELECT_INDICATOR_COUNT']
                 else:
-                    sql = 'SELECT COUNT(*) FROM api_indicator AS i \
-                        JOIN api_m2m_case_indicator AS ci ON ci.indicator_id = i.id \
-                        JOIN api_case as c ON ci.case_id = c.id \
-                        WHERE c.status = \'released\' OR c.status = \'confirmed\''
+                    sql = Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'], ('released', 'confirmed',)
                 cursor.execute(sql)
                 row = cursor.fetchone()
                 number_of_all_indicators = row[0]
@@ -419,8 +415,8 @@ class CaseView(generics.ListCreateAPIView):
         )
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": {
@@ -542,8 +538,8 @@ class CaseDetailView(APIView):
         serializer.save()
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
 
         permission_data = self.get_permission(request, obj, CaseStatus(request.data['status']))
@@ -617,8 +613,8 @@ class CaseDetailView(APIView):
         obj.delete()
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
 
@@ -674,6 +670,8 @@ class IndicatorView(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         order_by = self.request.GET.get('order_by', 'id_desc')
         page = self.request.GET.get('page', 1)
+        total_items = self.request.GET.get('total_items', 0)
+        permission = self.request.user.permission
         order_by = order_by.split('_')
         key = ''
         if order_by[1] == 'desc':
@@ -681,26 +679,23 @@ class IndicatorView(generics.ListCreateAPIView):
         key = key + order_by[0]
         page = int(page)
         page_size = 25
-        total_items = 0
         ftr = self.get_filter()
 
         indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[page_size * (page-1):page_size * page]
         serializer = IndicatorListSerializer(indicators, many=True)
 
-        if len(ftr) == 0:
+        if len(ftr) == 0 and total_items == 0:
             c = DefaultCache()
-            d = c.get('number_of_indicators')
+            d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
             if d:
-                if self.request.user.permission is not UserPermission.SUPERSENTINEL and \
-                        self.request.user.permission is not UserPermission.SENTINEL:
-                    total_items = d['released_confirmed']
-                else:
+                if permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
                     total_items = d['all']
-            else:
-                CacheNumberOfIndicators().delay()
+                else:
+                    total_items = d['cr']
 
         if total_items == 0:
             total_items = self.model.objects.filter(ftr).distinct('id').count()
+            CacheNumberOfIndicatorsCases().delay()
 
         return APIResponse({
             "data": {
@@ -725,13 +720,12 @@ class IndicatorView(generics.ListCreateAPIView):
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
 
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": result_serializer.data
         })
-
 
 
 class IndicatorDetailView(APIView):
@@ -806,8 +800,8 @@ class IndicatorDetailView(APIView):
         except IntegrityError:
             raise exceptions.DataIntegrityError("")
         c = DefaultCache()
-        c.delete_key('left_panel_values')
-        c.delete_key('number_of_indicators')
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
 
@@ -1177,7 +1171,6 @@ class UserSignUpView(APIView):
         except self.model.DoesNotExist:
             raise exceptions.UserNotFound()
 
-
     def post(self, request, pk=None):
         serializer = UserPostSerializer(data=request.data, context={"request": request, "payload": {}})
         serializer.is_valid(raise_exception=True)
@@ -1486,6 +1479,7 @@ class Metrics(APIView):
         start_date = now_date - datetime.timedelta(days=rng - 1)
         unaware_std = datetime.datetime.strptime(start_date.strftime('%Y-%m-%d') + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
         aware_startdate = pytz.timezone(tz).localize(unaware_std)
+        offset = str(now_date.utcoffset())
         date_dict = {}
         for d in range(rng):
             key = (now_date - datetime.timedelta(days=d)).strftime('%Y-%m-%d')
@@ -1500,43 +1494,32 @@ class Metrics(APIView):
                     'count': 0,
                 }
             }
-        indicator_cache_key = 'metrics_indicators_{0}_{1}'.format(str(rng), tz)
-        case_cache_key = 'metrics_cases_{0}_{1}'.format(str(rng), tz)
+
+        indicator_cache_key = Constants.CACHE_KEY['METRICS_INDICATOR'].format(str(rng), offset)
+        case_cache_key = Constants.CACHE_KEY['METRICS_CASE'].format(str(rng), offset)
 
         if user_permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
-            latest_indicator_cache_key = 'metrics_indicators_{0}'.format('sentinel')
+            latest_indicator_cache_key = Constants.CACHE_KEY['METRICS_LATEST_INDICATORS'].format('sentinel')
         else:
-            latest_indicator_cache_key = 'metrics_indicators_{0}'.format('non-sentinel')
+            latest_indicator_cache_key = Constants.CACHE_KEY['METRICS_LATEST_INDICATORS'].format('non-sentinel')
 
-        c = LocalCache()
+        c = DefaultCache()
         indicators = c.get(indicator_cache_key)
         cases = c.get(case_cache_key)
         latest_indicators = c.get(latest_indicator_cache_key)
         cached = True if (indicators != None and cases != None) else False
 
         if not cached:
-            case_row_query = \
-                'SELECT '\
-                'count(id), date_trunc(\'day\', created AT TIME ZONE \'' + tz + '\') as d '\
-                'FROM api_case ' \
-                'WHERE created AT TIME ZONE \'' + tz + '\' > \'' + aware_startdate.strftime('%Y-%m-%d') + '\' ' \
-                'GROUP BY d'
-
-            indicator_row_query = \
-                'SELECT '\
-                'count(id), date_trunc(\'day\', created AT TIME ZONE \'' + tz + '\') as d, pattern_type, pattern_subtype, security_tags '\
-                'FROM api_indicator ' \
-                'WHERE created AT TIME ZONE \'' + tz + '\' > \'' + aware_startdate.strftime('%Y-%m-%d') + '\' ' \
-                'GROUP BY d, pattern_type, pattern_subtype, security_tags'
+            case_row_query = Constants.QUERIES['SELECT_METRICS_CASE'].format(tz, aware_startdate.strftime('%Y-%m-%d'))
+            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(tz, aware_startdate.strftime('%Y-%m-%d'))
 
             with connection.cursor() as cursor:
                 cursor.execute(case_row_query)
                 cases = cursor.fetchall()
                 cursor.execute(indicator_row_query)
                 indicators = cursor.fetchall()
-
-                c.set(case_cache_key, cases, 60 * 5)
-                c.set(indicator_cache_key, indicators, 60 * 5)
+                c.set(case_cache_key, cases, 60 * 10)
+                c.set(indicator_cache_key, indicators, 60 * 10)
 
         for case in cases:
             key = case[1].strftime('%Y-%m-%d')
@@ -1575,7 +1558,7 @@ class Metrics(APIView):
             indicators = Indicator.objects.filter(filters).order_by('-id')[:100]
             indicators_serializer = IndicatorLatestRecordSerializer(indicators, many=True)
             latest_indicators = indicators_serializer.data
-            c.set(latest_indicator_cache_key, latest_indicators, 60 * 5)
+            c.set(latest_indicator_cache_key, latest_indicators, 60 * 10)
 
         return APIResponse({
             "data": {
