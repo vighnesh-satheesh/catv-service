@@ -1313,7 +1313,7 @@ class CaseTRDBSerializer(NonNullModelSerializer):
     def get_verified_by(self, obj):
         if obj.verifier:
             return {"id": str(obj.verifier.uid)}
-        return None
+        return {"id": ""}
 
 
 class CasePatchSerializer(NonNullModelSerializer):
