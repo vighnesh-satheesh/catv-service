@@ -1060,7 +1060,10 @@ class VerifyEmail(APIView):
             raise exceptions.AuthenticationValidationError("")
 
     def get(self, request):
-        email = request.data["email"]
+        try:
+            email = request.data["email"]
+        except KeyError:
+            raise exceptions.DataIntegrityError("")
         user = self.get_object(email)
         e = Email()
         c = DefaultCache()
