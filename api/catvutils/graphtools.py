@@ -161,8 +161,6 @@ def assign_nodes(result, mode):
         except KeyError:
             volume_count[item[inner]] = 1
         counter += 1
-
-    addr = list(nc.get_node_enum().keys())
     return nc, volume_count
 
 
