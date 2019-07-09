@@ -116,7 +116,7 @@ class TrackingResults:
         pool.join()
 
     @staticmethod
-    def update_annotations(nc):
+    def update_annotations(nc, item_list):
         addr_list = nc.get_node_enum().keys()
         query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype="ETH", pattern_type="cryptoaddr")
         query_list &= Q(pattern_lower__in=[addr.lower() for addr in addr_list])
@@ -153,19 +153,24 @@ class TrackingResults:
                     kwargs["annotation"] = ""
                 cur_node.update(**kwargs)
             nc.update_node(item['pattern'].lower(), cur_node)
+            for transaction in item_list:
+                transaction.update((k + "_annotation", cur_node.annotation) for k, v in transaction.items()
+                                   if (k == 'sender' or k == 'receiver') and v.lower() == cur_node.address)
             seen_indicators.append(item['pattern'].lower())
-        return nc
+        return nc, item_list
 
     def set_annotations_from_db(self):
         if not self._skip_source:
             tracking_results, nc = self._async_source_graph.get()
-            updated_nc = TrackingResults.update_annotations(nc)
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
+            tracking_results['item_list'] = updated_item_list
             self._source_graph = tracking_results
         if not self._skip_dist:
             tracking_results, nc = self._async_dist_graph.get()
-            updated_nc = TrackingResults.update_annotations(nc)
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
+            tracking_results['item_list'] = updated_item_list
             self._dist_graph = tracking_results
 
     def make_graph_dict(self):
