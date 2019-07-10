@@ -531,6 +531,7 @@ class Indicator(models.Model):
             models.Index(fields=['user']),
             CustomGinIndex(fields=['pattern', ]),
             CustomGinIndex(fields=['pattern_subtype', ]),
+            models.Index(fields=['annotation', ]),
         ]
 
     @property
