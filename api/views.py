@@ -1089,7 +1089,7 @@ class VerifyEmail(APIView):
         v = c.get(code)
         if not v:
             raise exceptions.AuthenticationValidationError("")
-        email = v.split("-")[0]
+        email = "-".join(v.split("-")[:-1])
         user = self.get_object(email)
         user.update(status = UserStatus.EMAIL_CONFIRMED)
         token, _ = MultiToken.create_token(user)
