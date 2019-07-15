@@ -244,6 +244,9 @@ class UserPostSerializer(serializers.ModelSerializer):
             if permission not in [models.UserPermission.EXCHANGE, models.UserPermission.USER]:
                 raise exceptions.ValidationError("invalid data")
 
+            if permission is models.UserPermission.EXCHANGE:
+                data['role'] = models.Role.objects.get(role_name='organisation')
+
             # eof temporary code
             self._validate_new_password(user = None, new_pw = password)
             data['password'] = password
