@@ -271,13 +271,14 @@ BROKER_URL = API_SETTINGS['CELERY_BROKER_URL']
 CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
 CELERY_IMPORTS = ('api.tasks',)
+"""
 CELERYBEAT_SCHEDULE = {
     'check-quota-every-thirty-minutes': {
         'task': 'api.tasks.CheckUpdateUsageQuotaTask',
         'schedule': timedelta(minutes=30),
     },
 }
-
+"""
 # email
 EMAIL_BACK_END = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_USE_TLS = True
