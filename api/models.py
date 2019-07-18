@@ -299,6 +299,16 @@ class PostgresILike(IContains):
         return '%s ILIKE %s' % (lhs, rhs), params
 
 
+class PostgresArrayILike(IContains):
+    lookup_name = 'arrayilike'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return 'array_to_text(%s) ILIKE %s' % (lhs, rhs), params
+
+
 class CustomGinIndex(GinIndex):
     def create_sql(self, model, schema_editor, using=''):
         statement = super().create_sql(model, schema_editor)
@@ -308,6 +318,7 @@ class CustomGinIndex(GinIndex):
 
 models.CharField.register_lookup(PostgresILike)
 models.TextField.register_lookup(PostgresILike)
+ArrayField.register_lookup(PostgresArrayILike)
 
 
 class Role(models.Model):

@@ -1451,7 +1451,7 @@ class AutoCompleteSerializer(serializers.Serializer):
             return {"indicators": indicators}
 
         elif auto_type == "indicator_tag":
-            indicator_objs = models.Indicator.objects.filter(security_tags__icontains=query)
+            indicator_objs = models.Indicator.objects.filter(security_tags__arrayilike=query)
             if indicator_objs:
                 __tags = []
                 indicator_tags = []
