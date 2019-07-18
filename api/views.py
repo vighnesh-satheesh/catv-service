@@ -1,6 +1,8 @@
 from collections import defaultdict
 from web3.auto.infura import w3
 import gzip
+from kafka import KafkaProducer
+from json import dumps
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -1455,3 +1457,18 @@ class ValidateAddress(APIView):
             return APIResponse({
                 "data": "fail"
             })
+
+class CARA(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        producer = KafkaProducer(bootstrap_servers=['kafkabroker1.stg.upp:9092', 'kafkabroker2.stg.upp:9093'],
+                                 value_serializer=lambda x:
+                                 dumps(x).encode('utf-8'))
+        address = self.request.GET.get('address')
+        data = {'address': address}
+        print(producer.send('cara-address', data))
+        producer.flush()
+        producer.close()
+        return APIResponse(data)

@@ -69,7 +69,7 @@ class LoginSerializer(serializers.Serializer):
             address_c = w3.toChecksumAddress(reward_setting[0].get('token_address'))
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
-            bal = (token_upp.call().balanceOf(user.address))/1000000000000000000;
+            bal = (token_upp.call().balanceOf(user.address))/1000000000000000000
 
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",
