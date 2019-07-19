@@ -35,6 +35,11 @@ class TrackingResults:
         self.to_date = find_key(kwargs, 'to_date')
         self.token_address = find_key(kwargs, 'token_address')
         self.force_lookup = find_key(kwargs, 'force_lookup')
+        self.error = None
+
+    def bloxy_response_callback(self, *args, **kwargs):
+        if args and 'error' in args[0]:
+            self.error = args[0]['error']
 
     def get_results_from_bloxy(self, bloxy_interface, depth, till_date, for_source=False):
         return bloxy_interface.get_transactions(self.wallet_address, depth, self.transaction_limit,
@@ -89,10 +94,12 @@ class TrackingResults:
         pool = ThreadPool(processes=2)
         if self.source_depth:
             self._skip_source = False
-            self._async_source_result = pool.apply_async(self.fetch_results, (True,))
+            self._async_source_result = pool.apply_async(self.fetch_results, (True,),
+                                                         callback=self.bloxy_response_callback)
         if self.distribution_depth:
             self._skip_dist = False
-            self._async_dist_result = pool.apply_async(self.fetch_results, (False,))
+            self._async_dist_result = pool.apply_async(self.fetch_results, (False,),
+                                                       callback=self.bloxy_response_callback)
         pool.close()
         pool.join()
 
@@ -109,15 +116,19 @@ class TrackingResults:
         pool.join()
 
     @staticmethod
-    def update_annotations(nc):
+    def update_annotations(nc, item_list):
         addr_list = nc.get_node_enum().keys()
         query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype="ETH", pattern_type="cryptoaddr")
         query_list &= Q(pattern_lower__in=[addr.lower() for addr in addr_list])
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).distinct('id').\
             values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail', 'pattern_subtype',
-                   'pattern_type', 'annotation').order_by('pk')
+                   'pattern_type', 'annotation').order_by('-id')
+        seen_indicators = []
 
         for item in indicators:
+            if item['pattern'].lower() in seen_indicators:
+                continue
+
             cur_node = nc.get_node(item["pattern"].lower())
             cur_node.update(trdb_info={**item, 'uid': str(item['uid']),
                                        'security_category': item['security_category'].value,
@@ -141,18 +152,25 @@ class TrackingResults:
                 else:
                     kwargs["annotation"] = ""
                 cur_node.update(**kwargs)
-        return nc
+            nc.update_node(item['pattern'].lower(), cur_node)
+            for transaction in item_list:
+                transaction.update((k + "_annotation", cur_node.annotation) for k, v in transaction.items()
+                                   if (k == 'sender' or k == 'receiver') and v.lower() == cur_node.address)
+            seen_indicators.append(item['pattern'].lower())
+        return nc, item_list
 
     def set_annotations_from_db(self):
         if not self._skip_source:
             tracking_results, nc = self._async_source_graph.get()
-            updated_nc = TrackingResults.update_annotations(nc)
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
+            tracking_results['item_list'] = updated_item_list
             self._source_graph = tracking_results
         if not self._skip_dist:
             tracking_results, nc = self._async_dist_graph.get()
-            updated_nc = TrackingResults.update_annotations(nc)
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
+            tracking_results['item_list'] = updated_item_list
             self._dist_graph = tracking_results
 
     def make_graph_dict(self):

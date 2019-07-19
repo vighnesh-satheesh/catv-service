@@ -1,6 +1,12 @@
+from datetime import timedelta, datetime
+
 from rest_framework.throttling import (
-    AnonRateThrottle, UserRateThrottle
+    BaseThrottle, AnonRateThrottle, UserRateThrottle
 )
+from rest_framework.exceptions import Throttled
+
+from .models import Usage
+
 
 class EmailVerificationThrottle(UserRateThrottle):
     scope = "emailVerification"
@@ -28,6 +34,19 @@ class CasePostThrottle(UserRateThrottle):
 
 class IndicatorPostThrottle(UserRateThrottle):
     scope = "indicatorPost"
+
+
+class CatvUsageExceededThrottle(BaseThrottle):
+    def allow_request(self, request, view):
+        usage_details = Usage.objects.values('catv_calls_left', 'last_renewal_at').\
+                            filter(user_id=request.user.id)[0:1]
+
+        if usage_details and usage_details[0]['catv_calls_left'] > 0:
+            return True
+
+        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at'] + timedelta(days=30), '%Y-%m-%d')
+        raise Throttled(detail=("You have exhausted your CATV usage credits. "
+                                "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
 
 
 class CatvPostThrottle(UserRateThrottle):

@@ -60,6 +60,9 @@ class NodesCollection:
     def get_node_enum(self):
         return {k: v.id for k, v in self.__nodes.items()}
 
+    def update_node(self, node_key, node_value):
+        self.__nodes[node_key] = node_value
+
 
 def uniqfy_generator(seq, addr_key, exclusions):
     temp_dict = exclusions
@@ -158,8 +161,6 @@ def assign_nodes(result, mode):
         except KeyError:
             volume_count[item[inner]] = 1
         counter += 1
-
-    addr = list(nc.get_node_enum().keys())
     return nc, volume_count
 
 

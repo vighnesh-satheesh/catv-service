@@ -5,6 +5,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.hashers import (check_password, make_password)
 import django.forms as forms
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import connection
 # import ModelForm, PasswordInput
 
 from .models import (
@@ -16,6 +17,14 @@ from .models import (
 from .email import Email
 from .settings import api_settings
 from .constants import Constants
+
+
+def execute_custom_query(query, data=None):
+    with connection.cursor() as cursor:
+        if data:
+            cursor.execute(query, data)
+        else:
+            cursor.execute(query)
 
 
 class EnumFieldListFilter(ChoicesFieldListFilter):
@@ -90,6 +99,14 @@ class UserForm(forms.ModelForm):
                     sender = e.EMAIL_SENDER["NO-REPLY"],
                     recipient = [user.email]
                 )
+                query = Constants.QUERIES['INSERT_USER_USAGE_QUOTA']
+                data = (user.id, m.role_id,)
+                execute_custom_query(query, data)
+            if user.status == UserStatus.APPROVED and m.status == UserStatus.APPROVED and user.role_id != m.role_id:
+                query = Constants.QUERIES['UPDATE_USER_USAGE_QUOTA']
+                data = (m.role_id, user.id,)
+                execute_custom_query(query, data)
+
         except ObjectDoesNotExist:
             m.set_password(self.cleaned_data["password"])
         except Exception:

@@ -1,3 +1,4 @@
+from rest_framework import exceptions
 from rest_framework.views import APIView
 from ..models import (
     Case,
@@ -9,6 +10,8 @@ from ..models import (
 )
 
 from django.db.models import Q
+from django.db.models.functions import Lower
+
 from .serializers import (
     CasePostSerializer,
     IndicatorPostSerializer,
@@ -16,14 +19,13 @@ from .serializers import (
     IndicatorDetailSerializer,
     CaseHistoryPostSerializer,
 )
-from ..constants import Constants
 
-from rest_framework import exceptions
-from ..response import APIResponse
-from django.db.models.functions import Lower
+from ..serializers import CaseTRDBSerializer
+from ..constants import Constants
+from .. import utils
 from .. import permissions
-from functools import reduce
-from ..cache.indicator import IndicatorCache
+from ..cache import DefaultCache
+from ..response import APIResponse
 
 import json
 
@@ -47,6 +49,15 @@ class CaseIntervalView(APIView):
             log=json.dumps(history_log),
             initiator=case.reporter if case.reporter is not None else None
         )
+
+        if case.status == CaseStatus.RELEASED:
+            case_serializer = CaseTRDBSerializer(case)
+            data = case_serializer.data
+            utils.TRDB_CLIENT.push_case("activateCase", data)
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": {
@@ -91,6 +102,10 @@ class IndicatorInternalPostView(APIView):
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).distinct('id').order_by('pk')
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
 
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+
         return APIResponse({
             "data": result_serializer.data
         })
@@ -109,6 +124,11 @@ class IndicatorInternalView(APIView):
         serializer.is_valid(raise_exception=True)
         indicator_obj = serializer.save()
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+
         return APIResponse({
             "data": result_serializer.data
         })
@@ -133,13 +153,6 @@ class IndicatorInternalView(APIView):
             IndicatorPatternSubtype(pattern_subtype)
         except ValueError:
             raise exceptions.ValidationError("invalid pattern_subtype")
-
-        indicator_cache = IndicatorCache()
-
-        if indicator_cache.get_last_indicator_id():
-            for p in patterns:
-                if not IndicatorCache().get_indicator(p.lower()):
-                    patterns.remove(p)
 
         if security_category:
             filter_queries &= Q(security_category=security_category)
