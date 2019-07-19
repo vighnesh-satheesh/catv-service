@@ -3,6 +3,7 @@ import time
 from collections import OrderedDict
 from django.db import transaction, IntegrityError
 from django.db.models import Q
+from django.db.models.functions import Lower
 from rest_framework import serializers
 
 import boto3
@@ -259,10 +260,12 @@ class CasePostSerializer(serializers.ModelSerializer):
                         dup = []
                         if not force:
                             if indi["pattern_subtype"] == "ETH":
-                                filter_queries = Q(pattern__iexact=indi["pattern"])
+                                filter_queries = Q(pattern_lower=indi["pattern"].lower())
+                                dup = models.Indicator.objects.annotate(pattern_lower=Lower('pattern')).\
+                                    filter(filter_queries).order_by("-id")[:1]
                             else:
                                 filter_queries = Q(pattern=indi["pattern"])
-                            dup = models.Indicator.objects.filter(filter_queries).order_by("-id")[:1]
+                                dup = models.Indicator.objects.filter(filter_queries).order_by("-id")[:1]
 
                         if len(dup) > 0 and (dup[0].security_category == indi["security_category"] or dup[0].security_category is models.IndicatorSecurityCategory.WHITELIST):
                             if force is False:
