@@ -293,8 +293,10 @@ class CaseFilter(filters.FilterSet):
         case_cate = value.split("_")
         if len(case_cate) not in [1, 2]:
             raise exceptions.CaseFilterError()
-        filter = Q()
-        keyword_filter = Q()
+        case_filter = Q()
+        case_keyword_filter = Q()
+        indicator_filter = Q()
+        indicator_keyword_filter = Q()
         cate = case_cate[0]
         subcate = None
         if len(case_cate) == 2:
@@ -307,13 +309,13 @@ class CaseFilter(filters.FilterSet):
             raise exceptions.CaseFilterError()
 
         if subcate is not None:
-            filter &= Q(status=subcate)
+            case_filter &= Q(status=subcate)
 
         if cate == "all":
             if self.request.user.permission == UserPermission.EXCHANGE:
-                filter &= (Q(status="released") | Q(status="confirmed"))
+                case_filter &= (Q(status="released") | Q(status="confirmed"))
         elif cate == "my":
-            filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
+            case_filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
 
         security_category = self.request.GET.getlist("security_category") or []
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
@@ -321,11 +323,11 @@ class CaseFilter(filters.FilterSet):
         keyword = self.request.GET.getlist("keyword") or []
 
         if len(security_category) > 0:
-            filter &= Q(indicator__security_category__in=security_category)
+            indicator_filter &= Q(indicator__security_category__in=security_category)
         if len(pattern_type) > 0:
-            filter &= Q(indicator__pattern_type__in=pattern_type)
+            indicator_filter &= Q(indicator__pattern_type__in=pattern_type)
         if len(pattern_subtype) > 0:
-            filter &= Q(indicator__pattern_subtype__in=pattern_subtype)
+            indicator_filter &= Q(indicator__pattern_subtype__in=pattern_subtype)
 
         if len(keyword) > 0:
             keyword_pattern_type = []
@@ -333,10 +335,10 @@ class CaseFilter(filters.FilterSet):
             keyword_vector = []
             keyword_environment = []
             for idx, k in enumerate(keyword):
-                keyword_filter |= Q(title__icontains=k)
-                keyword_filter |= Q(detail__icontains=k)
-                keyword_filter |= Q(indicators__pattern__icontains=k)
-                keyword_filter |= Q(indicators__annotation=k)
+                case_keyword_filter |= Q(title__ilike=k)
+                case_keyword_filter |= Q(detail__ilike=k)
+                indicator_keyword_filter |= Q(indicators__pattern__ilike=k)
+                indicator_keyword_filter |= Q(indicators__annotation=k)
                 try:
                     IndicatorPatternType(k)
                     keyword_pattern_type.append(k)
@@ -358,18 +360,25 @@ class CaseFilter(filters.FilterSet):
                 except ValueError:
                     pass
                 if k.isdigit():
-                    keyword_filter |= Q(id=k)
+                    case_keyword_filter |= Q(id=k)
 
             if len(keyword_pattern_type) > 0:
-                keyword_filter |= Q(indicator__pattern_type__in=keyword_pattern_type)
+                indicator_keyword_filter |= Q(indicator__pattern_type__in=keyword_pattern_type)
             if len(keyword_pattern_subtype) > 0:
-                keyword_filter |= Q(indicator__pattern_subtype__in=keyword_pattern_subtype)
+                indicator_keyword_filter |= Q(indicator__pattern_subtype__in=keyword_pattern_subtype)
             if len(keyword_vector) > 0:
-                keyword_filter |= Q(indicator__vector__contains=keyword_vector)
+                indicator_keyword_filter |= Q(indicator__vector__contains=keyword_vector)
             if len(keyword_environment) > 0:
-                keyword_filter |= Q(indicator__environment__contains=keyword_environment)
+                indicator_keyword_filter |= Q(indicator__environment__contains=keyword_environment)
 
-        return queryset.filter(filter & keyword_filter).prefetch_related('indicators')
+        if (indicator_filter or indicator_keyword_filter) and case_keyword_filter:
+            return queryset.filter(case_filter & case_keyword_filter).union(queryset.filter(case_filter &
+                                                                                            indicator_filter &
+                                                                                            indicator_keyword_filter))
+        elif indicator_filter or indicator_keyword_filter:
+            return queryset.filter(case_filter & indicator_filter & indicator_keyword_filter)
+        else:
+            return queryset.filter(case_filter & case_keyword_filter)
 
 
 class CaseView(generics.ListCreateAPIView):
@@ -664,7 +673,7 @@ class IndicatorView(generics.ListCreateAPIView):
             ftr &= Q(pattern_subtype__in=pattern_subtype)
         if len(keyword) > 0:
             for idx, k in enumerate(keyword):
-                keyword_filter |= Q(pattern__icontains=k)
+                keyword_filter |= Q(pattern__ilike=k)
                 keyword_filter |= Q(detail__icontains=k)
                 keyword_filter |= Q(annotation=k)
                 if k.isdigit():
@@ -863,8 +872,8 @@ class SearchView(generics.ListAPIView):
 
     def get_indicator_queryset(self, query):
         objs = []
-        filter_queries = Q(pattern__icontains=query)
-        filter_queries |= Q(security_tags__icontains=query)
+        filter_queries = Q(pattern__ilike=query)
+        filter_queries |= Q(security_tags__arrayilike=query)
 
         try:
             IndicatorPatternSubtype(query.lower())

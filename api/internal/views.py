@@ -97,7 +97,7 @@ class IndicatorInternalPostView(APIView):
         if pattern_subtype:
             filter_queries &= Q(pattern_subtype=pattern_subtype)
         if security_tags:
-            filter_queries &= Q(security_tags__icontains=security_tags)
+            filter_queries &= Q(security_tags__arrayilike=security_tags)
 
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).distinct('id').order_by('pk')
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
@@ -165,7 +165,7 @@ class IndicatorInternalView(APIView):
         if pattern_subtype:
             filter_queries &= Q(pattern_subtype=pattern_subtype)
         if security_tags:
-            filter_queries &= Q(security_tags__icontains=security_tags)
+            filter_queries &= Q(security_tags__arrayilike=security_tags)
 
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).distinct('id').order_by('pk')
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
