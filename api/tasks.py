@@ -52,6 +52,7 @@ class CacheNumberOfIndicatorsCases(Task):
 class CatvHistoryTask(Task):
     def run(self, *args, **kwargs):
         entry = kwargs['history']
+        from_history = kwargs['from_history']
         query_list = [Constants.QUERIES['INSERT_USER_CATV_HISTORY'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
         query_data = [(entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
                        entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
@@ -59,8 +60,11 @@ class CatvHistoryTask(Task):
                       (entry['user_id'],)]
 
         with connections['default'].cursor() as cursor:
-            for query, data in zip(query_list, query_data):
-                cursor.execute(query, data)
+            if not from_history:
+                for query, data in zip(query_list, query_data):
+                    cursor.execute(query, data)
+            else:
+                cursor.execute(query_list[0], query_data[0])
         return True
 
 

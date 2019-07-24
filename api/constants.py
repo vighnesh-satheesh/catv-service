@@ -55,7 +55,12 @@ class Constants:
                                     "pattern_type, pattern_subtype, security_tags "
                                     "FROM api_indicator "
                                     "WHERE created AT TIME ZONE '{0}' > '{1}' "
-                                    "GROUP BY d, pattern_type, pattern_subtype, security_tags"
+                                    "GROUP BY d, pattern_type, pattern_subtype, security_tags",
+        "SELECT_USER_CATV_HISTORY": "SELECT DISTINCT wallet_address, distribution_depth, source_depth, "
+                                    "transaction_limit, token_address, from_date, to_date from ( "
+                                    "SELECT wallet_address, distribution_depth, source_depth, transaction_limit, "
+                                    "token_address, from_date, to_date FROM api_catv_history WHERE user_id = %s "
+                                    "order by logged_time desc ) subquery limit 10"
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",
