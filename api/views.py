@@ -1461,14 +1461,15 @@ class CATVView(APIView):
         tracking_cache = TrackingCache()
         cache_key = utils.create_tracking_cache_pattern(serializer.data)
         cached_entry = tracking_cache.get_cache_entry(cache_key)
+        history = serializer.data
+        history.update({'user_id': request.user.id})
         if not serializer.data.get('force_lookup', False) and cached_entry:
             results = json.loads(gzip.decompress(cached_entry).decode())
+            CatvHistoryTask().delay(history=history, from_history=True)
         else:
             results = serializer.get_tracking_results()
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-        history = serializer.data
-        history.update({'user_id': request.user.id})
-        CatvHistoryTask().delay(history=history)
+            CatvHistoryTask().delay(history=history, from_history=False)
         return APIResponse({
             "data": results
         })
