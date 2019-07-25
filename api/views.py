@@ -1467,9 +1467,9 @@ class CATVView(APIView):
             results = json.loads(gzip.decompress(cached_entry).decode())
             CatvHistoryTask().delay(history=history, from_history=True)
         else:
-            results = serializer.get_tracking_results()
+            results, from_db = serializer.get_tracking_results()
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-            CatvHistoryTask().delay(history=history, from_history=False)
+            CatvHistoryTask().delay(history=history, from_history=from_db)
         return APIResponse({
             "data": results
         })
