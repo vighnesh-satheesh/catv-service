@@ -1652,7 +1652,7 @@ class CATVSerializer(serializers.Serializer):
             tracking_results.get_tracking_data()
             tracking_results.create_graph_data()
             tracking_results.set_annotations_from_db()
-            return tracking_results.make_graph_dict()
+            return tracking_results.make_graph_dict(), tracking_results.from_db
         except socket.timeout:
             raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
         except Exception as e:
