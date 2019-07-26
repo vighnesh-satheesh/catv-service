@@ -171,7 +171,8 @@ REST_FRAMEWORK = {
         "signup": "5/min",
         'emailVerification': '5/min',
         'indicatorPost': '20/min',
-        'catvPost': '3/min'
+        'catvPost': '3/min',
+        'guestSearchGet': '20/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',

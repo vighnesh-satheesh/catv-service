@@ -40,7 +40,7 @@ from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
-    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle
+    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle, GuestSearchThrottle
 )
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
@@ -814,6 +814,51 @@ class IndicatorDetailView(APIView):
         c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
+
+
+class GuestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (GuestSearchThrottle,)
+
+    @method_decorator(cache_page(60 * 5))
+    def dispatch(self, *args, **kwargs):
+        return super(GuestSearchView, self).dispatch(*args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        query = self.request.query_params.get("q", None)
+        if query is None:
+            raise exceptions.ValidationError("q is required.")
+
+        if len(query) > 1024:
+            raise exceptions.ValidationError("q is too long.")
+
+        if len(query) < 3:
+            raise exceptions.ValidationError("q is too short.")
+
+        serializer_cls = IndicatorListSerializer
+        queryset = self.get_queryset()
+        serializer = serializer_cls(queryset, many=True)
+
+        return APIResponse({
+            "data": {
+                "items": serializer.data
+            }
+        })
+
+    def get_indicator_queryset(self, query):
+        filter_queries = Q(pattern__ilike=query)
+        filter_queries &= Q(security_category__in=[IndicatorSecurityCategory.BLACKLIST,
+                                                   IndicatorSecurityCategory.WHITELIST])
+        filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+
+        objs = Indicator.objects.filter(filter_queries).distinct('id').order_by('-pk')[:20]
+
+        return objs
+
+    def get_queryset(self):
+        query = self.request.query_params.get("q", None)
+        return self.get_indicator_queryset(query)
 
 
 class SearchView(generics.ListAPIView):

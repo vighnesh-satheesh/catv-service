@@ -50,6 +50,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^notification/(?P<uid>[0-9a-z\-]+)/?$', views.NotificationView.as_view(), name='notification-view-uid'),
         url(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
         url(r'^metrics/?$', views.Metrics.as_view(), name='metrics-view'),
+        url(r'^guest_search/?$', views.GuestSearchView.as_view(), name='guest-search'),
     ]
 
 
