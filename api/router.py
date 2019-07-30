@@ -39,6 +39,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^verify/(?P<code>[0-9a-zA-Z\-]+)/?$', views.VerifyEmail.as_view(), name='verify-email'),
         url(r'^verify/?$', views.VerifyEmail.as_view(), name='verify-email'),
         url(r'^validate/?$', views.ValidateAddress.as_view(), name='validate-address'),
+        url(r'^carasearch/?$', views.CARA.as_view(), name='cara-search'),
         url(r'^user/create?$', views.UserSignUpView.as_view(), name='user-signup'),
         url(r'^user/(?P<pk>[0-9a-z\-]+)/?$', views.UserDetailView.as_view(), name='user-detail'),
         url(r'^search/?$', views.SearchView.as_view(), name='search-query'),
@@ -50,6 +51,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^notification/?$', views.NotificationView.as_view(), name='notification-view-single'),
         url(r'^notification/(?P<uid>[0-9a-z\-]+)/?$', views.NotificationView.as_view(), name='notification-view-uid'),
         url(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
+        url(r'^metrics/?$', views.Metrics.as_view(), name='metrics-view'),
     ]
 
 

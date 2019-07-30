@@ -63,13 +63,16 @@ class LoginSerializer(serializers.Serializer):
 
     def __create_success_response(self, user, token):
         role_matrix = models.RolePermission.objects.get_permission_matrix(user.role.id)
+        catv_history = models.CatvHistory.objects.values('wallet_address', 'distribution_depth', 'source_depth',
+                                                         'transaction_limit', 'token_address', 'from_date',
+                                                         'to_date').filter(user=user.id).distinct()[:10]
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
         if user.address != "":
             address_c = w3.toChecksumAddress(reward_setting[0].get('token_address'))
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
-            bal = (token_upp.call().balanceOf(user.address))/1000000000000000000;
+            bal = (token_upp.call().balanceOf(user.address))/1000000000000000000
 
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",
@@ -82,10 +85,10 @@ class LoginSerializer(serializers.Serializer):
                 "rolepermissions": role_matrix,
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
                 "status": user.status.value,
-                "email_notification": user.email_notification,
-                "points": user.points,
-                "balance": bal
-            }
+				"email_notification": user.email_notification,
+                "catv_history": list(catv_history),
+				"points": user.points,
+                "balance": bal            }
         }
 
     def validate_email(self, email):
@@ -252,6 +255,9 @@ class UserPostSerializer(serializers.ModelSerializer):
             # temporary code: accept only exchanges TODO: remove later
             if permission not in [models.UserPermission.EXCHANGE, models.UserPermission.USER]:
                 raise exceptions.ValidationError("invalid data")
+
+            if permission is models.UserPermission.EXCHANGE:
+                data['role'] = models.Role.objects.get(role_name='organisation')
 
             # eof temporary code
             self._validate_new_password(user = None, new_pw = password)
@@ -579,6 +585,17 @@ class IndicatorListSerializer(NonNullModelSerializer):
         super(IndicatorListSerializer, self).__init__(*args, **kwargs)
 
 
+class IndicatorLatestRecordSerializer(NonNullModelSerializer):
+    security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
+    pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
+    pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
+
+    class Meta:
+        model = models.Indicator
+        fields = ("id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
+        read_only_fields = ("id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
+
+
 class IndicatorPostSerializer(NonNullModelSerializer):
     pattern = serializers.CharField(required=False)
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
@@ -624,7 +641,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         cases = data.pop("cases", [])
         force = data.pop("force", False)
 
-        if data["annotation"] and self.context["request"].user.permission != models.UserPermission.SUPERSENTINEL:
+        if "annotation" in data and self.context["request"].user.permission != models.UserPermission.SUPERSENTINEL:
             data.pop("annotation")
 
         if len(dup) > 0 and not force:
@@ -636,7 +653,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                     case_instance = models.Case.objects.get(id=case["id"])
                     if case_instance.status not in [models.CaseStatus.NEW, models.CaseStatus.PROGRESS]:
                         raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
-                    models.CaseIndicator.objects.create(case=case, indicator=indicator)
+                    models.CaseIndicator.objects.create(case=case_instance, indicator=indicator)
                 if "annotation" in data:
                     for annotation in [x.strip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
@@ -1030,15 +1047,16 @@ class CasePostSerializer(serializers.ModelSerializer):
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
                 # annotation
                 for indicator in indicator_bulk:
-                    for annotation in [x.strip() for x in indicator.annotation.split(",")]:
-                        if len(annotation) == 0:
-                            continue
-                        anno = models.Annotation.objects.filter(annotation=annotation)
-                        if len(anno) > 0:
-                            anno = anno[0]
-                        else:
-                            anno = models.Annotation.objects.create(annotation=annotation)
-                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                    if indicator.annotation:
+                        for annotation in [x.strip() for x in indicator.annotation.split(",")]:
+                            if len(annotation) == 0:
+                                continue
+                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            if len(anno) > 0:
+                                anno = anno[0]
+                            else:
+                                anno = models.Annotation.objects.create(annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
                     # case
                     m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
 
@@ -1049,7 +1067,7 @@ class CasePostSerializer(serializers.ModelSerializer):
 
                 # save file.
                 for file_item in files_data:
-                    file_obj = models.AttachedFile.objects.get(uid=file_item["uid"])
+                    file_obj = models.AttachedFile.objects.using('default').get(uid=file_item["uid"])
                     if file_obj.case is not None:
                         raise exceptions.DataIntegrityError("file already included in other cases.")
                     file_obj.case = case
@@ -1119,7 +1137,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                             pass
                         history_log['fileRemoved'] = True
                         continue
-                    file_obj = models.AttachedFile.objects.get(uid=file_item["uid"])
+                    file_obj = models.AttachedFile.objects.using('default').get(uid=file_item["uid"])
                     if not file_obj:
                         continue
                     if file_obj.case is not None and file_obj.case != instance:  # raise exception when file is for other case.
@@ -1320,17 +1338,19 @@ class CaseTRDBSerializer(NonNullModelSerializer):
     def get_owned_by(self, obj):
         if obj.owner:
             return {"id": str(obj.owner.uid)}
-        return None
+        else:
+            return {"id": ""}
 
     def get_reported_by(self, obj):
         if obj.reporter:
             return {"id": str(obj.reporter.uid)}
-        return None
+        else:
+            return {"id": ""}
 
     def get_verified_by(self, obj):
         if obj.verifier:
             return {"id": str(obj.verifier.uid)}
-        return None
+        return {"id": ""}
 
 
 class CasePatchSerializer(NonNullModelSerializer):
@@ -1465,7 +1485,7 @@ class AutoCompleteSerializer(serializers.Serializer):
             return {"indicators": indicators}
 
         elif auto_type == "indicator_tag":
-            indicator_objs = models.Indicator.objects.filter(security_tags__icontains=query)
+            indicator_objs = models.Indicator.objects.filter(security_tags__arrayilike=query)
             if indicator_objs:
                 __tags = []
                 indicator_tags = []
@@ -1671,20 +1691,21 @@ class CATVSerializer(serializers.Serializer):
             raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
 
     def get_tracking_results(self):
+        tracking_results = TrackingResults(**self.data)
         try:
-            tracking_results = TrackingResults(**self.data)
             tracking_results.get_tracking_data()
             tracking_results.create_graph_data()
             tracking_results.set_annotations_from_db()
             return tracking_results.make_graph_dict()
         except socket.timeout:
             raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
-        except IndexError as e:
-            raise exceptions.FileNotFound(str(e))
-        except KeyError as e:
-            raise exceptions.FileNotFound("Incorrect or missing response from external API.")
         except Exception as e:
-            raise exceptions.ServerError("Oops, something went wrong.")
+            err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
+            if tracking_results.error:
+                err_msg = tracking_results.error
+            elif e:
+                err_msg = str(e)
+            raise exceptions.FileNotFound(err_msg)
 
 
 

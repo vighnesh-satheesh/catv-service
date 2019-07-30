@@ -14,6 +14,7 @@ import os
 import environ
 import djcelery
 from corsheaders.defaults import default_headers
+from datetime import timedelta
 
 env = environ.Env()
 env_path = os.environ.get('PORTAL_API_ENV_PATH')
@@ -126,11 +127,11 @@ CACHES = {
             "SOCKET_TIMEOUT": 3,
         }
     },
-    'local_indicator': {
+    'local_cache': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
     },
-    'catv_data': {
+	'catv_data': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': env.str('API_CATV_CACHE_SERVER')
     }
@@ -170,7 +171,7 @@ REST_FRAMEWORK = {
         "signup": "5/min",
         'emailVerification': '5/min',
         'indicatorPost': '20/min',
-        'catvPost': '3/min'
+		'catvPost': '3/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -262,7 +263,7 @@ API_SETTINGS = {
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
-ALLOWED_HOSTS += env.str("ECS_PRIVATE_IP", "").split(",") if len(env.str("ECS_PRIVATE_IP")) > 0 else []
+ALLOWED_HOSTS += env.str("ECS_PRIVATE_IP", "").split(",") if len(env.str("ECS_PRIVATE_IP", '')) > 0 else []
 
 # celery
 djcelery.setup_loader()
@@ -270,7 +271,14 @@ BROKER_URL = API_SETTINGS['CELERY_BROKER_URL']
 CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
 CELERY_IMPORTS = ('api.tasks',)
-
+"""
+CELERYBEAT_SCHEDULE = {
+    'check-quota-every-thirty-minutes': {
+        'task': 'api.tasks.CheckUpdateUsageQuotaTask',
+        'schedule': timedelta(minutes=30),
+    },
+}
+"""
 # email
 EMAIL_BACK_END = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_USE_TLS = True

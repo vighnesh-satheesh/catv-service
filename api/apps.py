@@ -2,7 +2,6 @@ from django.apps import AppConfig, apps
 from celery import Celery
 from django.conf import settings
 from .cache import DefaultCache
-from .cache.indicator import IndicatorCache
 from django.conf import settings
 import requests
 import json
@@ -11,7 +10,8 @@ import os
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = "ApiConfig"
-    app = Celery('tasks', broker=settings.BROKER_URL)
+    app = Celery('tasks')
+    app.config_from_object('django.conf:settings')
     app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
 
     @classmethod
@@ -21,9 +21,6 @@ class ApiConfig(AppConfig):
         for u in users:
             key = "user_" + str(u.pk)
             c.set(key, u, 0)
-
-        ic = IndicatorCache()
-        ic.clear_indicator()
 
     @classmethod
     def send_slack_webhook(cls):
@@ -48,3 +45,5 @@ class ApiConfig(AppConfig):
     def ready(self):
         self.init_cache(self.get_model('User'))
         self.send_slack_webhook()
+        from api.scheduler import kafkascheduler
+       # kafkascheduler.start()

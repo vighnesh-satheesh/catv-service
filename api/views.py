@@ -1,6 +1,8 @@
 from collections import defaultdict
 from web3.auto.infura import w3
 import gzip
+from kafka import KafkaProducer
+from json import dumps
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -10,13 +12,15 @@ from rest_framework.renderers import JSONRenderer
 
 from django_filters import rest_framework as filters
 from django.db.models import Q, Count
+from django.db.models.functions import TruncDate
 from django.db import transaction, IntegrityError
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.db import connection
 
 from .models import (
-    User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment,
+    User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment, CaseHistory,
     Notification, NotificationType,
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus,
@@ -28,6 +32,7 @@ from .serializers import (
     AutoCompleteSerializer, AttachedFilePostSerializer,
     ICODetailSerializer, ICOListSerializer,
     IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
+    IndicatorLatestRecordSerializer,
     UppwardRewardInfoPostSerializer,
     UserDetailSerializer, UserPostSerializer,
     ICFDetailSerializer, ICFPostSerializer,
@@ -38,7 +43,7 @@ from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
-    IndicatorPostThrottle, CatvPostThrottle
+    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle
 )
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
@@ -49,11 +54,18 @@ from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .settings import api_settings
 from .cache import DefaultCache
 from .cache.catv import TrackingCache
+from .cache.local import LocalCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
+from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases
+from django.utils import timezone
 
+import datetime
+import pytz
 import json
+import math
+
 
 class HealthCheckView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -147,108 +159,81 @@ class DashboardView(APIView):
         if request.user is None or request.auth is None:
             raise exceptions.AuthenticationCheckError()
         user = request.user
-        count_dict = defaultdict(int)
-        number_of_all_cases = 0
-        number_of_all_my_cases = 0
+
+        c = DefaultCache()
+        lpv = c.get(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
         number_of_all_indicators = 0
         all_cases = []
         my_cases = []
-
-        my_cases = Case.objects.filter(Q(owner=user.pk) | Q(reporter=user.pk)).values("status").annotate(count=Count("status"))
-
-        if user.permission in [UserPermission.SUPERSENTINEL, user.permission is UserPermission.SENTINEL]:
-            all_cases = Case.objects.filter().values("status").annotate(count=Count("status"))
+        cases = []
+        for item in CaseStatus:
+            my_cases.append({
+                "id": "case_my_{0}".format(item.value),
+                "count": 0
+            })
+            all_cases.append({
+                "id": "case_all_{0}".format(item.value),
+                "count": 0
+            })
+        cases = [
+            {
+                "id": "case_all",
+                "count": 0,
+                "children": all_cases
+            },
+            {
+                "id": "case_my",
+                "count": 0,
+                "children": my_cases
+            }
+        ]
+        with connection.cursor() as cursor:
+            if not lpv:
+                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE'])
+                row = cursor.fetchall()
+            else:
+                row = lpv['cases']
+            for r in row:
+                status = r[0]
+                reporter_id = r[1]
+                owner_id = r[2]
+                for case in cases:
+                    if "my" in case["id"] and user.pk != reporter_id and user.pk != owner_id:
+                        continue
+                    for c in case["children"]:
+                        if status not in c["id"]:
+                            continue
+                        c["count"] += 1
 
         if user.permission is UserPermission.EXCHANGE:
-            all_cases = Case.objects.filter(Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])).values("status").annotate(count=Count("status"))
+            cases[0]["children"] = [c for c in cases[0]["children"] if "confirmed" in c["id"] or "released" in c["id"]]
+        elif user.permission is UserPermission.USER:
+            cases = cases[1:]
 
-        for item in CaseStatus:
-            all = 0
-            my = 0
+        for case in cases:
+            count = 0
+            for c in case["children"]:
+                count += c["count"]
+            case["count"] = count
 
-            for ac in all_cases:
-                if ac["status"] == item:
-                    all = ac["count"]
-                    break
-            for mc in my_cases:
-                if mc["status"] == item:
-                    my = mc["count"]
-                    break
+        with connection.cursor() as cursor:
+            if lpv:
+                if user.permission is UserPermission.SUPERSENTINEL or \
+                        user.permission is UserPermission.SENTINEL:
+                    number_of_all_indicators = lpv['indicators']['all']
+                else:
+                    number_of_all_indicators = lpv['indicators']['cr']
+            else:
+                sql = ''
+                if user.permission is UserPermission.SUPERSENTINEL or \
+                        user.permission is UserPermission.SENTINEL:
+                    sql = Constants.QUERIES['SELECT_INDICATOR_COUNT']
+                else:
+                    sql = Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'] % ("'released'", "'confirmed'",)
 
-            count_dict["case_all_{0}".format(item.value)] = all
-            count_dict["case_my_{0}".format(item.value)] = my
-
-            number_of_all_cases += all
-            number_of_all_my_cases += my
-
-
-        if user.permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
-            cases = [
-                {
-                    "id": "case_my",
-                    "count": number_of_all_my_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_my", "new", count_dict),
-                        utils.get_dashboard_item("case_my", "progress", count_dict),
-                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_my", "rejected", count_dict),
-                        utils.get_dashboard_item("case_my", "released", count_dict),
-                    ]
-                },
-                {
-                    "id": "case_all",
-                    "count": number_of_all_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_all", "new", count_dict),
-                        utils.get_dashboard_item("case_all", "progress", count_dict),
-                        utils.get_dashboard_item("case_all", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_all", "rejected", count_dict),
-                        utils.get_dashboard_item("case_all", "released", count_dict),
-                    ]
-                }
-            ]
-        elif user.permission is UserPermission.EXCHANGE:
-            cases = [
-                {
-                    "id": "case_my",
-                    "count": number_of_all_my_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_my", "new", count_dict),
-                        utils.get_dashboard_item("case_my", "progress", count_dict),
-                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_my", "rejected", count_dict),
-                        utils.get_dashboard_item("case_my", "released", count_dict),
-                    ]
-                },
-                {
-                    "id": "case_all",
-                    "count": number_of_all_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_all", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_all", "released", count_dict),
-                    ]
-                }
-            ]
-        else:
-            cases = [
-                {
-                    "id": "case_my",
-                    "count": number_of_all_my_cases,
-                    "children": [
-                        utils.get_dashboard_item("case_my", "new", count_dict),
-                        utils.get_dashboard_item("case_my", "progress", count_dict),
-                        utils.get_dashboard_item("case_my", "confirmed", count_dict),
-                        utils.get_dashboard_item("case_my", "rejected", count_dict),
-                        utils.get_dashboard_item("case_my", "released", count_dict),
-                    ]
-                }
-            ]
-
-        if user.permission is UserPermission.SUPERSENTINEL or \
-                user.permission is UserPermission.SENTINEL:
-            number_of_all_indicators = Indicator.objects.count()
-        else:
-            number_of_all_indicators = Indicator.objects.filter(Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=user.pk)).count()
+                cursor.execute(sql)
+                row = cursor.fetchone()
+                number_of_all_indicators = row[0]
 
         indicators = [
             {
@@ -262,6 +247,9 @@ class DashboardView(APIView):
         notification_objs = Notification.objects.filter(user=user.pk).order_by('-created')[:100]
         if notification_objs:
             notifications = NotificationSerializer(notification_objs, many=True).data
+
+        if not lpv:
+            CacheLeftPanelValuesTask().delay()
 
         return APIResponse({
             "data": {
@@ -287,7 +275,7 @@ class CaseFilter(filters.FilterSet):
         user_uid = usercase_cate[0]
         action = usercase_cate[1]
         try:
-            user = User.objects.get(uid = user_uid)
+            user = User.objects.get(uid=user_uid)
         except User.DoesNotExist:
             raise exceptions.CaseFilterError()
 
@@ -295,9 +283,9 @@ class CaseFilter(filters.FilterSet):
             raise exceptions.CaseFilterError()
 
         if action == 'reported':
-            return queryset.filter(reporter = user.pk).distinct('id')
+            return queryset.filter(reporter=user.pk).distinct('id')
         elif action == 'released':
-            return queryset.filter(verifier = user.pk).distinct('id')
+            return queryset.filter(verifier=user.pk).distinct('id')
 
         return queryset.distinct('id')
 
@@ -305,8 +293,10 @@ class CaseFilter(filters.FilterSet):
         case_cate = value.split("_")
         if len(case_cate) not in [1, 2]:
             raise exceptions.CaseFilterError()
-        filter = Q()
-        keyword_filter = Q()
+        case_filter = Q()
+        case_keyword_filter = Q()
+        indicator_filter = Q()
+        indicator_keyword_filter = Q()
         cate = case_cate[0]
         subcate = None
         if len(case_cate) == 2:
@@ -319,13 +309,13 @@ class CaseFilter(filters.FilterSet):
             raise exceptions.CaseFilterError()
 
         if subcate is not None:
-            filter &= Q(status=subcate)
+            case_filter &= Q(status=subcate)
 
         if cate == "all":
             if self.request.user.permission == UserPermission.EXCHANGE:
-                filter &= (Q(status="released") | Q(status="confirmed"))
+                case_filter &= (Q(status="released") | Q(status="confirmed"))
         elif cate == "my":
-            filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
+            case_filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
 
         security_category = self.request.GET.getlist("security_category") or []
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
@@ -333,11 +323,11 @@ class CaseFilter(filters.FilterSet):
         keyword = self.request.GET.getlist("keyword") or []
 
         if len(security_category) > 0:
-            filter &= Q(indicator__security_category__in=security_category)
+            indicator_filter &= Q(indicator__security_category__in=security_category)
         if len(pattern_type) > 0:
-            filter &= Q(indicator__pattern_type__in=pattern_type)
+            indicator_filter &= Q(indicator__pattern_type__in=pattern_type)
         if len(pattern_subtype) > 0:
-            filter &= Q(indicator__pattern_subtype__in=pattern_subtype)
+            indicator_filter &= Q(indicator__pattern_subtype__in=pattern_subtype)
 
         if len(keyword) > 0:
             keyword_pattern_type = []
@@ -345,10 +335,10 @@ class CaseFilter(filters.FilterSet):
             keyword_vector = []
             keyword_environment = []
             for idx, k in enumerate(keyword):
-                keyword_filter |= Q(title__icontains=k)
-                keyword_filter |= Q(detail__icontains=k)
-                keyword_filter |= Q(indicators__pattern__icontains=k)
-                keyword_filter |= Q(indicators__annotation=k)
+                case_keyword_filter |= Q(title__ilike=k)
+                case_keyword_filter |= Q(detail__ilike=k)
+                indicator_keyword_filter |= Q(indicators__pattern__ilike=k)
+                indicator_keyword_filter |= Q(indicators__annotation=k)
                 try:
                     IndicatorPatternType(k)
                     keyword_pattern_type.append(k)
@@ -370,18 +360,25 @@ class CaseFilter(filters.FilterSet):
                 except ValueError:
                     pass
                 if k.isdigit():
-                    keyword_filter |= Q(id=k)
+                    case_keyword_filter |= Q(id=k)
 
             if len(keyword_pattern_type) > 0:
-                keyword_filter |= Q(indicator__pattern_type__in=keyword_pattern_type)
+                indicator_keyword_filter |= Q(indicator__pattern_type__in=keyword_pattern_type)
             if len(keyword_pattern_subtype) > 0:
-                keyword_filter |= Q(indicator__pattern_subtype__in=keyword_pattern_subtype)
+                indicator_keyword_filter |= Q(indicator__pattern_subtype__in=keyword_pattern_subtype)
             if len(keyword_vector) > 0:
-                keyword_filter |= Q(indicator__vector__contains=keyword_vector)
+                indicator_keyword_filter |= Q(indicator__vector__contains=keyword_vector)
             if len(keyword_environment) > 0:
-                keyword_filter |= Q(indicator__environment__contains=keyword_environment)
+                indicator_keyword_filter |= Q(indicator__environment__contains=keyword_environment)
 
-        return queryset.filter(filter & keyword_filter).prefetch_related('indicators')
+        if (indicator_filter or indicator_keyword_filter) and case_keyword_filter:
+            return queryset.filter(case_filter & case_keyword_filter).union(queryset.filter(case_filter &
+                                                                                            indicator_filter &
+                                                                                            indicator_keyword_filter))
+        elif indicator_filter or indicator_keyword_filter:
+            return queryset.filter(case_filter & indicator_filter & indicator_keyword_filter)
+        else:
+            return queryset.filter(case_filter & case_keyword_filter)
 
 
 class CaseView(generics.ListCreateAPIView):
@@ -425,15 +422,15 @@ class CaseView(generics.ListCreateAPIView):
         history_log["msg"] = CaseStatus.NEW.value
         history_log["type"] = "status"
 
-        history_data = {
-            "log": json.dumps(history_log),
-            "case": case.pk,
-            "initiator":  case.reporter.pk if case.reporter else None
-        }
+        CaseHistory.objects.create(
+            case=case,
+            log=json.dumps(history_log),
+            initiator=case.reporter if case.reporter is not None else None
+        )
 
-        ch_serializer = CaseHistoryPostSerializer(data=history_data)
-        ch_serializer.is_valid(raise_exception=True)
-        ch_serializer.save()
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
         return APIResponse({
             "data": {
@@ -460,9 +457,9 @@ class CaseDetailView(APIView):
         except self.model.DoesNotExist:
             raise exceptions.CaseNotFound()
 
-    def get(self, request, pk=None):
-        obj = self.get_object(pk, request)
-        serializer = CaseDetailSerializer(obj, context={'request': request})
+    def get_permission(self, request, obj, status, pk=None):
+        obj2 = self.get_object(pk, request)
+        serializer = CaseDetailSerializer(obj2, context={'request': request})
         data = serializer.data
         user_permission = getattr(request.user, 'permission', None)
         is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
@@ -474,11 +471,11 @@ class CaseDetailView(APIView):
             permission_data['editable'] = True
             permission_data['deletable'] = True
 
-        if obj.owner == request.user and obj.status == CaseStatus.PROGRESS:
+        if obj.owner == request.user and status == CaseStatus.PROGRESS:
             permission_data['editable'] = True
             permission_data['deletable'] = True
 
-        if obj.reporter == request.user and obj.status == CaseStatus.NEW:
+        if obj.reporter == request.user and status == CaseStatus.NEW:
             permission_data['editable'] = True
             permission_data['deletable'] = True
 
@@ -488,8 +485,20 @@ class CaseDetailView(APIView):
         if 'deletable' not in permission_data:
             permission_data['deletable'] = False
 
-        next_status = utils.CASE_STATUS_FSM.next(obj.status, is_super, is_owner, user_permission)
+        next_status = utils.CASE_STATUS_FSM.next(status, is_super, is_owner, user_permission)
         permission_data["status"] = [e.value for e in next_status]
+        return permission_data
+
+    def get(self, request, pk=None):
+        obj = self.get_object(pk, request)
+        serializer = CaseDetailSerializer(obj, context={'request': request})
+        data = serializer.data
+
+        user_permission = getattr(request.user, 'permission', None)
+        is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
+        is_owner = True if request.user == obj.owner else False
+
+        permission_data = self.get_permission(request, obj, obj.status)
 
         return APIResponse({
             "data": {
@@ -530,11 +539,11 @@ class CaseDetailView(APIView):
                 "nickname": obj.reporter.nickname,
                 "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
             }
-            SendEmail().delay(kv = kv,
-                  subject = Constants.EMAIL_TITLE["NOTIFICATION_MODIFY_CASE"].format(request.user.nickname),
-                  email_type = e.EMAIL_TYPE["NOTIFICATION"],
-                  sender = e.EMAIL_SENDER["NO-REPLY"],
-                  recipient = [obj.reporter.email])
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_MODIFY_CASE"].format(request.user.nickname),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[obj.reporter.email])
 
         return APIResponse({
             "data": {}})
@@ -546,7 +555,11 @@ class CaseDetailView(APIView):
         serializer.save()
 
         c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
+
+        permission_data = self.get_permission(request, obj, CaseStatus(request.data['status']))
 
         if obj.reporter and obj.reporter.email_notification:
             notification = Notification.objects.create(
@@ -564,23 +577,31 @@ class CaseDetailView(APIView):
                 "nickname": obj.reporter.nickname,
                 "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
             }
-            SendEmail().delay(kv = kv,
-                              subject = Constants.EMAIL_TITLE["NOTIFICATION_PATCH_CASE"].format(request.user.nickname, obj.status.value),
-                              email_type = e.EMAIL_TYPE["NOTIFICATION"],
-                              sender = e.EMAIL_SENDER["NO-REPLY"],
-                              recipient = [obj.reporter.email])
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_PATCH_CASE"].format(request.user.nickname,
+                                                                                              obj.status.value),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[obj.reporter.email])
 
-        return APIResponse({"data": {}})
+        return APIResponse({"data": {
+            'case_permission': permission_data
+        }})
 
     def delete(self, request, pk=None):
         try:
             with transaction.atomic():
                 obj = self.get_object(pk, request)
-                if obj.status != CaseStatus.PROGRESS:
+
+                if obj.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
                     raise exceptions.ValidationError("case cannot be deleted.")
-                if obj.owner != request.user:
+
+                if (request.user.permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]) and \
+                        (obj.status == CaseStatus.NEW and obj.reporter != request.user or \
+                         (obj.status in [CaseStatus.PROGRESS, CaseStatus.REJECTED] and obj.owner != request.user)):
                     raise exceptions.OwnerRequiredError()
-                CaseIndicator.objects.filter(case = obj).delete()
+
+                CaseIndicator.objects.filter(case=obj).delete()
 
         except Case.DoesNotExist:
             raise exceptions.ValidationError("case does not exist")
@@ -602,33 +623,41 @@ class CaseDetailView(APIView):
                 "nickname": obj.reporter.nickname,
                 "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
             }
-            SendEmail().delay(kv = kv,
-                              subject = Constants.EMAIL_TITLE["NOTIFICATION_DELETE_CASE"].format(request.user.nickname),
-                              email_type = e.EMAIL_TYPE["NOTIFICATION"],
-                              sender = e.EMAIL_SENDER["NO-REPLY"],
-                              recipient = [obj.reporter.email])
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_DELETE_CASE"].format(request.user.nickname),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[obj.reporter.email])
         obj.delete()
 
         c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
-
         return APIResponse({"data": {}})
 
 
-class IndicatorFilter(filters.FilterSet):
-    page = filters.CharFilter(method='filter_queryset')
+class IndicatorView(generics.ListCreateAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = Indicator
 
-    class Meta:
-        model = Indicator
-        fields = ()
+    def get_throttles(self):
+        ret = []
+        if self.request.method.lower() == 'get':
+            return ret
+        elif self.request.method.lower() == 'post':
+            return [IndicatorPostThrottle(), ]
+        else:
+            return super(IndicatorView, self).get_throttles()
 
-    def filter_queryset(self, queryset, name, value):
+    def get_filter(self):
         ftr = Q()
         keyword_filter = Q()
 
         if self.request.user.permission is not UserPermission.SUPERSENTINEL and \
-            self.request.user.permission is not UserPermission.SENTINEL:
-            ftr &= (Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk))
+                self.request.user.permission is not UserPermission.SENTINEL:
+            ftr &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
 
         status = self.request.GET.getlist("status") or []
         security_category = self.request.GET.getlist("security_category") or []
@@ -644,7 +673,7 @@ class IndicatorFilter(filters.FilterSet):
             ftr &= Q(pattern_subtype__in=pattern_subtype)
         if len(keyword) > 0:
             for idx, k in enumerate(keyword):
-                keyword_filter |= Q(pattern__icontains=k)
+                keyword_filter |= Q(pattern__ilike=k)
                 keyword_filter |= Q(detail__icontains=k)
                 keyword_filter |= Q(annotation=k)
                 if k.isdigit():
@@ -653,37 +682,48 @@ class IndicatorFilter(filters.FilterSet):
 
         if len(status) > 0:
             ftr &= Q(cases__status__in=status)
-            return queryset.filter(ftr).prefetch_related('cases')
 
-        return queryset.filter(ftr)
+        return ftr
 
-
-class IndicatorView(generics.ListCreateAPIView):
-    authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (AllowAny,)
-    pagination_class = CustomPagination
-    filter_backends = (filters.DjangoFilterBackend,)
-    filter_class = IndicatorFilter
-    serializer_class = IndicatorListSerializer
-    model = Indicator
-
-    def get_queryset(self):
-        order_by = self.request.GET.get('order_by') or 'id_desc'
+    def list(self, request, *args, **kwargs):
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        page = self.request.GET.get('page', 1)
+        total_items = int(self.request.GET.get('total_items', 0))
+        permission = self.request.user.permission
         order_by = order_by.split('_')
-        key = ""
-        if order_by[1] == "desc":
-            key = "-"
+        key = ''
+        if order_by[1] == 'desc':
+            key = '-'
         key = key + order_by[0]
-        return self.model.objects.distinct('id').order_by(key)
+        page = int(page)
+        page_size = 25
+        ftr = self.get_filter()
 
-    def get_throttles(self):
-        ret = []
-        if self.request.method.lower() == 'get':
-            return ret
-        elif self.request.method.lower() == 'post':
-            return [IndicatorPostThrottle(), ]
-        else:
-            return super(IndicatorView, self).get_throttles()
+        indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
+                     page_size * (page - 1):page_size * page]
+        serializer = IndicatorListSerializer(indicators, many=True)
+
+        if len(ftr) == 0 and total_items == 0:
+            c = DefaultCache()
+            d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+            if d:
+                if permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
+                    total_items = d['all']
+                else:
+                    total_items = d['cr']
+
+        if total_items == 0:
+            total_items = self.model.objects.filter(ftr).distinct('id').count()
+            CacheNumberOfIndicatorsCases().delay()
+
+        return APIResponse({
+            "data": {
+                "indicators": serializer.data,
+                "totalItems": total_items,
+                "totalPages": math.ceil(total_items / page_size),
+                "pageIndex": page
+            }
+        })
 
     def post(self, request):
         if "indicators" in request.data:
@@ -697,13 +737,14 @@ class IndicatorView(generics.ListCreateAPIView):
         else:
             indicator_obj = serializer.save()
         result_serializer = IndicatorSimpleListSerializer(indicator_obj, many="indicators" in request.data)
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+
         return APIResponse({
             "data": result_serializer.data
         })
-
-    def get_paginated_response(self, data):
-        assert self.paginator is not None
-        return self.paginator.get_paginated_response(data, data_key="indicators")
 
 
 class IndicatorDetailView(APIView):
@@ -711,12 +752,12 @@ class IndicatorDetailView(APIView):
     permission_classes = (AllowAny,)
     model = Indicator
 
-    def get_object(self, pk, pattern):
+    def get_object(self, pk=None, pattern=None):
         if not pk and not pattern:
             raise exceptions.IndicatorNotFound()
         if pk:
             try:
-                indicator = self.model.objects.get(uid__iexact=pk)
+                indicator = self.model.objects.get(uid=pk)
             except self.model.DoesNotExist:
                 raise exceptions.IndicatorNotFound()
         elif pattern:
@@ -733,7 +774,8 @@ class IndicatorDetailView(APIView):
             return APIResponse(cached_response)
 
         obj = self.get_object(pk, pattern)
-        serializer = IndicatorDetailSerializer(obj, is_authenticated=True if request.user and request.user.is_authenticated else False)
+        serializer = IndicatorDetailSerializer(obj,
+                                               is_authenticated=True if request.user and request.user.is_authenticated else False)
         data = serializer.data
         return APIResponse(
             c.set_view_cache(request, {
@@ -766,6 +808,11 @@ class IndicatorDetailView(APIView):
                 for case in cases:
                     if case.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
                         raise exceptions.ValidationError("has confirmed or released attached cases.")
+
+                if (request.user.permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]) and \
+                        indicator.user != request.user:
+                    raise exceptions.NotAllowedError()
+
                 CaseIndicator.objects.filter(indicator=indicator).delete()
                 indicator.delete()
         except Indicator.DoesNotExist:
@@ -773,6 +820,8 @@ class IndicatorDetailView(APIView):
         except IntegrityError:
             raise exceptions.DataIntegrityError("")
         c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
         c.delete_view_cache(request)
         return APIResponse({"data": {}})
 
@@ -823,8 +872,8 @@ class SearchView(generics.ListAPIView):
 
     def get_indicator_queryset(self, query):
         objs = []
-        filter_queries = Q(pattern__icontains=query)
-        filter_queries |= Q(security_tags__icontains=query)
+        filter_queries = Q(pattern__ilike=query)
+        filter_queries |= Q(security_tags__arrayilike=query)
 
         try:
             IndicatorPatternSubtype(query.lower())
@@ -835,7 +884,8 @@ class SearchView(generics.ListAPIView):
         if not self.request.auth:
             filter_queries &= Q(case__status=CaseStatus.RELEASED)
         elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
-            filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(user=self.request.user.pk)
+            filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(
+                user=self.request.user.pk)
 
         objs = Indicator.objects \
             .filter(filter_queries) \
@@ -848,27 +898,31 @@ class SearchView(generics.ListAPIView):
         if not self.request.auth:
             raise exceptions.AuthenticationCheckError()
 
-        filter_queries = Q(id=0)
+        case_filter_queries = Q(id=0)
+        indicator_filter_queries = Q(id=0)
         if query.isdigit():
-            filter_queries = Q(id=int(query))
-        if len(query) > 1 and filter_queries is None:
-            filter_queries = Q(title__icontains=query)
-        elif len(query) > 1 and filter_queries is not None:
-            filter_queries |= Q(title__icontains=query)
+            case_filter_queries = Q(id=int(query))
+            indicator_filter_queries = Q(id=int(query))
+        if len(query) > 1 and case_filter_queries is None:
+            case_filter_queries |= Q(title__ilike=query)
+        elif len(query) > 1 and case_filter_queries is not None:
+            case_filter_queries |= Q(title__ilike=query)
+            case_filter_queries |= Q(ico__symbol__ilike=query)
 
         if len(query) > 1:
-            filter_queries |= Q(indicator__pattern__icontains=query)
-            filter_queries |= Q(indicator__pattern_subtype__icontains=query)
-            filter_queries |= Q(ico__symbol__icontains=query)
+            indicator_filter_queries = Q(indicator__pattern__ilike=query)
+            indicator_filter_queries |= Q(indicator__pattern_subtype__ilike=query)
 
         if self.request.user.permission is UserPermission.EXCHANGE:
-            filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(reporter=self.request.user.pk)
+            case_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
+                                   Q(reporter=self.request.user.pk)
+            indicator_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
+                                        Q(reporter=self.request.user.pk)
 
-        objs = Case.objects \
-            .filter(filter_queries) \
-            .select_related('ico') \
-            .distinct('id') \
-            .order_by('-pk')
+        case_indicator_results = Case.objects.filter(indicator_filter_queries).select_related('ico').distinct('id')
+        case_results = Case.objects.filter(case_filter_queries).select_related('ico').distinct('id')
+
+        objs = case_indicator_results.union(case_results).order_by('-pk')
 
         return objs
 
@@ -1026,7 +1080,10 @@ class VerifyEmail(APIView):
             raise exceptions.AuthenticationValidationError("")
 
     def get(self, request):
-        email = request.data["email"]
+        try:
+            email = request.data["email"]
+        except KeyError:
+            raise exceptions.DataIntegrityError("")
         user = self.get_object(email)
         e = Email()
         c = DefaultCache()
@@ -1035,11 +1092,11 @@ class VerifyEmail(APIView):
             "nickname": user.nickname,
             "link": api_settings.WEB_URL + "/verify/" + link
         }
-        SendEmail().delay(kv = kv,
-                          subject = Constants.EMAIL_TITLE["VERIFICATION"],
-                          email_type = e.EMAIL_TYPE["REGISTER"],
-                          sender = e.EMAIL_SENDER["NO-REPLY"],
-                          recipient = [user.email])
+        SendEmail().delay(kv=kv,
+                          subject=Constants.EMAIL_TITLE["VERIFICATION"],
+                          email_type=e.EMAIL_TYPE["REGISTER"],
+                          sender=e.EMAIL_SENDER["NO-REPLY"],
+                          recipient=[user.email])
 
         return APIResponse({
             "data": {}
@@ -1052,9 +1109,9 @@ class VerifyEmail(APIView):
         v = c.get(code)
         if not v:
             raise exceptions.AuthenticationValidationError("")
-        email = v.split("-")[0]
+        email = "-".join(v.split("-")[:-1])
         user = self.get_object(email)
-        user.update(status = UserStatus.EMAIL_CONFIRMED)
+        user.update(status=UserStatus.EMAIL_CONFIRMED)
         token, _ = MultiToken.create_token(user)
         c.delete_key(code)
         return APIResponse({
@@ -1101,11 +1158,11 @@ class SendEmailView(APIView):
                 "nickname": user.nickname,
                 "link": api_settings.WEB_URL + "/password-reset/" + link
             }
-            SendEmail().delay(kv = kv,
-                              subject = Constants.EMAIL_TITLE["PASSWORD_RESET"],
-                              email_type = e.EMAIL_TYPE["PASSWORD_RESET"],
-                              sender = e.EMAIL_SENDER["NO-REPLY"],
-                              recipient = [user.email])
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["PASSWORD_RESET"],
+                              email_type=e.EMAIL_TYPE["PASSWORD_RESET"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[user.email])
 
         if type == "email_verification":
             if user.status is not UserStatus.SIGNED_UP:
@@ -1115,11 +1172,11 @@ class SendEmailView(APIView):
                 "nickname": user.nickname,
                 "link": api_settings.WEB_URL + "/verify/" + link
             }
-            SendEmail().delay(kv = kv,
-                              subject = Constants.EMAIL_TITLE["VERIFICATION"],
-                              email_type = e.EMAIL_TYPE["REGISTER"],
-                              sender = e.EMAIL_SENDER["NO-REPLY"],
-                              recipient = [user.email])
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["VERIFICATION"],
+                              email_type=e.EMAIL_TYPE["REGISTER"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[user.email])
 
         return APIResponse({
             "data": {}
@@ -1138,7 +1195,6 @@ class UserSignUpView(APIView):
         except self.model.DoesNotExist:
             raise exceptions.UserNotFound()
 
-
     def post(self, request, pk=None):
         serializer = UserPostSerializer(data=request.data, context={"request": request, "payload": {}})
         serializer.is_valid(raise_exception=True)
@@ -1152,11 +1208,11 @@ class UserSignUpView(APIView):
             "nickname": user.nickname,
             "link": api_settings.WEB_URL + "/verify/" + link
         }
-        SendEmail().delay(kv = kv,
-                          subject = Constants.EMAIL_TITLE["VERIFICATION"],
-                          email_type = e.EMAIL_TYPE["REGISTER"],
-                          sender = e.EMAIL_SENDER["NO-REPLY"],
-                          recipient = [user.email])
+        SendEmail().delay(kv=kv,
+                          subject=Constants.EMAIL_TITLE["VERIFICATION"],
+                          email_type=e.EMAIL_TYPE["REGISTER"],
+                          sender=e.EMAIL_SENDER["NO-REPLY"],
+                          recipient=[user.email])
 
         return APIResponse({
             "data": {
@@ -1225,7 +1281,7 @@ class IcfView(APIView):
         if request.user is None or request.auth is None:
             raise exceptions.AuthenticationCheckError()
         user = request.user
-        obj = self.model.objects.filter(user = user.pk).order_by("-pk")
+        obj = self.model.objects.filter(user=user.pk).order_by("-pk")
         if not obj.exists():
             raise exceptions.ICFNotFound()
 
@@ -1276,11 +1332,11 @@ class CommentView(APIView):
         comment_objs = []
 
         if type == 'case':
-            comment_objs = Comment.objects.filter(case = pk)
+            comment_objs = Comment.objects.filter(case=pk)
         elif type == 'indicator':
-            comment_objs = Comment.objects.filter(indicator = pk)
+            comment_objs = Comment.objects.filter(indicator=pk)
         elif type == 'ico':
-            comment_objs = Comment.objects.filter(ico = pk)
+            comment_objs = Comment.objects.filter(ico=pk)
         else:
             raise exceptions.ValidationError("invalid type")
         if len(comment_objs) == 0:
@@ -1302,7 +1358,8 @@ class CommentView(APIView):
         data = serializer.data
         data["writer"] = {
             "nickname": request.user.nickname,
-            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(request.user.image) is False else request.user.image.url,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(
+                request.user.image) is False else request.user.image.url,
             "uid": request.user.uid
         }
         u = None
@@ -1337,11 +1394,11 @@ class CommentView(APIView):
                 "nickname": u.nickname,
                 "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
             }
-            SendEmail().delay(kv = kv,
-                  subject = Constants.EMAIL_TITLE["NOTIFICATION_COMMENT"].format(request.user.nickname),
-                  email_type = e.EMAIL_TYPE["NOTIFICATION"],
-                  sender = e.EMAIL_SENDER["NO-REPLY"],
-                  recipient = [u.email])
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_COMMENT"].format(request.user.nickname),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[u.email])
 
         if notification:
             users = User.objects.filter(id__in=notification)
@@ -1358,11 +1415,12 @@ class CommentView(APIView):
                     "nickname": user.nickname,
                     "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
                 }
-                SendEmail().delay(kv = kv,
-                    subject = Constants.EMAIL_TITLE["NOTIFICATION_COMMENT_MENTION"].format(request.user.nickname),
-                    email_type = e.EMAIL_TYPE["NOTIFICATION"],
-                    sender = e.EMAIL_SENDER["NO-REPLY"],
-                    recipient = [user.email])
+                SendEmail().delay(kv=kv,
+                                  subject=Constants.EMAIL_TITLE["NOTIFICATION_COMMENT_MENTION"].format(
+                                      request.user.nickname),
+                                  email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                                  sender=e.EMAIL_SENDER["NO-REPLY"],
+                                  recipient=[user.email])
 
         return APIResponse({
             "data": data
@@ -1372,7 +1430,7 @@ class CommentView(APIView):
         if type is None or pk is None or uid is None:
             raise exceptions.ValidationError("type, pk or uid is not provided.")
         try:
-            comment = self.model.objects.get(uid = uid)
+            comment = self.model.objects.get(uid=uid)
         except Comment.DoesNotExist:
             raise exceptions.ValidatationError("comment does not exist")
         comment.deleted = True
@@ -1414,7 +1472,7 @@ class CATVView(APIView):
 
     def get_throttles(self):
         if self.request.method.lower() == 'post':
-            return [CatvPostThrottle(), ]
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
 
     def post(self, request):
         serializer = CATVSerializer(data=request.data, context={"request": request})
@@ -1427,8 +1485,119 @@ class CATVView(APIView):
         else:
             results = serializer.get_tracking_results()
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+        history = serializer.data
+        history.update({'user_id': request.user.id})
+        CatvHistoryTask().delay(history=history)
         return APIResponse({
             "data": results
+        })
+
+
+class Metrics(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, format=None):
+        tz = request.query_params.get('timezone', None)
+        rng = request.query_params.get('range', None)
+        user_permission = getattr(request.user, 'permission', None)
+
+        if not timezone or not rng:
+            raise exceptions.ValidationError("timezone or type is not provided.")
+
+        rng = int(rng)
+
+        now_date = datetime.datetime.now(pytz.timezone(tz))
+        start_date = now_date - datetime.timedelta(days=rng - 1)
+        unaware_std = datetime.datetime.strptime(start_date.strftime('%Y-%m-%d') + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
+        aware_startdate = pytz.timezone(tz).localize(unaware_std)
+        offset = str(now_date.utcoffset())
+        date_dict = {}
+        for d in range(rng):
+            key = (now_date - datetime.timedelta(days=d)).strftime('%Y-%m-%d')
+            date_dict[key] = {
+                'indicator': {
+                    'count': 0,
+                    'security_tags': {},
+                    'pattern_type': {},
+                    'pattern_subtype': {}
+                },
+                'case': {
+                    'count': 0,
+                }
+            }
+
+        indicator_cache_key = Constants.CACHE_KEY['METRICS_INDICATOR'].format(str(rng), offset)
+        case_cache_key = Constants.CACHE_KEY['METRICS_CASE'].format(str(rng), offset)
+
+        if user_permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+            latest_indicator_cache_key = Constants.CACHE_KEY['METRICS_LATEST_INDICATORS'].format('sentinel')
+        else:
+            latest_indicator_cache_key = Constants.CACHE_KEY['METRICS_LATEST_INDICATORS'].format('non-sentinel')
+
+        c = DefaultCache()
+        indicators = c.get(indicator_cache_key)
+        cases = c.get(case_cache_key)
+        latest_indicators = c.get(latest_indicator_cache_key)
+        cached = True if (indicators != None and cases != None) else False
+
+        if not cached:
+            case_row_query = Constants.QUERIES['SELECT_METRICS_CASE'].format(tz, aware_startdate.strftime('%Y-%m-%d'))
+            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(tz, aware_startdate.strftime(
+                '%Y-%m-%d'))
+
+            with connection.cursor() as cursor:
+                cursor.execute(case_row_query)
+                cases = cursor.fetchall()
+                cursor.execute(indicator_row_query)
+                indicators = cursor.fetchall()
+                c.set(case_cache_key, cases, 60 * 10)
+                c.set(indicator_cache_key, indicators, 60 * 10)
+
+        for case in cases:
+            key = case[1].strftime('%Y-%m-%d')
+            date_dict[key]['case']['count'] += case[0]
+
+        for indicator in indicators:
+            count = indicator[0]
+            date = indicator[1].strftime('%Y-%m-%d')
+            pattern_type = indicator[2]
+            pattern_subtype = indicator[3]
+            security_tags = indicator[4]
+
+            date_dict[date]['indicator']['count'] += count
+
+            if pattern_type in date_dict[date]['indicator']['pattern_type']:
+                date_dict[date]['indicator']['pattern_type'][pattern_type] += count
+            else:
+                date_dict[date]['indicator']['pattern_type'][pattern_type] = count
+
+            if pattern_subtype in date_dict[date]['indicator']['pattern_subtype']:
+                date_dict[date]['indicator']['pattern_subtype'][pattern_subtype] += count
+            else:
+                date_dict[date]['indicator']['pattern_subtype'][pattern_subtype] = count
+
+            if security_tags is not None:
+                for tag in security_tags:
+                    if tag in date_dict[date]['indicator']['security_tags']:
+                        date_dict[date]['indicator']['security_tags'][tag] += count
+                    else:
+                        date_dict[date]['indicator']['security_tags'][tag] = count
+
+        if not latest_indicators:
+            filters = Q()
+            if user_permission not in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+                filters &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+            indicators = Indicator.objects.filter(filters).order_by('-id')[:100]
+            indicators_serializer = IndicatorLatestRecordSerializer(indicators, many=True)
+            latest_indicators = indicators_serializer.data
+            c.set(latest_indicator_cache_key, latest_indicators, 60 * 10)
+
+        return APIResponse({
+            "data": {
+                "dates": date_dict,
+                "indicators": latest_indicators
+            }
         })
 
 
@@ -1447,11 +1616,27 @@ class ValidateAddress(APIView):
         token_abi = json.loads(abi)
         token = w3.eth.contract(token_address, abi=token_abi)
         bal = token.call().balanceOf(self.request.GET.get('address'))
-        if(bal > (data[0].get('min_token')*1000000000000000000)) :
+        if (bal > (data[0].get('min_token') * 1000000000000000000)):
             return APIResponse({
                 "data": "success"
             })
-        else :
+        else:
             return APIResponse({
                 "data": "fail"
             })
+
+
+class CARA(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        producer = KafkaProducer(bootstrap_servers=['kafkabroker1.stg.upp:9092', 'kafkabroker2.stg.upp:9093'],
+                                 value_serializer=lambda x:
+                                 dumps(x).encode('utf-8'))
+        address = self.request.GET.get('address')
+        data = {'address': address}
+        print(producer.send('cara-address', data))
+        producer.flush()
+        producer.close()
+        return APIResponse(data)
