@@ -36,7 +36,7 @@ class TrackingResults:
         self.token_address = find_key(kwargs, 'token_address')
         self.force_lookup = find_key(kwargs, 'force_lookup')
         self.error = None
-        self.from_db = None
+        self.ext_api_calls = 0
 
     def bloxy_response_callback(self, *args, **kwargs):
         if args and 'error' in args[0]:
@@ -71,7 +71,7 @@ class TrackingResults:
             if self.force_lookup:
                 transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, for_source)
                 self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date, transaction_data)
-                self.from_db = False
+                self.ext_api_calls += 1
             else:
                 db_results = bloxy_db_class.objects.filter(address=self.wallet_address, depth_limit=depth_limit,
                                                            transaction_limit=self.transaction_limit,
@@ -86,10 +86,9 @@ class TrackingResults:
                         raise IndexError
                     self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date,
                                            transaction_data)
-                    self.from_db = False
+                    self.ext_api_calls += 1
                 else:
                     transaction_data = db_results[0]['result']
-                    self.from_db = True if self.from_db is None else self.from_db
             return transaction_data
         except IndexError:
             raise IndexError("This address has missing {} results.".format(error_placeholder))
