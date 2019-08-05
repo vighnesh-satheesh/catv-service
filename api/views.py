@@ -44,7 +44,8 @@ from .throttling import (
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
     IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
-    CaraUsageExceededThrottle, CaraPostThrottle)
+    CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle)
+)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
 from . import exceptions
@@ -826,6 +827,51 @@ class IndicatorDetailView(APIView):
         return APIResponse({"data": {}})
 
 
+class GuestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (GuestSearchThrottle,)
+
+    @method_decorator(cache_page(60 * 5))
+    def dispatch(self, *args, **kwargs):
+        return super(GuestSearchView, self).dispatch(*args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        query = self.request.query_params.get("q", None)
+        if query is None:
+            raise exceptions.ValidationError("Search query is required.")
+
+        if len(query) > 1024:
+            raise exceptions.ValidationError("Search query cannot exceed 1024 characters.")
+
+        if len(query) < 3:
+            raise exceptions.ValidationError("Search query should contain at least 3 characters.")
+
+        serializer_cls = IndicatorListSerializer
+        queryset = self.get_queryset()
+        serializer = serializer_cls(queryset, many=True)
+
+        return APIResponse({
+            "data": {
+                "items": serializer.data
+            }
+        })
+
+    def get_indicator_queryset(self, query):
+        filter_queries = Q(pattern__ilike=query)
+        filter_queries &= Q(security_category__in=[IndicatorSecurityCategory.BLACKLIST,
+                                                   IndicatorSecurityCategory.WHITELIST])
+        filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+
+        objs = Indicator.objects.filter(filter_queries).distinct('id').order_by('-pk')[:20]
+
+        return objs
+
+    def get_queryset(self):
+        query = self.request.query_params.get("q", None)
+        return self.get_indicator_queryset(query)
+
+
 class SearchView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (AllowAny,)
@@ -1480,14 +1526,16 @@ class CATVView(APIView):
         tracking_cache = TrackingCache()
         cache_key = utils.create_tracking_cache_pattern(serializer.data)
         cached_entry = tracking_cache.get_cache_entry(cache_key)
-        if not serializer.data.get('force_lookup', False) and cached_entry:
-            results = json.loads(gzip.decompress(cached_entry).decode())
-        else:
-            results = serializer.get_tracking_results()
-            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
         history = serializer.data
         history.update({'user_id': request.user.id})
-        CatvHistoryTask().delay(history=history)
+        if not serializer.data.get('force_lookup', False) and cached_entry:
+            results = json.loads(gzip.decompress(cached_entry).decode())
+            CatvHistoryTask().delay(history=history, from_history=True)
+        else:
+            results, api_calls = serializer.get_tracking_results()
+            from_db = (api_calls == 0)
+            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+            CatvHistoryTask().delay(history=history, from_history=from_db)
         return APIResponse({
             "data": results
         })
