@@ -1,3 +1,6 @@
+import ast
+import json
+
 import api.scheduler.cfg_listener as cfg
 from kafka import KafkaConsumer, TopicPartition, KafkaProducer
 from json import loads, dumps
@@ -8,8 +11,12 @@ import datetime
 import time
 import boto3
 import redis
+
+from api.constants import Constants
 from api.scheduler.CARA_db import DB_api
 from web3 import Web3
+from operator import itemgetter
+from django.db import connection
 
 
 class Listener_Indicator:
@@ -62,7 +69,7 @@ class Listener_Indicator:
 
     def convert_list_to_dict_with_validation_of_addresses(self, new_indicators):
         dict_new_indicator = {}
-
+        sorted(new_indicators, key=itemgetter(2))
         for new_indicator in new_indicators:
             id = new_indicator[0]
             addr = new_indicator[1]
@@ -70,7 +77,8 @@ class Listener_Indicator:
 
             if Web3.isAddress(addr) is True:
                 dict_new_indicator[addr] = {'id': id, 'updated_time': updated_time}
-
+        #print(new_indicators)
+        sorted(dict_new_indicator, key=itemgetter(2))
         return dict_new_indicator
 
     def get_indicators_from_time(self, previous_indicator_info):
@@ -82,7 +90,7 @@ class Listener_Indicator:
         current_end_time = current_start_time + time_interval
 
         # Query trdb for new indicators
-        query = "select id, pattern, updated from api_indicator where pattern_subtype = 'ETH' and security_category = 'blacklist' and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc"
+        query = "select id, pattern, updated from api_indicator where pattern_subtype = 'ETH' and security_category = 'blacklist' and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 100"
         try:
            new_indicators = self.__trdb_api.get_query(query)
         except Exception as e:
@@ -107,9 +115,12 @@ class Listener_Indicator:
         if not new_indicators:
             new_indicators = None
             new_indicator_info = [current_start_id]
+            last_new_indicator_time = current_end_time
         else:
             new_indicator_info = [new_indicators[len(new_indicators) - 1][0]]
-            new_indicators = self.convert_list_to_dict_with_validation_of_addresses(new_indicators)
+            last_new_indicator_time = new_indicators[len(new_indicators) - 1][2]
+            #new_indicators = self.convert_list_to_dict_with_validation_of_addresses(new_indicators)
+            print("Last new indicator time:", last_new_indicator_time)
 
         # If error in last indicator values
         if not last_indicator_info:
@@ -117,7 +128,8 @@ class Listener_Indicator:
             new_indicator_info = [current_start_id,current_start_time]  # Since there is an error, we should not be incrementing the time
         else:
             last_indicator_time = last_indicator_info[1]
-            new_indicator_info.append(current_end_time) if current_end_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
+            #new_indicator_info.append(current_end_time) if current_end_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
+            new_indicator_info.append(last_new_indicator_time) if last_new_indicator_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
 
         return new_indicators, new_indicator_info
 
@@ -127,6 +139,62 @@ class Listener_Indicator:
                               AsIs("timestamp '" + str(new_indicator_info[3]) + "'"))
 
         self.__local_db_api.update_query(query, new_indicator_info)
+
+    def check_for_reports(self, max_records,current_offset):
+        consumer = KafkaConsumer('cara-address-results-test',
+                                 bootstrap_servers=['kafkabroker1.stg.upp:9092', 'kafkabroker2.stg.upp:9093'],
+                                 auto_offset_reset='earliest',
+                                 enable_auto_commit=False
+                                 )
+        topics = consumer.topics()
+        assigned_partition = consumer.assignment()
+        # Getting start and end offset of the partition in topic containing the records
+        start_offset = [value for key, value in consumer.beginning_offsets(assigned_partition).items()][0]
+        end_offset = [value for key, value in consumer.end_offsets(assigned_partition).items()][0]
+        # Placing the start offset for poll() function
+        #current_offset = 0
+        consumer.seek(list(assigned_partition)[0], current_offset)
+        number_records = 0
+
+        while (current_offset >= start_offset and current_offset < end_offset):
+            data = consumer.poll(max_records=max_records)  # Max records should be based on max vcpu of batch
+            if data:
+                data = [value for value in data.values()][0]
+                current_offset += len(data)
+                number_records += len(data)
+                for item in data:
+                    # print("%s:%d:%d: key=%s timestamp:%s value=%s" % (item.topic, item.partition, item.offset, item.key, datetime.datetime.fromtimestamp(item.timestamp/1000.0).strftime('%Y-%m-%d %H:%M:%S'), item.value.decode('utf-8')))
+                    str_timestamp = datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime(
+                        '%Y-%m-%d %H:%M:%S')
+                    datetime_timestamp = datetime.datetime.strptime(str_timestamp, "%Y-%m-%d %H:%M:%S")
+                    if datetime_timestamp > datetime.datetime(year=2019, month=7, day=25):
+                        print("timestamp:%s value=%s" % (
+                        datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime('%Y-%m-%d %H:%M:%S'),
+                        item.value.decode('utf-8')))
+                        #item = item.value.decode('utf-8')
+                    dict_item = ast.literal_eval(item.value.decode('utf-8'))
+                    pat = ""
+                    links = ""
+                    act = ""
+                    if "Error" in dict_item.keys():
+                        break
+                    for pattern in dict_item["distinct_transaction_patterns"]:
+                        if pattern != '[' and pattern != ']' and pattern != "'":
+                            pat = pat+pattern
+                    for link in dict_item["direct_links_to_malicious_activities"]:
+                        if link != '{' and link != '}' and link != "'" and link != ':' and link != '1' and link != '0':
+                            links = links+link
+                    for activity in dict_item["illegit_activity_links"]:
+                        if activity != '{' and activity != '}' and activity != "'" and activity != ':' and activity != '1' and activity != '0':
+                            act = act+activity
+                    print(pat)
+                    cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
+                    data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],dict_item["num_blacklisted_addr_contacted"],pat,links,act)
+                    with connection.cursor() as cursor:
+                        cursor.execute(cara_report_insert_query, data_dict)
+            if number_records >= max_records:
+                break
+        return current_offset
 
 
     def check_for_new_cases(self):
@@ -141,9 +209,21 @@ class Listener_Indicator:
            print("Error connecting to dbs:",str(e))
            return None
 
+        kafka_offset_query = Constants.QUERIES['KAFKA_LISTENER_PARAMS']
+        with connection.cursor() as cursor:
+            cursor.execute(kafka_offset_query)
+            offset = cursor.fetchone()
+
+        result = self.check_for_reports(100,offset[0])
+        offset_update_query = Constants.QUERIES['KAFKA_OFFSET_UPDATE'].format(result)
+        with connection.cursor() as cursor:
+            cursor.execute(offset_update_query)
+
+
         # Need to get time and id of previous indicator
         previous_indicator_info = self.get_info_of_last_checked_trdb_indicator()
         print("Previous:", str(previous_indicator_info))
+
 
         if previous_indicator_info is None:  # There is error in portal listener table or trdb portal table
             print("Error no previous indicator:")
@@ -151,17 +231,22 @@ class Listener_Indicator:
 
         # Check for new indicators in the new time frame
         new_indicators, new_indicator_info = self.get_indicators_from_time(previous_indicator_info)
-        print("New:", str(new_indicator_info))
-
         # Check for duplicate addresses based on policy and submit them as jobs to aws batch using boto3 client api
         if new_indicators is not None:
+            #sorted(new_indicators,key=itemgetter(2))
             number_new_indicators = len(new_indicators)
             if number_new_indicators != 0:
                 for indicator in new_indicators:
-                    producer = KafkaProducer(bootstrap_servers=['10.12.36.46:9092'],
+                    #print(indicator)
+                    producer = KafkaProducer(bootstrap_servers=['kafkabroker1.stg.upp:9092', 'kafkabroker2.stg.upp:9093'],
                                              value_serializer=lambda x:
                                              dumps(x).encode('utf-8'))
-                    print(producer.send('cara-indicator', indicator))
+                    #indicator[2] = indicator[2].strftime("%Y-%m-%d %H:%M:%S")
+                    data = {'id': indicator[0],
+                            'address': indicator[1],
+                            'updated_time': indicator[2].strftime("%Y-%m-%d %H:%M:%S")}
+                    print(data)
+                    producer.send('cara-indicator', data)
                     producer.flush()
                     producer.close()
 
@@ -190,44 +275,5 @@ class Listener_Indicator:
         return number_new_indicators
 
 
-    def kafkalistener(self):
-        status = indicator_listener.check_for_new_cases()
 
 
-
-if __name__ == '__main__':
-
-    indicator_listener = Listener_Indicator()
-
-
-
-
-    while (1):
-        consumer = KafkaConsumer('cara-address',
-                                 bootstrap_servers=['10.12.36.46:9092'],
-                                 auto_offset_reset='earliest',
-                                 consumer_timeout_ms=1000,
-                                 enable_auto_commit=True,
-                                 group_id='test-consumer-group',
-                                 value_deserializer=lambda x: loads(x.decode('utf-8')))
-        print("Starting !!!")
-        for message in consumer:
-            print(message.value)
-        consumer.close()
-        status = indicator_listener.check_for_new_cases()
-
-        # Depending on the status, sleep time is set
-        print("Sleeping !!!\n")
-        if status is None:
-            print("Error encountered")
-            time.sleep(1200) # 20 minutes sleep time
-        elif status == 0: # 0 wallets found
-            time.sleep(120) # 2 minutes
-        elif status > 0 and status < 50:
-            time.sleep(1800) # 30 minutes
-        elif status >= 50 and status < 200:
-            time.sleep(3600) # 1 hour
-        elif status >= 200 and status < 1000:
-            time.sleep(7200) # 2 hours
-        else:
-            time.sleep(10800) # 3 hours

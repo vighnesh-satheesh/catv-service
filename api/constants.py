@@ -55,7 +55,19 @@ class Constants:
                                     "pattern_type, pattern_subtype, security_tags "
                                     "FROM api_indicator "
                                     "WHERE created AT TIME ZONE '{0}' > '{1}' "
-                                    "GROUP BY d, pattern_type, pattern_subtype, security_tags"
+                                    "GROUP BY d, pattern_type, pattern_subtype, security_tags",
+        "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history VALUES(%s,%s,%s);",
+        "CARA_HISTORY_USER": "SELECT address from cara_search_history where id = '{0}'",
+        "INSERT_CARA_REPORT": "INSERT INTO cara_report(address,risk_score,analysis_start_time,analysis_end_time,"
+                              "total_amt,estimated_mal_amt,total_tx,estimated_mal_tx,num_blacklisted_addr_contacted,"
+                              "distinct_transaction_patterns,direct_links_to_malicious_activities,illegit_activity_links)"
+                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s)",
+        "KAFKA_LISTENER_PARAMS": "SELECT kafka_offset from kafka_listener_parameters where id=1",
+        "KAFKA_OFFSET_UPDATE": "UPDATE kafka_listener_parameters set kafka_offset={0} where id=1",
+        "CARA_REPORT_ADDRESS_GENERATED": "SELECT address from cara_report where address='{0}'",
+        "CARA_REPORT_QUERY": "SELECT id, address, risk_score, analysis_end_time, total_amt, estimated_mal_amt, estimated_mal_tx, distinct_transaction_patterns,"
+                             "direct_links_to_malicious_activities, illegit_activity_links from cara_report"
+                             " where address='{0}'"
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

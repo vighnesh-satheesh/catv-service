@@ -1635,8 +1635,57 @@ class CARA(APIView):
                                  value_serializer=lambda x:
                                  dumps(x).encode('utf-8'))
         address = self.request.GET.get('address')
-        data = {'address': address}
+        user = self.request.GET.get('user')
+        cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
+        time = datetime.datetime.now(datetime.timezone.utc)
+        data = (user, address, time)
+        with connection.cursor() as cursor:
+            cursor.execute(cara_history_insert_query, data)
+        data = {'address': address,
+                'time': time.strftime("%Y-%m-%d %H:%M:%S")}
+        print(data)
         print(producer.send('cara-address', data))
         producer.flush()
         producer.close()
+        return APIResponse(data)
+
+
+class CARAHistory(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = self.request.GET.get('user')
+        history_query = Constants.QUERIES['CARA_HISTORY_USER'].format(user)
+        with connection.cursor() as cursor:
+            cursor.execute(history_query)
+            history = cursor.fetchall()
+        search = [x[0] for x in history]
+        reports = []
+        for add in search:
+            report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(add)
+            with connection.cursor() as new_cursor:
+                new_cursor.execute(report_query)
+                add_report = new_cursor.fetchone()
+                if add_report is not None:
+                    print(list(add_report))
+                    reports.extend(list(add_report))
+        data = {'history': search,
+                'reports': reports}
+        return APIResponse(data)
+
+class CARAReport(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        address = self.request.GET.get('address')
+        report_query = Constants.QUERIES['CARA_REPORT_QUERY'].format(address)
+        with connection.cursor() as cursor:
+            cursor.execute(report_query)
+            report = cursor.fetchone()
+            if report is not None:
+                data = {'report': report}
+            else:
+                data = {'report': ""}
         return APIResponse(data)

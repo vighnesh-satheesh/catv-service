@@ -1,5 +1,6 @@
 amqp==2.3.2
 anyjson==0.3.3
+apscheduler==3.6.0
 beautifulsoup4==4.6.1
 billiard>=3.3.0.23,<3.4
 boto3==1.7.58
