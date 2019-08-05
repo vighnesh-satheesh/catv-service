@@ -64,6 +64,16 @@ class CatvHistoryTask(Task):
         return True
 
 
+class CaraHistoryTask(Task):
+    def run(self, *args, **kwargs):
+        entry = kwargs['usage']
+        query_list = Constants.QUERIES['UPDATE_USER_CARA_USAGE']
+        query_data = [entry['user_id'], ]
+        with connections['default'].cursor() as cursor:
+            cursor.execute(query_list, query_data)
+        return True
+
+
 class CheckUpdateUsageQuotaTask(Task):
     def run(self, *args, **kwargs):
         query = Constants.QUERIES['REFILL_USER_USAGE_QUOTA']
@@ -76,3 +86,4 @@ tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
 tasks.register(CacheNumberOfIndicatorsCases)
+tasks.register(CaraHistoryTask)

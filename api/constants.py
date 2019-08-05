@@ -27,8 +27,10 @@ class Constants:
                                     "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);",
         "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls_left=(catv_calls_left-1) where user_id=%s and "
                                   "catv_calls_left > 0;",
-        "REFILL_USER_USAGE_QUOTA": "UPDATE api_usage au set catv_calls_left=(catv_calls_left + t.catv_limit), "
-                                   "last_renewal_at=now() from (select u.id as user_id, ul.role_id, ul.catv_limit "
+        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left-1) where user_id='{0}' and "
+                                  "cara_calls_left > 0;",
+        "REFILL_USER_USAGE_QUOTA": "UPDATE api_usage au set catv_calls_left=(catv_calls_left + t.catv_limit), cara_calls_left=(cara_calls_left + t.cara_limit), "
+                                   "last_renewal_at=now() from (select u.id as user_id, ul.role_id, ul.catv_limit, ul.cara_limit "
                                    "from api_user u inner join api_role_usage_limit ul on u.role_id=ul.role_id) t "
                                    "where t.user_id = au.user_id and DATE_PART('day', now() - au.last_renewal_at) > 30;",
         "INSERT_USER_USAGE_QUOTA": "INSERT INTO api_usage(user_id,api_calls_left,catv_calls_left,cara_calls_left, "

@@ -99,3 +99,21 @@ class UserAuthenticationRateThrottle(SimpleRateThrottle):
         self.cache.set(self.key, self.history, self.duration)
         return True
 """
+
+
+class CaraUsageExceededThrottle(BaseThrottle):
+    def allow_request(self, request, view):
+        usage_details = Usage.objects.values('cara_calls_left', 'last_renewal_at').\
+                            filter(user_id=request.user.id)[0:1]
+
+        if usage_details and usage_details[0]['cara_calls_left'] > 0:
+            return True
+
+        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at'] + timedelta(days=30), '%Y-%m-%d')
+        raise Throttled(detail=("You have exhausted your CARA usage credits. "
+                                "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
+
+
+class CaraPostThrottle(UserRateThrottle):
+    scope = "caraPost"
+

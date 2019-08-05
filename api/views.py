@@ -43,8 +43,8 @@ from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
-    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle
-)
+    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
+    CaraUsageExceededThrottle, CaraPostThrottle)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
 from . import exceptions
@@ -58,7 +58,7 @@ from .cache.local import LocalCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
-from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases
+from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases, CaraHistoryTask
 from django.utils import timezone
 
 import datetime
@@ -1630,6 +1630,9 @@ class CARA(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    def get_throttles(self):
+        return [CaraUsageExceededThrottle(), CaraPostThrottle(), ]
+
     def get(self, request):
         producer = KafkaProducer(bootstrap_servers=['kafkabroker1.stg.upp:9092', 'kafkabroker2.stg.upp:9093'],
                                  value_serializer=lambda x:
@@ -1639,6 +1642,7 @@ class CARA(APIView):
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
         time = datetime.datetime.now(datetime.timezone.utc)
         data = (user, address, time)
+        usage = ({'user_id': request.user.id})
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
         data = {'address': address,
@@ -1647,6 +1651,9 @@ class CARA(APIView):
         print(producer.send('cara-address', data))
         producer.flush()
         producer.close()
+        query_list = Constants.QUERIES['UPDATE_USER_CARA_USAGE'].format(request.user.id)
+        with connection.cursor() as cursor:
+            cursor.execute(query_list)
         return APIResponse(data)
 
 

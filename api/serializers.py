@@ -68,7 +68,7 @@ class LoginSerializer(serializers.Serializer):
                                                          'to_date').filter(user=user.id).distinct()[:10]
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
-        if user.address != "":
+        if user.address != "" and user.address is not None:
             address_c = w3.toChecksumAddress(reward_setting[0].get('token_address'))
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
