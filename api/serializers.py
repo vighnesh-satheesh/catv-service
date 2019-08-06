@@ -88,7 +88,8 @@ class LoginSerializer(serializers.Serializer):
 				"email_notification": user.email_notification,
                 "catv_history": list(catv_history),
 				"points": user.points,
-                "balance": bal            }
+                "balance": bal
+            }
         }
 
     def validate_email(self, email):
