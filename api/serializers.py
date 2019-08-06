@@ -73,7 +73,13 @@ class LoginSerializer(serializers.Serializer):
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
             bal = (token_upp.call().balanceOf(user.address))/1000000000000000000
-
+        catv_history = models.CatvHistory.objects.raw(Constants.QUERIES["SELECT_USER_CATV_HISTORY"], [user.id])
+        history_list = []
+        for hist in catv_history:
+            history_list.append({'wallet_address': hist.wallet_address, 'distribution_depth': hist.distribution_depth,
+                                 'source_depth': hist.source_depth, 'transaction_limit': hist.transaction_limit,
+                                 'token_address': hist.token_address, 'from_date': hist.from_date,
+                                 'to_date': hist.to_date})
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",
             "user": {
@@ -85,12 +91,11 @@ class LoginSerializer(serializers.Serializer):
                 "rolepermissions": role_matrix,
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
                 "status": user.status.value,
-				"email_notification": user.email_notification,
-                "catv_history": list(catv_history),
+                "catv_history": history_list,
 				"points": user.points,
-                "balance": bal
-            }
-        }
+                "balance": bal,
+				"email_notification": user.email_notification
+			}        }
 
     def validate_email(self, email):
         try:
@@ -1697,7 +1702,7 @@ class CATVSerializer(serializers.Serializer):
             tracking_results.get_tracking_data()
             tracking_results.create_graph_data()
             tracking_results.set_annotations_from_db()
-            return tracking_results.make_graph_dict()
+            return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
         except socket.timeout:
             raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
         except Exception as e:

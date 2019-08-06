@@ -70,6 +70,11 @@ class Constants:
         "CARA_REPORT_QUERY": "SELECT id, address, risk_score, analysis_end_time, total_amt, estimated_mal_amt, estimated_mal_tx, distinct_transaction_patterns,"
                              "direct_links_to_malicious_activities, illegit_activity_links from cara_report"
                              " where address='{0}'"
+        "SELECT_USER_CATV_HISTORY": "SELECT DISTINCT ON (id, wallet_address, token_address, source_depth, "
+                                    "distribution_depth, transaction_limit, from_date, to_date) ROW_NUMBER() over () "
+                                    "as id, wallet_address, token_address, source_depth, distribution_depth, "
+                                    "transaction_limit, from_date, to_date FROM api_catv_history WHERE user_id=%s "
+                                    "ORDER BY id DESC LIMIT 10;"
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

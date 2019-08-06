@@ -171,8 +171,11 @@ REST_FRAMEWORK = {
         "signup": "5/min",
         'emailVerification': '5/min',
         'indicatorPost': '20/min',
-		'catvPost': '3/min',
+    		'catvPost': '3/min',
         'caraPost': '3/min'
+        'catvPost': '3/min',
+        'caraPost': '3/min',
+        'guestSearchGet': '20/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -272,14 +275,12 @@ BROKER_URL = API_SETTINGS['CELERY_BROKER_URL']
 CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
 CELERY_IMPORTS = ('api.tasks',)
-"""
 CELERYBEAT_SCHEDULE = {
     'check-quota-every-thirty-minutes': {
         'task': 'api.tasks.CheckUpdateUsageQuotaTask',
         'schedule': timedelta(minutes=30),
     },
 }
-"""
 # email
 EMAIL_BACK_END = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_USE_TLS = True

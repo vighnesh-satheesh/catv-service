@@ -53,6 +53,10 @@ class CatvPostThrottle(UserRateThrottle):
     scope = "catvPost"
 
 
+class GuestSearchThrottle(UserRateThrottle):
+    scope = "guestSearchGet"
+
+
 """
 # login, changepassword api
 class UserAuthenticationRateThrottle(SimpleRateThrottle):

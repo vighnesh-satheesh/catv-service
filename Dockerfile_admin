@@ -10,6 +10,7 @@ ARG ALLOWED_HOSTS
 ARG CORS_ORIGIN_WHITELIST
 ARG PORTAL_API_ENV=development
 ARG CONTAINER_TYPE=portal_admin
+ARG PORTAL_API_ENV_PATH=/env/file/path.env
 
 ENV EXPOSE_GENERAL_API=$EXPOSE_GENERAL_API
 ENV EXPOSE_FILE_API=$EXPOSE_FILE_API
@@ -34,9 +35,10 @@ RUN apt-get update && \
 # Install requirements
 COPY ./requirements/${PORTAL_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
+COPY ./env-dev/file/path.env ./env/file/path.env
 RUN pip install -r ./requirements.txt
 RUN pip install uwsgi
-RUN pip install -e ./library/indicator-lib/src/py
+RUN pip install -e ./library/indicatorlib/src/py
 
 # Add uppsala user.
 RUN groupadd -g 999 uppsala && \
