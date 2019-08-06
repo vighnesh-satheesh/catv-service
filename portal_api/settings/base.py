@@ -171,10 +171,8 @@ REST_FRAMEWORK = {
         "signup": "5/min",
         'emailVerification': '5/min',
         'indicatorPost': '20/min',
-    		'catvPost': '3/min',
-        'caraPost': '3/min'
-        'catvPost': '3/min',
         'caraPost': '3/min',
+        'catvPost': '3/min',
         'guestSearchGet': '20/min'
     },
     'NUM_PROXIES': 2,

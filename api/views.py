@@ -45,7 +45,6 @@ from .throttling import (
     EmailVerificationThrottle,
     IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
     CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle)
-)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination
 from . import exceptions
