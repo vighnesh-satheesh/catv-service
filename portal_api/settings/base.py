@@ -288,5 +288,5 @@ EMAIL_HOST_PASSWORD = API_SETTINGS['EMAIL_HOST_PASSWORD']
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://bloxy.info/api/sentinel/distribution_transactions')
-BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://bloxy.info/api/sentinel/source_transactions')
+BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/distribution_transactions')
+BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/source_transactions')
