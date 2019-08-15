@@ -190,8 +190,9 @@ class Listener_Indicator:
                     print(pat)
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],dict_item["num_blacklisted_addr_contacted"],pat,links,act)
-                    with connection.cursor() as cursor:
-                        cursor.execute(cara_report_insert_query, data_dict)
+                    self.__trdb_api.insertdict_query(cara_report_insert_query,data_dict)
+                    #with connection.cursor() as cursor:
+                     #   cursor.execute(cara_report_insert_query, data_dict)
             if number_records >= max_records:
                 break
         return current_offset
@@ -210,14 +211,16 @@ class Listener_Indicator:
            return None
 
         kafka_offset_query = Constants.QUERIES['KAFKA_LISTENER_PARAMS']
-        with connection.cursor() as cursor:
-            cursor.execute(kafka_offset_query)
-            offset = cursor.fetchone()
+        offset = self.__trdb_api.getone_query(kafka_offset_query)
+        #with connection.cursor() as cursor:
+         #   cursor.execute(kafka_offset_query)
+          #  offset = cursor.fetchone()
 
         result = self.check_for_reports(100,offset[0])
         offset_update_query = Constants.QUERIES['KAFKA_OFFSET_UPDATE'].format(result)
-        with connection.cursor() as cursor:
-            cursor.execute(offset_update_query)
+        self.__trdb_api.update_query_format(offset_update_query)
+        #with connection.cursor() as cursor:
+         #   cursor.execute(offset_update_query)
 
 
         # Need to get time and id of previous indicator

@@ -12,9 +12,18 @@ class DB_api:
         rows = self.__cur.fetchall()
         return rows
 
+    def getone_query(self, query):
+        self.__cur.execute(query)
+        rows = self.__cur.fetchone()
+        return rows
+
     def insert_query(self,query,columns,values):
         self.__cur.execute(query %((AsIs(','.join(columns))),(AsIs(','.join(values)))))
         self.__conn.commit()
+
+    def insertdict_query(self,query,dict):
+        self.__cur.execute(query,dict)
+        self.__conn.commit
 
     def insert_multiple_values(self,query,values):
         self.__cur.execute(query %(AsIs(','.join(values))))
@@ -24,6 +33,10 @@ class DB_api:
 
     def update_query(self,query,values):
         self.__cur.execute(query % (values))
+        self.__conn.commit()
+
+    def update_query_format(self, query):
+        self.__cur.execute(query)
         self.__conn.commit()
 
     def close(self):
