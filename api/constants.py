@@ -59,6 +59,7 @@ class Constants:
                                     "WHERE created AT TIME ZONE '{0}' > '{1}' "
                                     "GROUP BY d, pattern_type, pattern_subtype, security_tags",
         "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history VALUES(%s,%s,%s);",
+        "DELETE_ADDRESS_FROM_HISTORY": "DELETE from cara_search_history where address='{0}' and id='{1}'",
         "CARA_HISTORY_USER": "SELECT address from cara_search_history where id = '{0}'",
         "INSERT_CARA_REPORT": "INSERT INTO cara_report(address,risk_score,analysis_start_time,analysis_end_time,"
                               "total_amt,estimated_mal_amt,total_tx,estimated_mal_tx,num_blacklisted_addr_contacted,"
