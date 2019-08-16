@@ -12,7 +12,7 @@ LOCAL_PASSWORD = 'Aa123456'
 LOCAL_PORT = 5432
 LOCAL_SSL_MODE = 'prefer'
 
-TIME_INTERVAL = 480
+TIME_INTERVAL = 24
 
 AWS_QUEUE_ARN = 'arn:aws:batch:ap-southeast-1:821988754834:job-queue/first-run-job-queue'
 AWS_JOBNAME = "first-run-job"
