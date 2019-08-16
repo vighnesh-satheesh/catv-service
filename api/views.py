@@ -1720,9 +1720,10 @@ class CARAHistory(APIView):
             cursor.execute(history_query)
             history = cursor.fetchall()
         search = [x[0] for x in history]
+        time = [x[1] for x in history]
         reports = []
-        for add in search:
-            report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(add)
+        for add, t in zip(search, time):
+            report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(add, t)
             with connection.cursor() as new_cursor:
                 new_cursor.execute(report_query)
                 add_report = new_cursor.fetchone()
@@ -1730,6 +1731,7 @@ class CARAHistory(APIView):
                     print(list(add_report))
                     reports.extend(list(add_report))
         data = {'history': search,
+                'time': time,
                 'reports': reports}
         return APIResponse(data)
 
