@@ -15,8 +15,7 @@ class BloxyAPIInterface:
         response_list = response.json()
         return response_list
 
-    def get_transactions(self, address, depth_limit=2, transaction_limit=10000,
-                         from_time=datetime(2015, 1, 1, 0, 0), till_time=datetime.now(),
+    def get_transactions(self, address, depth_limit=2, from_time=datetime(2015, 1, 1, 0, 0), till_time=datetime.now(),
                          token_address=None, source=True):
         if source:
             api_url = self._source_endpoint
@@ -26,7 +25,6 @@ class BloxyAPIInterface:
             depth = depth_limit
 
         payload = {'key': self._key, 'address': address, 'depth_limit': depth,
-                   'ignore_addresses_with_transaction_limit': transaction_limit,
                    'from_time': from_time, 'till_time': till_time, 'snapshot_time': from_time if source else till_time,
                    'limit_address_tx_count': 10000}
         if token_address:

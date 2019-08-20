@@ -43,7 +43,7 @@ class TrackingResults:
             self.error = args[0]['error']
 
     def get_results_from_bloxy(self, bloxy_interface, depth, till_date, for_source=False):
-        return bloxy_interface.get_transactions(self.wallet_address, depth, self.transaction_limit,
+        return bloxy_interface.get_transactions(self.wallet_address, depth,
                                                 self.from_date, till_date, self.token_address,
                                                 source=for_source)
 
