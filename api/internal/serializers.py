@@ -275,6 +275,8 @@ class CasePostSerializer(serializers.ModelSerializer):
                         else:
                             new_indicators.append(models.Indicator(**indi))
 
+                        indi["annotation"] = indi.pop("annotation", "")
+
                 indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
 
                 if len(indicator_bulk) == 0:
