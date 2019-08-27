@@ -90,7 +90,7 @@ class Listener_Indicator:
         current_end_time = current_start_time + time_interval
 
         # Query trdb for new indicators
-        query = "select id, pattern, updated from api_indicator where pattern_subtype = 'ETH' and security_category = 'blacklist' and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 100"
+        query = "select id, pattern, updated from api_indicator where pattern_subtype = 'ETH' and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 100"
         try:
            new_indicators = self.__trdb_api.get_query(query)
         except Exception as e:
@@ -163,7 +163,6 @@ class Listener_Indicator:
                 current_offset += len(data)
                 number_records += len(data)
                 for item in data:
-                    # print("%s:%d:%d: key=%s timestamp:%s value=%s" % (item.topic, item.partition, item.offset, item.key, datetime.datetime.fromtimestamp(item.timestamp/1000.0).strftime('%Y-%m-%d %H:%M:%S'), item.value.decode('utf-8')))
                     str_timestamp = datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime(
                         '%Y-%m-%d %H:%M:%S')
                     datetime_timestamp = datetime.datetime.strptime(str_timestamp, "%Y-%m-%d %H:%M:%S")
@@ -171,12 +170,14 @@ class Listener_Indicator:
                         print("timestamp:%s value=%s" % (
                         datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime('%Y-%m-%d %H:%M:%S'),
                         item.value.decode('utf-8')))
-                        #item = item.value.decode('utf-8')
                     dict_item = ast.literal_eval(item.value.decode('utf-8'))
                     pat = ""
                     links = ""
                     act = ""
                     error = ""
+                    qtime = []
+                    users = []
+                    ntime = datetime.datetime.utcnow()
                     if "Error" in dict_item.keys():
                         error = dict_item["Error"]
                         data_dict = (dict_item["address"], "0", datetime.datetime.now(datetime.timezone.utc),
@@ -185,6 +186,11 @@ class Listener_Indicator:
                                      "0", "0", "0", "",
                                      "", "", datetime.datetime.now(datetime.timezone.utc), error,
                                      "")
+                        error_user_query = Constants.QUERIES['CARA_ERROR_USER'].format(dict_item["address"])
+                        error_users = self.__trdb_api.get_query(error_user_query)
+                        if error_users is not None:
+                            users = [x[0] for x in error_users]
+                            qtime = [x[1] for x in error_users]
                     else:
                         for pattern in dict_item["distinct_transaction_patterns"]:
                             if pattern != '[' and pattern != ']' and pattern != "'":
@@ -197,13 +203,17 @@ class Listener_Indicator:
                                 act = act+activity
                         print(pat)
                         data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],dict_item["num_blacklisted_addr_contacted"],pat,links,act,datetime.datetime.now(datetime.timezone.utc),error,dict_item["ground_truth_label"])
+                    for time2, user in zip(qtime, users):
+                        TimeDiff = (ntime - time2).total_seconds()
+                        print(TimeDiff / 60)
+                        if (TimeDiff / 60) < 12:
+                            update_error_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(1, user, dict_item["address"])
+                            self.__trdb_api.update_query_format(update_error_query)
                     cara_report_delete_query = Constants.QUERIES['CARA_REPORT_DELETE_QUERY'].format(
                         dict_item["address"])
                     self.__trdb_api.update_query_format(cara_report_delete_query)
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     self.__trdb_api.insertdict_query(cara_report_insert_query, data_dict)
-                    #with connection.cursor() as cursor:
-                     #   cursor.execute(cara_report_insert_query, data_dict)
             if number_records >= max_records:
                 break
         return current_offset

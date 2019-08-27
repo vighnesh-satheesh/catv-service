@@ -1694,12 +1694,10 @@ class CARA(APIView):
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
         time = datetime.datetime.now(datetime.timezone.utc)
         data = (user, address, time)
-        usage = ({'user_id': request.user.id})
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
         data = {'address': address,
                 'time': time.strftime("%Y-%m-%d %H:%M:%S")}
-        print(data)
         print(producer.send('cara-address', data))
         producer.flush()
         producer.close()
@@ -1716,9 +1714,18 @@ class CARAHistory(APIView):
     def get(self, request):
         user = self.request.GET.get('user')
         history_query = Constants.QUERIES['CARA_HISTORY_USER'].format(user)
+        error_count_query = Constants.QUERIES['CARA_ERROR_COUNT'].format(user)
         with connection.cursor() as cursor:
             cursor.execute(history_query)
             history = cursor.fetchall()
+            cursor.execute(error_count_query)
+            address = cursor.fetchall()
+            update_error_query = Constants.QUERIES['UPDATE_CARA_ERROR_USAGE'].format(request.user.id)
+
+            for x in address:
+                cursor.execute(update_error_query)
+                update_error_report_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(0, user, x[0])
+                cursor.execute(update_error_report_query)
         search = [x[0] for x in history]
         time = [x[1] for x in history]
         reports = []
@@ -1731,7 +1738,6 @@ class CARAHistory(APIView):
                 if add_report is not None:
                     report = [x[0] for x in add_report]
                     error = [x[1] for x in add_report]
-                    print(list(add_report))
                     reports.extend(list(report))
                     errors.extend(list(error))
         data = {'history': search,
