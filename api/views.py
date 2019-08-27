@@ -460,9 +460,6 @@ class CaseDetailView(APIView):
             raise exceptions.CaseNotFound()
 
     def get_permission(self, request, obj, status, pk=None):
-        obj2 = self.get_object(pk, request)
-        serializer = CaseDetailSerializer(obj2, context={'request': request})
-        data = serializer.data
         user_permission = getattr(request.user, 'permission', None)
         is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
         is_owner = True if request.user == obj.owner else False
