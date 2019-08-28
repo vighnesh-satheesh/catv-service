@@ -27,14 +27,12 @@ class Listener_Indicator:
         # Need to encrypt these files and decrypt only upon processing
         self.__trdb_api = ""
         self.__local_db_api = ""
-        self.__redis_api = ""
         self.__aws_batch_client = "" #boto3.client('batch', region_name='ap-southeast-1')
 
     def connect_to_dbs(self):
         # Need to encrypt these files and decrypt only upon processing
         self.__trdb_api = DB_api(cfg.TRDB_HOST, cfg.TRDB_USERNAME, cfg.TRDB_PASSWORD, cfg.TRDB_DBNAME, cfg.TRDB_PORT, cfg.TRDB_SSL_MODE)
         self.__local_db_api = DB_api(cfg.LOCAL_HOST, cfg.LOCAL_USERNAME, cfg.LOCAL_PASSWORD, cfg.LOCAL_DBNAME, cfg.LOCAL_PORT, cfg.LOCAL_SSL_MODE)
-        self.__redis_api = redis.StrictRedis(host=cfg.REDIS_URL,port=cfg.REDIS_PORT, db=0, decode_responses=True)
         self.__aws_batch_client = boto3.client('batch', region_name='ap-southeast-1')
 
     def get_info_of_last_checked_trdb_indicator(self):
