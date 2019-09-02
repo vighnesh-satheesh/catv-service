@@ -26,7 +26,7 @@ class BloxyAPIInterface:
 
         payload = {'key': self._key, 'address': address, 'depth_limit': depth,
                    'from_time': from_time, 'till_time': till_time, 'snapshot_time': from_time if source else till_time,
-                   'limit_address_tx_count': 10000}
+                   'limit_address_tx_count': 100000, 'limit': 100000}
         if token_address:
             payload['token_address'] = token_address
         r = self.call_bloxy_api(api_url, payload)
