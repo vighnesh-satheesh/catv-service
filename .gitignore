@@ -11,3 +11,4 @@ celerybeat-schedule
 *.sh
 *.env
 library/
+env-dev/
