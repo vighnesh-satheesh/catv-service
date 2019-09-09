@@ -62,10 +62,7 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(required=False, write_only=True, style={'input_type': 'password'})
 
     def __create_success_response(self, user, token):
-        role_matrix = models.RolePermission.objects.get_permission_matrix(user.role.id)
-        catv_history = models.CatvHistory.objects.values('wallet_address', 'distribution_depth', 'source_depth',
-                                                         'transaction_limit', 'token_address', 'from_date',
-                                                         'to_date').filter(user=user.id).distinct()[:10]
+        role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(user.role.id)
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
         if user.address != "" and user.address is not None:
@@ -92,10 +89,11 @@ class LoginSerializer(serializers.Serializer):
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
                 "status": user.status.value,
                 "catv_history": history_list,
-				"points": user.points,
+                "points": user.points,
                 "balance": bal,
-				"email_notification": user.email_notification
-			}
+                "email_notification": user.email_notification,
+                "role_name": role_name
+            }
         }
 
     def validate_email(self, email):

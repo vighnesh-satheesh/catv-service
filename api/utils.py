@@ -173,7 +173,7 @@ class CaseStatusTransition(object):
 
     def check_access(self, status, role_id):
         action_code = get_permission_from_status(status.value).value
-        perm_dict = RolePermission.objects.get_permission_matrix(role_id, action_code)
+        perm_dict = RolePermission.objects.get_permission_matrix(role_id, action_code)[0]
         if perm_dict[action_code]:
             return
         else:

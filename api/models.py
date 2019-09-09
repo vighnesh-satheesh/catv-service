@@ -330,11 +330,9 @@ class RewardSetting(models.Model):
         return self.min_token
 
 
-
-
-
 class Role(models.Model):
     role_name = models.CharField(max_length=128, unique=True)
+    display_name = models.CharField(max_length=128, null=True)
 
     def __str__(self):
         return self.role_name
@@ -353,10 +351,10 @@ class Action(models.Model):
 class RolePermissionQuerySet(models.query.QuerySet):
     def get_permission_matrix_queryset(self, role_id, action_name=None):
         if action_name:
-            query_set = self.all().values_list('action__codename', 'allowed'). \
+            query_set = self.all().values_list('role__display_name', 'action__codename', 'allowed'). \
                 filter(role__id=role_id, action__codename=action_name)
         else:
-            query_set = self.all().values_list('action__codename', 'allowed'). \
+            query_set = self.all().values_list('role__display_name', 'action__codename', 'allowed'). \
                 filter(role__id=role_id)
 
         return query_set
@@ -370,7 +368,9 @@ class RolePermissionManager(models.Manager):
 
     def get_permission_matrix(self, role_id, action_name=None):
         query_set = self.get_queryset().get_permission_matrix_queryset(role_id, action_name)
-        return dict(query_set)
+        role_name = query_set[0][0]
+        query_set = dict([(r[1], r[2]) for r in query_set])
+        return query_set, role_name
 
 
 class RolePermission(models.Model):
@@ -401,7 +401,7 @@ class User(models.Model):
     status = EnumField(enum=UserStatus, default=UserStatus.APPROVED, max_length=16)
     role = models.ForeignKey(Role, on_delete=models.PROTECT,
                              default=get_default_role)
-    points = models.BigIntegerField(null=False, blank=False)
+    points = models.BigIntegerField(null=False, blank=False, default=0)
 
     def is_authenticated(self, *args, **kwargs):
         return True
