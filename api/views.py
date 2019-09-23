@@ -1796,14 +1796,11 @@ class UsageStatsView(APIView):
                 cursor.execute(Constants.QUERIES['SELECT_CATV_USAGE_OVERXDAYS'].format(tz, date_range, user.id))
             elif product == ProductType.CARA.value:
                 cursor.execute(Constants.QUERIES['SELECT_CARA_USAGE_OVERXDAYS'].format(tz, date_range, user.id))
+            elif product == ProductType.ICF.value:
+                cursor.execute(Constants.QUERIES['SELECT_ICF_USAGE_OVERXDAYS'].format(tz, date_range, user.id))
             results = cursor.fetchall()
 
         credit_details = dict(zip(col_desc, credit_details[0]))
-        credit_details = {
-            '{}_calls_left'.format(product): credit_details.get(product + '_calls_left', 0),
-            '{}_limit'.format(product): credit_details.get(product + '_limit', 0),
-            'next_renewal_on': credit_details.get('next_renewal_on', None)
-        }
 
         return APIResponse({
             "data": {

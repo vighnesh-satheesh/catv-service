@@ -266,7 +266,7 @@ class UserPostSerializer(serializers.ModelSerializer):
                 raise exceptions.ValidationError("invalid data")
 
             if permission is models.UserPermission.EXCHANGE:
-                data['role'] = models.Role.objects.get(role_name='organisation')
+                data['role'] = models.Role.objects.get(role_name='organization-trial')
 
             # eof temporary code
             self._validate_new_password(user = None, new_pw = password)
@@ -437,7 +437,6 @@ class ICFPostSerializer(serializers.ModelSerializer):
             if new_key != prev_key:
                 obj.api_key = new_key
                 break
-        obj.expire_datetime = timezone.now() + timedelta(days=30)
         obj.save()
         return obj
 

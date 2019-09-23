@@ -97,6 +97,14 @@ class Constants:
                                        "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
                                        "id=(select uid from api_user where id={2}) group by tz_date) "
                                        "x(searches, tz_date) on ts.d = x.tz_date",
+        "SELECT_ICF_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
+                                       "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
+                                       "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
+                                       "select count(id) as searches, date_trunc('day', logged_time at TIME ZONE '{0}')::date "
+                                       "as tz_date from api_icf_history where logged_time at TIME ZONE '{0}' >= "
+                                       "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
+                                       "api_key=(select api_key from api_key where user_id={2}) group by tz_date) "
+                                       "x(searches, tz_date) on ts.d = x.tz_date",
         "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, api_limit, "
                                "(last_renewal_at at TIME ZONE '{0}' + INTERVAL '30 DAYS')::date as next_renewal_on "
                                "from api_usage ausage inner join api_user auser on ausage.user_id=auser.id "

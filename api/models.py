@@ -160,6 +160,9 @@ class PermissionList(Enum):
     VIEW_CASE = 'view_case'
     CHANGE_NEW = 'change_new'
     QUICKVIEW_ALL_INDICATORS = 'view_shortcut'
+    CATV_EXPORT_DATA = 'export_data'
+    CATV_EXPORT_IMAGE = 'export_image'
+    CARA_EXPORT_REPORT = 'export_report'
 
 
 class UserStatus(Enum):
@@ -837,4 +840,18 @@ class Usage(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['user', ]),
+        ]
+
+
+class ICFHistory(models.Model):
+    api_key = models.CharField(max_length=40)
+    request_endpoint = models.CharField(max_length=100)
+    request_type = models.CharField(max_length=10)
+    request_data = models.TextField(null=True)
+    logged_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'api_icf_history'
+        indexes = [
+            models.Index(fields=['api_key', ]),
         ]
