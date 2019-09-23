@@ -157,8 +157,10 @@ class Listener_Indicator:
         #current_offset = 0
         consumer.seek(list(assigned_partition)[0], current_offset)
         number_records = 0
+        if current_offset < start_offset:
+            current_offset = start_offset
 
-        while (current_offset >= start_offset and current_offset < end_offset):
+        while (current_offset < end_offset):
             data = consumer.poll(max_records=max_records)  # Max records should be based on max vcpu of batch
             if data:
                 data = [value for value in data.values()][0]
