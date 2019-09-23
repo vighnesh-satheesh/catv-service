@@ -1304,7 +1304,8 @@ class UserDetailView(APIView):
         address_c = w3.toChecksumAddress(reward_setting[0].get('token_address'))
         token_abi = json.loads(reward_setting[0].get('token_abi'))
         token = w3.eth.contract(address_c, abi=token_abi)
-        bal = token.call().balanceOf(user.get('address'))
+        user_waddress = user['address']
+        bal = token.call().balanceOf(user_waddress) if user_waddress else 0
         user["balance"] = bal
         user["status"] = obj.status.value
         user["image"] = obj.image.url if bool(obj.image) else api_settings.S3_USER_IMAGE_DEFAULT
