@@ -13,8 +13,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.renderers import JSONRenderer
 
 from django_filters import rest_framework as filters
-from django.db.models import Q, Count
-from django.db.models.functions import TruncDate
+from django.db.models import Q, When, Value, Case as CaseFunc, IntegerField
 from django.db import transaction, IntegrityError
 
 from django.utils.decorators import method_decorator
@@ -951,7 +950,6 @@ class SearchView(generics.ListAPIView):
             case_filter_queries |= Q(title__ilike=query)
         elif len(query) > 1 and case_filter_queries is not None:
             case_filter_queries |= Q(title__ilike=query)
-            case_filter_queries |= Q(ico__symbol__ilike=query)
 
         if len(query) > 1:
             indicator_filter_queries = Q(indicator__pattern__ilike=query)
@@ -963,10 +961,22 @@ class SearchView(generics.ListAPIView):
             indicator_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
                                         Q(reporter=self.request.user.pk)
 
-        case_indicator_results = Case.objects.filter(indicator_filter_queries).select_related('ico').distinct('id')
-        case_results = Case.objects.filter(case_filter_queries).select_related('ico').distinct('id')
+        case_indicator_results = Case.objects.filter(indicator_filter_queries).annotate(
+            match=CaseFunc(
+                When(pk=query, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ) if query.isdigit() else Value(0, IntegerField())
+        ).distinct('id')
+        case_results = Case.objects.filter(case_filter_queries).annotate(
+            match=CaseFunc(
+                When(pk=query, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ) if query.isdigit() else Value(0, IntegerField())
+        ).distinct('id')
 
-        objs = case_indicator_results.union(case_results).order_by('-pk')
+        objs = case_indicator_results.union(case_results).order_by('-match', '-pk')
 
         return objs
 
