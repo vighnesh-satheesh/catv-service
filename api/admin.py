@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.contrib import admin
 from django.contrib.admin.filters import ChoicesFieldListFilter
+from django.utils import timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.hashers import (check_password, make_password)
@@ -88,6 +91,7 @@ class UserForm(forms.ModelForm):
             if user.password != m.password:
                 m.password = make_password(m.password)
             if user.status == UserStatus.EMAIL_CONFIRMED and m.status == UserStatus.APPROVED:
+                Key.objects.create(user=user, expire_datetime=timezone.now() + timedelta(days=30))
                 e = Email()
                 e.sendemail(
                     kv = {

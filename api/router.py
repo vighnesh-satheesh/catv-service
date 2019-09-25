@@ -55,6 +55,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
         url(r'^metrics/?$', views.Metrics.as_view(), name='metrics-view'),
         url(r'^guest_search/?$', views.GuestSearchView.as_view(), name='guest-search'),
+        url(r'^usage_stats/user/(?P<pk>[0-9a-z\-]+)/?$', views.UsageStatsView.as_view(), name='usage-stats'),
     ]
 
 

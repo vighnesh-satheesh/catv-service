@@ -62,10 +62,7 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(required=False, write_only=True, style={'input_type': 'password'})
 
     def __create_success_response(self, user, token):
-        role_matrix = models.RolePermission.objects.get_permission_matrix(user.role.id)
-        catv_history = models.CatvHistory.objects.values('wallet_address', 'distribution_depth', 'source_depth',
-                                                         'transaction_limit', 'token_address', 'from_date',
-                                                         'to_date').filter(user=user.id).distinct()[:10]
+        role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(user.role.id)
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
         if user.address != "" and user.address is not None:
@@ -92,10 +89,11 @@ class LoginSerializer(serializers.Serializer):
                 "image": user.image.url if bool(user.image) else api_settings.S3_USER_IMAGE_DEFAULT,
                 "status": user.status.value,
                 "catv_history": history_list,
-				"points": user.points,
+                "points": user.points,
                 "balance": bal,
-				"email_notification": user.email_notification
-			}
+                "email_notification": user.email_notification,
+                "role_name": role_name
+            }
         }
 
     def validate_email(self, email):
@@ -186,10 +184,11 @@ class UserDetailSerializer(serializers.ModelSerializer):
     uid = serializers.UUIDField(required=False, read_only=True)
     created = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
 
     class Meta:
         model = models.User
-        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created", "points")
+        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created", "points", "role")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -205,6 +204,9 @@ class UserDetailSerializer(serializers.ModelSerializer):
         if obj.created is None:
             return None
         return time.mktime(obj.created.timetuple())
+
+    def get_role(self, obj):
+        return obj.role.display_name
 
 
 class UserPostSerializer(serializers.ModelSerializer):
@@ -264,7 +266,7 @@ class UserPostSerializer(serializers.ModelSerializer):
                 raise exceptions.ValidationError("invalid data")
 
             if permission is models.UserPermission.EXCHANGE:
-                data['role'] = models.Role.objects.get(role_name='organisation')
+                data['role'] = models.Role.objects.get(role_name='organization-trial')
 
             # eof temporary code
             self._validate_new_password(user = None, new_pw = password)
@@ -435,7 +437,6 @@ class ICFPostSerializer(serializers.ModelSerializer):
             if new_key != prev_key:
                 obj.api_key = new_key
                 break
-        obj.expire_datetime = timezone.now() + timedelta(days=30)
         obj.save()
         return obj
 

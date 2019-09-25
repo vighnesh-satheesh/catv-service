@@ -27,7 +27,7 @@ from .models import (
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
-    RewardSetting)
+    RewardSetting, ProductType)
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
     CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer, CaseHistoryPostSerializer,
@@ -1765,3 +1765,47 @@ class CARAReport(APIView):
             else:
                 data = {'report': ""}
         return APIResponse(data)
+
+
+class UsageStatsView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+    model = User
+
+    def get_user(self, pk):
+        try:
+            return self.model.objects.get(uid__iexact=pk)
+        except self.model.DoesNotExist:
+            raise exceptions.UserNotFound()
+
+    def get(self, request, pk=None):
+        tz = request.query_params.get('timezone', None)
+        date_range = request.query_params.get('range', None)
+        product = request.query_params.get('product', None)
+
+        if not all([tz, date_range, product]):
+            raise exceptions.ValidationError("Atleast one parameter is missing out of timezone, range or product")
+
+        user = self.get_user(pk)
+        date_range = int(date_range) - 1
+
+        with connection.cursor() as cursor:
+            cursor.execute(Constants.QUERIES['SELECT_CREDIT_DETAILS'].format(tz, user.id))
+            col_desc = [desc[0] for desc in cursor.description]
+            credit_details = cursor.fetchall()
+            if product == ProductType.CATV.value:
+                cursor.execute(Constants.QUERIES['SELECT_CATV_USAGE_OVERXDAYS'].format(tz, date_range, user.id))
+            elif product == ProductType.CARA.value:
+                cursor.execute(Constants.QUERIES['SELECT_CARA_USAGE_OVERXDAYS'].format(tz, date_range, user.id))
+            elif product == ProductType.ICF.value:
+                cursor.execute(Constants.QUERIES['SELECT_ICF_USAGE_OVERXDAYS'].format(tz, date_range, user.id))
+            results = cursor.fetchall()
+
+        credit_details = dict(zip(col_desc, credit_details[0]))
+
+        return APIResponse({
+            "data": {
+                "usage_details": results,
+                "credit_details": credit_details
+            }
+        })

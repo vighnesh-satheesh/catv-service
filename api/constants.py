@@ -81,7 +81,34 @@ class Constants:
                                     "distribution_depth, transaction_limit, from_date, to_date) ROW_NUMBER() over () "
                                     "as id, wallet_address, token_address, source_depth, distribution_depth, "
                                     "transaction_limit, from_date, to_date FROM api_catv_history WHERE user_id=%s "
-                                    "ORDER BY id DESC LIMIT 10;"
+                                    "ORDER BY id DESC LIMIT 10;",
+        "SELECT_CATV_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
+                                       "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
+                                       "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
+                                       "select count(id) as searches, date_trunc('day', logged_time at TIME ZONE '{0}')::date "
+                                       "as tz_date from api_catv_history where logged_time at TIME ZONE '{0}' >= "
+                                       "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and user_id={2} group by tz_date) "
+                                       "x(searches, tz_date) on ts.d = x.tz_date",
+        "SELECT_CARA_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
+                                       "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
+                                       "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
+                                       "select count(id) as searches, date_trunc('day', query_time at TIME ZONE '{0}')::date "
+                                       "as tz_date from cara_search_history where query_time at TIME ZONE '{0}' >= "
+                                       "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
+                                       "id=(select uid from api_user where id={2}) group by tz_date) "
+                                       "x(searches, tz_date) on ts.d = x.tz_date",
+        "SELECT_ICF_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
+                                       "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
+                                       "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
+                                       "select count(id) as searches, date_trunc('day', logged_time at TIME ZONE '{0}')::date "
+                                       "as tz_date from api_icf_history where logged_time at TIME ZONE '{0}' >= "
+                                       "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
+                                       "api_key=(select api_key from api_key where user_id={2}) group by tz_date) "
+                                       "x(searches, tz_date) on ts.d = x.tz_date",
+        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, api_limit, "
+                               "(last_renewal_at at TIME ZONE '{0}' + INTERVAL '30 DAYS')::date as next_renewal_on "
+                               "from api_usage ausage inner join api_user auser on ausage.user_id=auser.id "
+                               "inner join api_role_usage_limit arul on auser.role_id=arul.role_id where ausage.user_id={1}"
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",
