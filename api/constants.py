@@ -30,8 +30,9 @@ class Constants:
         "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left-1) where user_id='{0}' and "
                                   "cara_calls_left > 0;",
         "UPDATE_CARA_ERROR_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left+1) where user_id='{0}'",
-        "REFILL_USER_USAGE_QUOTA": "UPDATE api_usage au set catv_calls_left=(catv_calls_left + t.catv_limit), cara_calls_left=(cara_calls_left + t.cara_limit), "
-                                   "last_renewal_at=now() from (select u.id as user_id, ul.role_id, ul.catv_limit, ul.cara_limit "
+        "REFILL_USER_USAGE_QUOTA": "UPDATE api_usage au set catv_calls_left=(catv_calls_left + t.catv_limit), "
+                                   "cara_calls_left=(cara_calls_left + t.cara_limit), api_calls_left=(api_calls_left + t.api_limit), "
+                                   "last_renewal_at=now() from (select u.id as user_id, ul.role_id, ul.catv_limit, ul.cara_limit, ul.api_limit "
                                    "from api_user u inner join api_role_usage_limit ul on u.role_id=ul.role_id) t "
                                    "where t.user_id = au.user_id and DATE_PART('day', now() - au.last_renewal_at) > 30;",
         "INSERT_USER_USAGE_QUOTA": "INSERT INTO api_usage(user_id,api_calls_left,catv_calls_left,cara_calls_left, "
@@ -106,7 +107,7 @@ class Constants:
                                        "api_key=(select api_key from api_key where user_id={2}) group by tz_date) "
                                        "x(searches, tz_date) on ts.d = x.tz_date",
         "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, api_limit, "
-                               "(last_renewal_at at TIME ZONE '{0}' + INTERVAL '30 DAYS')::date as next_renewal_on "
+                               "(last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as next_renewal_on "
                                "from api_usage ausage inner join api_user auser on ausage.user_id=auser.id "
                                "inner join api_role_usage_limit arul on auser.role_id=arul.role_id where ausage.user_id={1}"
     }
