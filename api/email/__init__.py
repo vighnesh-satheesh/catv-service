@@ -13,7 +13,8 @@ class Email:
             "VERIFICATION_RESEND": "VERIFICATION_RESEND",
             "VERIFIED": "VERIFIED",
             "PASSWORD_RESET": "PASSWORD_RESET",
-            "NOTIFICATION": "NOTIFICATION"
+            "NOTIFICATION": "NOTIFICATION",
+            "INVITATION": "INVITATION"
         }
         self.EMAIL_TEMPLATE = {
             "REGISTER": {
@@ -35,8 +36,13 @@ class Email:
             "NOTIFICATION": {
                 "text": "email/notification.txt",
                 "html": "email/notification.html"
+            },
+            "INVITATION": {
+                "text": "email/invitation.txt",
+                "html": "email/invitation.html"
             }
         }
+
     def sendemail(self, *args, **kwargs):
         try:
             email_type = kwargs["email_type"]

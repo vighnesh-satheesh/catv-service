@@ -1,0 +1,17 @@
+Hi there,
+
+You have been invited by {{ nickname }} ({{ email }}) to join their organization, {{ org_name }}, on the Sentinel Portal.
+
+Please register by following the link below.
+The link is valid for only 12 hours.
+
+{{ link }}
+
+Protect yourself using our latest UPPward Network Protection from malicious site and pre-check on crypto address before you making any transactions. Visit our UPPward microsite link below.
+
+https://uppward.sentinelprotocol.io/
+
+
+Best regards,
+Team Sentinel Protocol
+Uppsala Security

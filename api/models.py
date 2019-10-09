@@ -39,6 +39,7 @@ UserImageStorage = StaticS3Storage(
     resize=True
 )
 
+
 def get_file_meta(file, uid, block_size=65536):
     hasher = hashlib.md5()
     size = 0
@@ -125,6 +126,15 @@ def get_permission_from_status(status):
         CaseStatus.CONFIRMED.value: PermissionList.CHANGE_CONFIRM,
         CaseStatus.RELEASED.value: PermissionList.CHANGE_RELEASE
     }[status]
+
+
+class UserRoles(Enum):
+    COMMUNITY = 'communityuser'
+    PAID = 'paiduser'
+    ORG = 'organization'
+    ORG_TRIAL = 'organization-trial'
+    SENTINEL = 'sentinel'
+    SUPERSENTINEL = 'supersentinel'
 
 
 class UserPermission(Enum):
@@ -277,7 +287,8 @@ class EmailSentType(Enum):
     VERIFICATION_RESEND = 'VERIFICATION_RESEND'
     PASSWORD_RESET = 'PASSWORD_RESET'
     VERIFIED = 'VERIFIED'
-    NOTIFICATION = 'NOTIFICATION'
+    NOTIFICATION = 'NOTIFICATION',
+    INVITATION = 'INVITATION'
 
 
 class NotificationType(Enum):
@@ -290,6 +301,12 @@ class NotificationType(Enum):
     CASE_DELETED = 'case_deleted'
     COMMENT = 'comment'
     COMMENT_MENTIONED = 'comment_mentioned'
+
+
+class OrganizationUserStatus(Enum):
+    ACTIVE = 'active'
+    INACTIVE = 'inactive'
+    PENDING = 'pending'
 
 
 @unique
@@ -479,6 +496,7 @@ class RoleUsageLimit(models.Model):
     api_limit = models.IntegerField(null=True, default=5)
     catv_limit = models.IntegerField(null=True, default=5)
     cara_limit = models.IntegerField(null=True, default=5)
+    org_invite_limit = models.IntegerField(null=True, default=0)
 
     class Meta:
         db_table = 'api_role_usage_limit'
@@ -855,3 +873,23 @@ class ICFHistory(models.Model):
         indexes = [
             models.Index(fields=['api_key', ]),
         ]
+
+
+class Organization(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=100, null=False, blank=False)
+    image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
+    administrator = models.ForeignKey(User, null=False, blank=False, on_delete=models.CASCADE, related_name='org_admin')
+    users = models.ManyToManyField('User', through='OrganizationUser')
+    invites_left = models.IntegerField(null=True, default=0)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['administrator', ]),
+        ]
+
+
+class OrganizationUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    status = EnumField(OrganizationUserStatus, max_length=50)

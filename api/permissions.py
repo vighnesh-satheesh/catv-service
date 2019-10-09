@@ -104,3 +104,12 @@ class APIKeyPermission(permissions.BasePermission):
             return True
         else:
             return False
+
+
+class IsGetOrIsAuthenticated(permissions.BasePermission):
+    SAFE_METHODS = ['GET', 'POST', 'OPTIONS']
+
+    def has_permission(self, request, view):
+        if request.method == 'GET' or request.method == 'OPTIONS':
+            return True
+        return request.user and request.user.is_authenticated

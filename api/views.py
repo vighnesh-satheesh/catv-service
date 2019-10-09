@@ -26,7 +26,7 @@ from .models import (
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
-    RewardSetting, ProductType)
+    RewardSetting, ProductType, Organization)
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
     CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer, CaseHistoryPostSerializer,
@@ -39,7 +39,10 @@ from .serializers import (
     ICFDetailSerializer, ICFPostSerializer,
     CommentSerializer, CommentPostSerializer,
     NotificationSerializer, CATVSerializer,
-    RewardSettingSerializer)
+    RewardSettingSerializer, OrganizationPostSerializer,
+    OrganizationSimpleSerializer, OrganizationUserPostSerializer,
+    InvitationSerializer
+)
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
@@ -1818,4 +1821,108 @@ class UsageStatsView(APIView):
                 "usage_details": results,
                 "credit_details": credit_details
             }
+        })
+
+
+class OrganizationDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, uid):
+        try:
+            return Organization.objects.get(uid=uid)
+        except Organization.DoesNotExist:
+            raise exceptions.OrganizationNotFound()
+
+    def get(self, request, uid):
+        organization = self.get_object(uid)
+        serializer = OrganizationSimpleSerializer(organization)
+        return APIResponse({
+            "data": serializer.data
+        })
+
+    def post(self, request, format=None):
+        serializer = OrganizationPostSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            org = serializer.save()
+            return APIResponse({
+                "data": {
+                    "uid": org.uid
+                }
+            })
+        raise exceptions.ValidationError()
+
+    def put(self, request, uid):
+        organization = self.get_object(uid)
+        modified_data = request.data.copy()
+        users = modified_data.get("users", "[]")
+        users = json.loads(users)
+        modified_data["users"] = users
+        orguser_serializer = OrganizationUserPostSerializer(data=users, many=True, context={"request": request})
+        orguser_serializer.is_valid(raise_exception=True)
+        orguser_serializer.save()
+        serializer = OrganizationPostSerializer(organization, data=modified_data, context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            return APIResponse({
+                "data": serializer.data
+            })
+        raise exceptions.ValidationError()
+
+
+class InvitationView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (permissions.IsGetOrIsAuthenticated,)
+
+    def get_object(self, uid):
+        try:
+            org = Organization.objects.get(uid=uid)
+            return org
+        except Organization.DoesNotExist:
+            raise exceptions.ValidationError("Organization does not exist")
+
+    def get(self, request):
+        referrer = request.GET.get("user", None)
+        referral_code = request.GET.get("code", None)
+        msg = "Invitation code is invalid"
+        try:
+            if not referral_code or not referrer:
+                raise exceptions.PasswordResetCodeNotValid(msg)
+            c = DefaultCache()
+            referrer_email, referred_email = c.get_invitation_email_key(referral_code)
+            user = User.objects.get(uid=referrer)
+            if user.email != referrer_email:
+                raise exceptions.PasswordResetCodeNotValid(msg)
+            organization = Organization.objects.get(administrator=user.id)
+            return APIResponse({
+                "data": {
+                    "referrer_org": organization.uid,
+                    "invited_email": referred_email
+                }
+            })
+        except (User.DoesNotExist, Organization.DoesNotExist):
+            raise exceptions.PasswordResetCodeNotValid(msg)
+
+    def post(self, request, format=None):
+        org = self.get_object(request.data.get("organization", None))
+        serializer = InvitationSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        c = DefaultCache()
+        invite_key = c.set_email_invitation_key(request.user.email, serializer.data['email'])
+        e = Email()
+        kv = {
+            "nickname": request.user.nickname,
+            "email": request.user.email,
+            "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_key,
+            "org_name": org.name
+        }
+        SendEmail().delay(kv=kv,
+                          subject=Constants.EMAIL_TITLE["INVITATION_SENTINEL_PORTAL"],
+                          email_type=e.EMAIL_TYPE["INVITATION"],
+                          sender=e.EMAIL_SENDER["NO-REPLY"],
+                          recipient=[serializer.data['email']])
+        org.invites_left -= 1
+        org.save()
+        return APIResponse({
+            "data": "Successfully invited"
         })

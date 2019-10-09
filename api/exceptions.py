@@ -87,6 +87,10 @@ class FileNotFound(exceptions.NotFound):
 class ICFNotFound(exceptions.NotFound):
     default_detail = _('api not found')
 
+
+class OrganizationNotFound(exceptions.NotFound):
+    default_detail = _('organization not found')
+
 #####
 # 403
 #####

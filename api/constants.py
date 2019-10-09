@@ -19,7 +19,8 @@ class Constants:
         "NOTIFICATION_MODIFY_CASE": "[Sentinel Protocol] {0} has modified the case.",
         "NOTIFICATION_DELETE_CASE": "[Sentinel Protocol] {0} has deleted the case",
         "NOTIFICATION_COMMENT": "[Sentinel Protocol] {0} has left a comment.",
-        "NOTIFICATION_COMMENT_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment"
+        "NOTIFICATION_COMMENT_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment",
+        "INVITATION_SENTINEL_PORTAL": "[Sentinel Protocol] You have been invited to join the Sentinel Portal",
     }
     QUERIES = {
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
