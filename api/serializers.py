@@ -1836,7 +1836,7 @@ class OrganizationSimpleSerializer(serializers.ModelSerializer):
     users = OrganizationUserPostSerializer(read_only=True, many=True, source='organizationuser_set')
 
     def get_image(self, obj):
-        if bool(obj.image.url) is None:
+        if bool(obj.image) is False:
             return api_settings.S3_USER_IMAGE_DEFAULT
         else:
             return obj.image.url
