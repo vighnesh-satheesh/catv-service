@@ -107,10 +107,14 @@ class Constants:
                                        "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
                                        "api_key=(select api_key from api_key where user_id={2}) group by tz_date) "
                                        "x(searches, tz_date) on ts.d = x.tz_date",
-        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, api_limit, "
-                               "(last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as next_renewal_on "
-                               "from api_usage ausage inner join api_user auser on ausage.user_id=auser.id "
-                               "inner join api_role_usage_limit arul on auser.role_id=arul.role_id where ausage.user_id={1}"
+        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, "
+                                 "api_limit, (last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as "
+                                 "next_renewal_on from api_usage ausage inner join api_user auser on "
+                                 "ausage.user_id=auser.id inner join api_role_usage_limit arul on "
+                                 "auser.role_id=arul.role_id where ausage.user_id={1};",
+        "DELETE_ORG_INVITES": "DELETE from api_organizationinvites where (DATE_PART('day', "
+                              "now()::timestamp - sent::timestamp) * 24 + DATE_PART('hour', "
+                              "now()::timestamp - sent::timestamp)) >= 72;"
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

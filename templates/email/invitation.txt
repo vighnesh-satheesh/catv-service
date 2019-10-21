@@ -3,7 +3,7 @@ Hi there,
 You have been invited by {{ nickname }} ({{ email }}) to join their organization, {{ org_name }}, on the Sentinel Portal.
 
 Please register by following the link below.
-The link is valid for only 12 hours.
+The link is valid for only 72 hours.
 
 {{ link }}
 

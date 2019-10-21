@@ -309,6 +309,15 @@ class OrganizationUserStatus(Enum):
     PENDING = 'pending'
 
 
+class OrganizationInviteStatus(str, Enum):
+    EMAIL_SENT = 'Email sent'
+    PENDING_APPROVAL = 'Pending system approval'
+    APPROVED = 'Approved'
+    SUSPENDED = 'Suspended'
+    REJECTED = 'Rejected'
+    EXPIRED = 'Expired'
+
+
 @unique
 class FileStatus(IntEnum):
     NEW = 0
@@ -881,7 +890,7 @@ class Organization(models.Model):
     image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
     administrator = models.ForeignKey(User, null=False, blank=False, on_delete=models.CASCADE, related_name='org_admin')
     users = models.ManyToManyField('User', through='OrganizationUser')
-    invites_left = models.IntegerField(null=True, default=0)
+    domains = ArrayField(models.CharField(max_length=100), size=2, default=list)
 
     class Meta:
         indexes = [
@@ -893,3 +902,20 @@ class OrganizationUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     status = EnumField(OrganizationUserStatus, max_length=50)
+
+
+class OrganizationInvites(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    email = models.EmailField(unique=False)
+    invite_hash = models.CharField(max_length=40)
+    inviter_key = models.CharField(max_length=100)
+    sent = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    status = EnumField(OrganizationInviteStatus, max_length=50)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['organization', ]),
+            models.Index(fields=['user', ])
+        ]

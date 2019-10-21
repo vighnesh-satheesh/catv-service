@@ -26,7 +26,7 @@ from .models import (
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
-    RewardSetting, ProductType, Organization)
+    RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus)
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
     CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer, CaseHistoryPostSerializer,
@@ -1853,21 +1853,27 @@ class OrganizationDetailView(APIView):
         raise exceptions.ValidationError()
 
     def put(self, request, uid):
-        organization = self.get_object(uid)
-        modified_data = request.data.copy()
-        users = modified_data.get("users", "[]")
-        users = json.loads(users)
-        modified_data["users"] = users
-        orguser_serializer = OrganizationUserPostSerializer(data=users, many=True, context={"request": request})
-        orguser_serializer.is_valid(raise_exception=True)
-        orguser_serializer.save()
-        serializer = OrganizationPostSerializer(organization, data=modified_data, context={"request": request})
-        if serializer.is_valid():
-            serializer.save()
-            return APIResponse({
-                "data": serializer.data
-            })
-        raise exceptions.ValidationError()
+        try:
+            organization = self.get_object(uid)
+            modified_data = request.data.copy()
+            users = modified_data.get("users", "[]")
+            users = json.loads(users)
+            modified_data.setlist("users", users)
+            domains = modified_data.get('domains', "[]")
+            domains = json.loads(domains)
+            modified_data.setlist("domains", domains)
+            orguser_serializer = OrganizationUserPostSerializer(data=users, many=True, context={"request": request})
+            orguser_serializer.is_valid(raise_exception=True)
+            orguser_serializer.save()
+            serializer = OrganizationPostSerializer(organization, data=modified_data, context={"request": request})
+            if serializer.is_valid():
+                serializer.save()
+                return APIResponse({
+                    "data": serializer.data
+                })
+            raise exceptions.ValidationError()
+        except json.decoder.JSONDecodeError:
+            raise exceptions.ValidationError("Error parsing JSON user list or domains")
 
 
 class InvitationView(APIView):
@@ -1888,32 +1894,34 @@ class InvitationView(APIView):
         try:
             if not referral_code or not referrer:
                 raise exceptions.PasswordResetCodeNotValid(msg)
-            c = DefaultCache()
-            referrer_email, referred_email = c.get_invitation_email_key(referral_code)
+            org_invite = OrganizationInvites.objects.get(invite_hash=referral_code)
+            referrer_email, referred_email = org_invite.inviter_key.split('-invite-')
             user = User.objects.get(uid=referrer)
             if user.email != referrer_email:
                 raise exceptions.PasswordResetCodeNotValid(msg)
-            organization = Organization.objects.get(administrator=user.id)
+            organization = org_invite.organization
             return APIResponse({
                 "data": {
                     "referrer_org": organization.uid,
                     "invited_email": referred_email
                 }
             })
-        except (User.DoesNotExist, Organization.DoesNotExist):
+        except (User.DoesNotExist, Organization.DoesNotExist, OrganizationInvites.DoesNotExist):
             raise exceptions.PasswordResetCodeNotValid(msg)
 
     def post(self, request, format=None):
         org = self.get_object(request.data.get("organization", None))
         serializer = InvitationSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        c = DefaultCache()
-        invite_key = c.set_email_invitation_key(request.user.email, serializer.data['email'])
+        invited_email = serializer.data['email']
+        invitee_email = request.user.email
+        invite_hash = utils.generate_random_key()
+        inviter_key = invitee_email + '-invite-' + invited_email
         e = Email()
         kv = {
             "nickname": request.user.nickname,
             "email": request.user.email,
-            "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_key,
+            "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_hash,
             "org_name": org.name
         }
         SendEmail().delay(kv=kv,
@@ -1921,7 +1929,10 @@ class InvitationView(APIView):
                           email_type=e.EMAIL_TYPE["INVITATION"],
                           sender=e.EMAIL_SENDER["NO-REPLY"],
                           recipient=[serializer.data['email']])
-        org.invites_left -= 1
+        OrganizationInvites.objects.create(organization=org, user=org.administrator, email=invited_email,
+                                           invite_hash=invite_hash, inviter_key=inviter_key,
+                                           status=OrganizationInviteStatus.EMAIL_SENT
+                                           )
         org.save()
         return APIResponse({
             "data": "Successfully invited"

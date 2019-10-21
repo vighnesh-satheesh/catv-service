@@ -319,8 +319,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             permission = data.get("permission", None)
             invitation_code = data.get("invitation_code", None)
             if invitation_code:
-                c = DefaultCache()
-                referred_email = c.get_invitation_email_key(invitation_code)[1]
+                invite = models.OrganizationInvites.objects.get(invite_hash=invitation_code)
+                referred_email = invite.inviter_key.split('-invite-')[1]
                 if referred_email != data['email']:
                     raise exceptions.ValidationError("User email and email invite sent to do not match."
                                                      "Cannot sign up with this invitation code.")
@@ -384,8 +384,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             validated_data["password"] = new_pw
             instance = models.User.objects.create(**validated_data)
             if organization:
-                models.OrganizationUser.objects.create(organization=organization, user=instance,
-                                                       status=models.OrganizationUserStatus.INACTIVE)
+                models.OrganizationInvites.objects.filter(organization=organization, email=validated_data['email']).\
+                    update(status=models.OrganizationInviteStatus.PENDING_APPROVAL)
         except IntegrityError as e:
             if "nickname" in str(e):
                 raise exceptions.DataIntegrityError("duplicate: nickname")
@@ -1826,20 +1826,35 @@ class OrganizationUserPostSerializer(serializers.ModelSerializer):
 class OrganizationSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Organization
-        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left')
-        read_only_fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left')
+        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'domains', 'pending_invites')
+        read_only_fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'pending_invites')
 
     uid = serializers.UUIDField(required=True)
     name = serializers.CharField(max_length=100, required=False)
     image = serializers.SerializerMethodField()
     administrator = UserRelatedField(queryset=models.User.objects.all())
     users = OrganizationUserPostSerializer(read_only=True, many=True, source='organizationuser_set')
+    invites_left = serializers.SerializerMethodField()
+    domains = serializers.ListField(child=serializers.CharField(), read_only=True, max_length=2)
+    pending_invites = serializers.SerializerMethodField()
 
     def get_image(self, obj):
         if bool(obj.image) is False:
             return api_settings.S3_USER_IMAGE_DEFAULT
         else:
             return obj.image.url
+
+    def get_invites_left(self, obj):
+        invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
+        invite_limit = invite_limit[0] if invite_limit else 20
+        members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
+            exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
+        existing_members = obj.organizationuser_set.count()
+        return invite_limit - (members_invited + existing_members)
+
+    def get_pending_invites(self, obj):
+        return models.OrganizationInvites.objects.filter(organization=obj).\
+            exclude(status=models.OrganizationInviteStatus.APPROVED.value).values('email', 'status')
 
 
 class OrganizationPostSerializer(serializers.ModelSerializer):
@@ -1848,11 +1863,30 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(required=False, max_length=10000000, allow_empty_file=True, use_url=False)
     administrator = UserRelatedField(queryset=models.User.objects.all())
     users = OrganizationUserPostSerializer(read_only=True, required=False, many=True, source='organizationuser_set')
-    invites_left = serializers.IntegerField(read_only=True, required=False)
+    invites_left = serializers.SerializerMethodField()
+    domains = serializers.ListField(child=serializers.CharField(), required=False, max_length=2)
 
     class Meta:
         model = models.Organization
-        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left')
+        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'domains')
+
+    def get_invites_left(self, obj):
+        invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
+        invite_limit = invite_limit[0] if invite_limit else 20
+        members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
+            exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
+        existing_members = obj.organizationuser_set.count()
+        return invite_limit - (members_invited + existing_members)
+
+    def validate_domains(self, data):
+        if data:
+            domain_list = data
+            if len(domain_list) > 1 and domain_list[0] == domain_list[1]:
+                raise exceptions.ValidationError("Both the domains cannot be the same")
+            for domain in domain_list:
+                if not re.match(r"(?!-)[A-Z\d.-]{1,63}(?<!-)$", domain, re.IGNORECASE):
+                    raise exceptions.ValidationError("Invalid domain name")
+        return data
 
     def validate(self, data):
         request = self.context.get("request", None)
@@ -1888,8 +1922,7 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
             validated_data.pop('users', [])
             user = self.context["request"].user
             if user:
-                role_usage = models.RoleUsageLimit.objects.get(role_id=user.role.id)
-                validated_data['invites_left'] = role_usage.org_invite_limit
+                validated_data['domains'] = [user.email.split("@")[-1]]
             organization = models.Organization.objects.create(**validated_data)
             return organization
         except models.RoleUsageLimit.DoesNotExist:
@@ -1907,21 +1940,42 @@ class InvitationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     organization = serializers.UUIDField(required=True)
 
+    def get_invites_left(self, obj):
+        invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
+        invite_limit = invite_limit[0] if invite_limit else 20
+        members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
+            exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
+        existing_members = obj.organizationuser_set.count()
+        return invite_limit - (members_invited + existing_members)
+
     def validate(self, data):
         try:
             request = self.context.get("request", None)
             if not request:
                 exceptions.AuthenticationCheckError()
             uid = data['organization']
+            invited_domain = data['email'].split("@")[-1]
             user = request.user
+
             if not user:
                 raise exceptions.AuthenticationCheckError()
+
             org = models.Organization.objects.get(uid=uid, administrator=user)
+            already_invited = models.OrganizationInvites.objects.filter(email=data['email'], organization=org).count()
+
+            if already_invited:
+                raise exceptions.ValidationError("You have already sent an invitation to this email. Please wait for "
+                                                 "72 hours before retrying")
+
             user_count = models.User.objects.filter(email=data['email']).count()
-            if user_count > 0:
-                raise exceptions.ValidationError("Cannot send invite as user is already signed up for Sentinel Portal.")
-            if org.invites_left == 0:
+            invites_left = self.get_invites_left(org)
+            if invites_left == 0:
                 raise exceptions.ValidationError("Out of invites, cannot invite more.")
+            if invited_domain not in org.domains:
+                raise exceptions.ValidationError("You can only invite people based on your domain list.")
+            if user_count > 0:
+                raise exceptions.ValidationError("Cannot send invite as user is already signed up for Sentinel Portal. "
+                                                 "Use the 'Add a member' option instead.")
             return data
         except models.Organization.DoesNotExist:
             raise exceptions.ValidationError("Organization does not exist or you do not have invitation rights.")

@@ -16,7 +16,7 @@ from .models import (
     AttachedFile, User, UserStatus,
     UppwardRewardInfo, CaseInvalidateCandidates,
     Key, EmailSent, Action, Role, RolePermission, RoleUsageLimit,
-    RewardSetting, OrganizationUser, OrganizationUserStatus)
+    RewardSetting, OrganizationUser, OrganizationInvites, OrganizationInviteStatus, OrganizationUserStatus)
 from .email import Email
 from .settings import api_settings
 from .constants import Constants
@@ -106,7 +106,13 @@ class UserForm(forms.ModelForm):
                 query = Constants.QUERIES['INSERT_USER_USAGE_QUOTA']
                 data = (user.id, m.role_id,)
                 execute_custom_query(query, data)
-                OrganizationUser.objects.filter(user=user).update(status=OrganizationUserStatus.ACTIVE)
+                org_invites = OrganizationInvites.objects.select_related('organization').\
+                    get(email=user.email, status=OrganizationInviteStatus.PENDING_APPROVAL.value)
+                if org_invites:
+                    OrganizationUser.objects.create(organization=org_invites.organization, user=user,
+                                                    status=OrganizationUserStatus.ACTIVE)
+                    org_invites.status = OrganizationInviteStatus.APPROVED
+                    org_invites.save()
             if user.status == UserStatus.APPROVED and m.status == UserStatus.APPROVED and user.role_id != m.role_id:
                 query = Constants.QUERIES['UPDATE_USER_USAGE_QUOTA']
                 data = (m.role_id, user.id,)
