@@ -28,7 +28,7 @@ WORKDIR /app
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
 RUN apt-get update && \
     apt-get install -y nodejs redis-server && \
-    npm install pm2 -g
+    npm install pm2@3.5.1 -g
 
 # Install requirements
 COPY ./requirements/${PORTAL_API_ENV}.txt ./requirements.txt
