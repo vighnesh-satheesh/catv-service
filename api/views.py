@@ -169,8 +169,18 @@ class DashboardView(APIView):
         all_cases = []
         my_cases = []
         org_cases = []
-        org_list = Organization.objects.filter(administrator=user).values('administrator', 'organizationuser__user')
-        org_user_exists = OrganizationUser.objects.filter(user=user).exists()
+        user_list = []
+        org_admin = Organization.objects.filter(administrator=user).values_list('id', flat=True)
+        member_orgs = OrganizationUser.objects.filter(user=user).values_list('organization_id', flat=True)
+        if org_admin:
+            user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
+                                                                                                     flat=True))
+            user_list.extend([user.id, user.id])
+        elif member_orgs:
+            user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
+                                                                                         flat=True))
+            user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
+                             values_list('user_id', flat=True))
 
         for item in CaseStatus:
             my_cases.append({
@@ -181,7 +191,7 @@ class DashboardView(APIView):
                 "id": "case_all_{0}".format(item.value),
                 "count": 0
             })
-            if org_list or org_user_exists:
+            if user_list:
                 org_cases.append({
                     "id": "case_org_{0}".format(item.value),
                     "count": 0
@@ -214,10 +224,7 @@ class DashboardView(APIView):
             cases[0]["children"] = all_cases
             cases[1]["children"] = my_cases
             if org_cases:
-                users = [x["organizationuser__user"] if x["organizationuser__user"] is not None else 0
-                         for x in org_list]
-                users.append(user.pk)
-                users = tuple(users)
+                users = tuple(user_list)
                 cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ORG'].format(users))
                 org_cases = cursor.fetchall()
                 cases[2]["children"] = org_cases
@@ -413,14 +420,23 @@ class CaseView(generics.ListCreateAPIView):
         if order_by[1] == "desc":
             key = "-"
         key = key + order_by[0]
-        user = self.request.user
+        user_list = []
+        current_user = self.request.user
         if 'org' in category:
-            user_list = OrganizationUser.objects.filter(organization__administrator=user). \
-                select_related('organization').values('user', 'organization__administrator')
+            org_admin = Organization.objects.filter(administrator=current_user).values_list('id', flat=True)
+            member_orgs = OrganizationUser.objects.filter(user=current_user).values_list('organization_id', flat=True)
+            if org_admin:
+                user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
+                                                                                                         flat=True))
+                user_list.append(current_user.id)
+            elif member_orgs:
+                user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
+                                                                                             flat=True))
+                user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
+                                 values_list('user_id', flat=True))
+
             if user_list:
-                users = [x['user'] for x in user_list]
-                users.append(user_list[0]['organization__administrator'])
-                return self.model.objects.filter(Q(owner__in=users) | Q(reporter__in=users)).\
+                return self.model.objects.filter(Q(owner__in=user_list) | Q(reporter__in=user_list)).\
                     distinct('id').order_by(key)
             else:
                 return self.model.objects.none()
