@@ -117,7 +117,8 @@ class UserForm(forms.ModelForm):
                 query = Constants.QUERIES['UPDATE_USER_USAGE_QUOTA']
                 data = (m.role_id, user.id,)
                 execute_custom_query(query, data)
-
+        except OrganizationInvites.DoesNotExist:
+            pass
         except ObjectDoesNotExist:
             m.set_password(self.cleaned_data["password"])
         except Exception:
