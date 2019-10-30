@@ -4,6 +4,8 @@ from functools import wraps
 import requests
 import requests.exceptions as re_exceptions
 from datetime import datetime
+import random
+import string
 
 from django.utils import six
 from django.utils.encoding import force_text
@@ -241,5 +243,11 @@ class TRDBApiClient(object):
         return {
             "id": case_data["id"]
         }
+
+
+def generate_random_key():
+    v = "".join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(40))
+    return v
+
 
 TRDB_CLIENT = TRDBApiClient()

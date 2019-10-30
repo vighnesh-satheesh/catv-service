@@ -86,8 +86,17 @@ class CheckUpdateUsageQuotaTask(Task):
         return True
 
 
+class CheckDeleteInvitesTask(Task):
+    def run(self, *args, **kwargs):
+        query = Constants.QUERIES['DELETE_ORG_INVITES']
+        with connections['default'].cursor() as cursor:
+            cursor.execute(query)
+        return True
+
+
 tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
 tasks.register(CacheNumberOfIndicatorsCases)
 tasks.register(CaraHistoryTask)
+tasks.register(CheckDeleteInvitesTask)

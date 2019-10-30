@@ -26,7 +26,7 @@ from .models import (
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
-    RewardSetting, ProductType)
+    RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser)
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
     CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer, CaseHistoryPostSerializer,
@@ -39,7 +39,10 @@ from .serializers import (
     ICFDetailSerializer, ICFPostSerializer,
     CommentSerializer, CommentPostSerializer,
     NotificationSerializer, CATVSerializer,
-    RewardSettingSerializer)
+    RewardSettingSerializer, OrganizationPostSerializer,
+    OrganizationSimpleSerializer, OrganizationUserPostSerializer,
+    InvitationSerializer
+)
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
     FileUploadThrottle, CasePostThrottle,
@@ -163,10 +166,22 @@ class DashboardView(APIView):
 
         c = DefaultCache()
         lpv = c.get(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
-        number_of_all_indicators = 0
         all_cases = []
         my_cases = []
-        cases = []
+        org_cases = []
+        user_list = []
+        org_admin = Organization.objects.filter(administrator=user).values_list('id', flat=True)
+        member_orgs = OrganizationUser.objects.filter(user=user).values_list('organization_id', flat=True)
+        if org_admin:
+            user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
+                                                                                                     flat=True))
+            user_list.extend([user.id, user.id])
+        elif member_orgs:
+            user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
+                                                                                         flat=True))
+            user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
+                             values_list('user_id', flat=True))
+
         for item in CaseStatus:
             my_cases.append({
                 "id": "case_my_{0}".format(item.value),
@@ -176,6 +191,12 @@ class DashboardView(APIView):
                 "id": "case_all_{0}".format(item.value),
                 "count": 0
             })
+            if user_list:
+                org_cases.append({
+                    "id": "case_org_{0}".format(item.value),
+                    "count": 0
+                })
+
         cases = [
             {
                 "id": "case_all",
@@ -188,34 +209,34 @@ class DashboardView(APIView):
                 "children": my_cases
             }
         ]
+        if org_cases:
+            cases.append({
+                "id": "case_org",
+                "count": 0,
+                "children": org_cases
+            })
+
         with connection.cursor() as cursor:
-            if not lpv:
-                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE'])
-                row = cursor.fetchall()
-            else:
-                row = lpv['cases']
-            for r in row:
-                status = r[0]
-                reporter_id = r[1]
-                owner_id = r[2]
-                for case in cases:
-                    if "my" in case["id"] and user.pk != reporter_id and user.pk != owner_id:
-                        continue
-                    for c in case["children"]:
-                        if status not in c["id"]:
-                            continue
-                        c["count"] += 1
+            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
+            all_cases = cursor.fetchall()
+            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id))
+            my_cases = cursor.fetchall()
+            cases[0]["children"] = all_cases
+            cases[1]["children"] = my_cases
+            if org_cases:
+                users = tuple(user_list)
+                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ORG'].format(users))
+                org_cases = cursor.fetchall()
+                cases[2]["children"] = org_cases
+
+        for case in cases:
+            case["children"] = [{"id": case["id"] + "_" + c[0], "count": c[1]} for c in case["children"]]
+            case["count"] = sum(map(lambda x: x["count"], case["children"]))
 
         if user.permission is UserPermission.EXCHANGE:
             cases[0]["children"] = [c for c in cases[0]["children"] if "confirmed" in c["id"] or "released" in c["id"]]
         elif user.permission is UserPermission.USER:
-            cases = cases[1:]
-
-        for case in cases:
-            count = 0
-            for c in case["children"]:
-                count += c["count"]
-            case["count"] = count
+            cases = cases[1]
 
         with connection.cursor() as cursor:
             if lpv:
@@ -303,7 +324,7 @@ class CaseFilter(filters.FilterSet):
         if len(case_cate) == 2:
             subcate = case_cate[1]
 
-        if cate not in ["all", "my"]:
+        if cate not in ["all", "my", "org"]:
             raise exceptions.CaseFilterError()
 
         if subcate and subcate not in ["new", "progress", "confirmed", "rejected", "released"]:
@@ -393,11 +414,33 @@ class CaseView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         order_by = self.request.GET.get('order_by') or 'id_desc'
+        category = self.request.GET.get('case', 'all')
         order_by = order_by.split('_')
         key = ""
         if order_by[1] == "desc":
             key = "-"
         key = key + order_by[0]
+        user_list = []
+        current_user = self.request.user
+        if 'org' in category:
+            org_admin = Organization.objects.filter(administrator=current_user).values_list('id', flat=True)
+            member_orgs = OrganizationUser.objects.filter(user=current_user).values_list('organization_id', flat=True)
+            if org_admin:
+                user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
+                                                                                                         flat=True))
+                user_list.append(current_user.id)
+            elif member_orgs:
+                user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
+                                                                                             flat=True))
+                user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
+                                 values_list('user_id', flat=True))
+
+            if user_list:
+                return self.model.objects.filter(Q(owner__in=user_list) | Q(reporter__in=user_list)).\
+                    distinct('id').order_by(key)
+            else:
+                return self.model.objects.none()
+
         return self.model.objects.distinct('id').order_by(key)
 
     def get_throttles(self):
@@ -1818,4 +1861,132 @@ class UsageStatsView(APIView):
                 "usage_details": results,
                 "credit_details": credit_details
             }
+        })
+
+
+class OrganizationDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, uid):
+        try:
+            return Organization.objects.get(uid=uid)
+        except Organization.DoesNotExist:
+            raise exceptions.OrganizationNotFound()
+
+    def get(self, request, uid):
+        organization = self.get_object(uid)
+        serializer = OrganizationSimpleSerializer(organization)
+        return APIResponse({
+            "data": serializer.data
+        })
+
+    def post(self, request, format=None):
+        serializer = OrganizationPostSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            org = serializer.save()
+            return APIResponse({
+                "data": {
+                    "uid": org.uid
+                }
+            })
+        raise exceptions.ValidationError()
+
+    def put(self, request, uid):
+        try:
+            organization = self.get_object(uid)
+            modified_data = request.data.copy()
+            users = modified_data.get("users", "[]")
+            users = json.loads(users)
+            modified_data.setlist("users", users)
+            domains = modified_data.get('domains', "[]")
+            domains = json.loads(domains)
+            modified_data.setlist("domains", domains)
+            orguser_serializer = OrganizationUserPostSerializer(data=users, many=True, context={"request": request})
+            orguser_serializer.is_valid(raise_exception=True)
+            orguser_serializer.save()
+            serializer = OrganizationPostSerializer(organization, data=modified_data, context={"request": request})
+            if serializer.is_valid():
+                serializer.save()
+                return APIResponse({
+                    "data": serializer.data
+                })
+            raise exceptions.ValidationError()
+        except json.decoder.JSONDecodeError:
+            raise exceptions.ValidationError("Error parsing JSON user list or domains")
+
+    def delete(self, request, uid=None):
+        organization = self.get_object(uid)
+        current_user = request.user
+        try:
+            org_user = OrganizationUser.objects.get(organization=organization, user=current_user)
+            org_user.delete()
+            Notification.objects.filter(user=current_user, initiator=organization.administrator).delete()
+            return APIResponse({
+                "data": "Succesfully deleted"
+            })
+        except OrganizationUser.DoesNotExist:
+            raise exceptions.ValidationError("You are not a member of this organization")
+
+
+class InvitationView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (permissions.IsGetOrIsAuthenticated,)
+
+    def get_object(self, uid):
+        try:
+            org = Organization.objects.get(uid=uid)
+            return org
+        except Organization.DoesNotExist:
+            raise exceptions.ValidationError("Organization does not exist")
+
+    def get(self, request):
+        referrer = request.GET.get("user", None)
+        referral_code = request.GET.get("code", None)
+        msg = "Invitation code is invalid"
+        try:
+            if not referral_code or not referrer:
+                raise exceptions.PasswordResetCodeNotValid(msg)
+            org_invite = OrganizationInvites.objects.get(invite_hash=referral_code)
+            referrer_email, referred_email = org_invite.inviter_key.split('-invite-')
+            user = User.objects.get(uid=referrer)
+            if user.email != referrer_email:
+                raise exceptions.PasswordResetCodeNotValid(msg)
+            organization = org_invite.organization
+            return APIResponse({
+                "data": {
+                    "referrer_org": organization.uid,
+                    "invited_email": referred_email
+                }
+            })
+        except (User.DoesNotExist, Organization.DoesNotExist, OrganizationInvites.DoesNotExist):
+            raise exceptions.PasswordResetCodeNotValid(msg)
+
+    def post(self, request, format=None):
+        org = self.get_object(request.data.get("organization", None))
+        serializer = InvitationSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        invited_email = serializer.data['email']
+        invitee_email = request.user.email
+        invite_hash = utils.generate_random_key()
+        inviter_key = invitee_email + '-invite-' + invited_email
+        e = Email()
+        kv = {
+            "nickname": request.user.nickname,
+            "email": request.user.email,
+            "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_hash,
+            "org_name": org.name
+        }
+        SendEmail().delay(kv=kv,
+                          subject=Constants.EMAIL_TITLE["INVITATION_SENTINEL_PORTAL"],
+                          email_type=e.EMAIL_TYPE["INVITATION"],
+                          sender=e.EMAIL_SENDER["NO-REPLY"],
+                          recipient=[serializer.data['email']])
+        OrganizationInvites.objects.create(organization=org, user=org.administrator, email=invited_email,
+                                           invite_hash=invite_hash, inviter_key=inviter_key,
+                                           status=OrganizationInviteStatus.EMAIL_SENT
+                                           )
+        org.save()
+        return APIResponse({
+            "data": "Successfully invited"
         })

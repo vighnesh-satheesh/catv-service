@@ -61,6 +61,11 @@ class CaseListPermission(permissions.BasePermission):
         full_path = request.get_full_path()
         full_path_list = full_path.split('&')
         full_path = full_path_list[0]
+        user_path_list = ['/case?case=my', '/case?case=my_new', '/case?case=my_progress', '/case?case=my_confirmed',
+                         '/case?case=my_rejected', '/case?case=my_released']
+        org_path_list = ['/case?case=all', '/case?case=all_confirmed', '/case?case=all_released', '/case?case=org',
+                          '/case?case=org_new', '/case?case=org_progress', '/case?case=org_confirmed',
+                          '/case?case=org_rejected', '/case?case=org_released']
 
         search_exp = re.compile("user_case.*")
         match_user_url = list(filter(search_exp.match, full_path_list))
@@ -82,9 +87,9 @@ class CaseListPermission(permissions.BasePermission):
         if request.user.permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
             return True
 
-        if full_path in ['/case?case=my', '/case?case=my_new', '/case?case=my_progress', '/case?case=my_confirmed', '/case?case=my_rejected', '/case?case=my_released']:
+        if full_path in user_path_list:
             return True
-        if request.user.permission is UserPermission.EXCHANGE and full_path in ['/case?case=all', '/case?case=all_confirmed', '/case?case=all_released']:
+        if request.user.permission is UserPermission.EXCHANGE and full_path in org_path_list:
             return True
 
         return False
@@ -104,3 +109,12 @@ class APIKeyPermission(permissions.BasePermission):
             return True
         else:
             return False
+
+
+class IsGetOrIsAuthenticated(permissions.BasePermission):
+    SAFE_METHODS = ['GET', 'POST', 'OPTIONS']
+
+    def has_permission(self, request, view):
+        if request.method == 'GET' or request.method == 'OPTIONS':
+            return True
+        return request.user and request.user.is_authenticated

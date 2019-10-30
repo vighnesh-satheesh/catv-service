@@ -39,6 +39,7 @@ UserImageStorage = StaticS3Storage(
     resize=True
 )
 
+
 def get_file_meta(file, uid, block_size=65536):
     hasher = hashlib.md5()
     size = 0
@@ -127,6 +128,15 @@ def get_permission_from_status(status):
     }[status]
 
 
+class UserRoles(Enum):
+    COMMUNITY = 'communityuser'
+    PAID = 'paiduser'
+    ORG = 'organization'
+    ORG_TRIAL = 'organization-trial'
+    SENTINEL = 'sentinel'
+    SUPERSENTINEL = 'supersentinel'
+
+
 class UserPermission(Enum):
     USER = 'user'
     EXCHANGE = 'exchange'
@@ -163,6 +173,7 @@ class PermissionList(Enum):
     CATV_EXPORT_DATA = 'export_data'
     CATV_EXPORT_IMAGE = 'export_image'
     CARA_EXPORT_REPORT = 'export_report'
+    VIEW_ORG_CASES = 'view_org_cases'
 
 
 class UserStatus(Enum):
@@ -277,7 +288,8 @@ class EmailSentType(Enum):
     VERIFICATION_RESEND = 'VERIFICATION_RESEND'
     PASSWORD_RESET = 'PASSWORD_RESET'
     VERIFIED = 'VERIFIED'
-    NOTIFICATION = 'NOTIFICATION'
+    NOTIFICATION = 'NOTIFICATION',
+    INVITATION = 'INVITATION'
 
 
 class NotificationType(Enum):
@@ -290,6 +302,22 @@ class NotificationType(Enum):
     CASE_DELETED = 'case_deleted'
     COMMENT = 'comment'
     COMMENT_MENTIONED = 'comment_mentioned'
+    ADDED_TO_ORG = 'added_to_org'
+
+
+class OrganizationUserStatus(Enum):
+    ACTIVE = 'active'
+    INACTIVE = 'inactive'
+    PENDING = 'pending'
+
+
+class OrganizationInviteStatus(str, Enum):
+    EMAIL_SENT = 'Email sent'
+    PENDING_APPROVAL = 'Pending system approval'
+    APPROVED = 'Approved'
+    SUSPENDED = 'Suspended'
+    REJECTED = 'Rejected'
+    EXPIRED = 'Expired'
 
 
 @unique
@@ -479,6 +507,7 @@ class RoleUsageLimit(models.Model):
     api_limit = models.IntegerField(null=True, default=5)
     catv_limit = models.IntegerField(null=True, default=5)
     cara_limit = models.IntegerField(null=True, default=5)
+    org_invite_limit = models.IntegerField(null=True, default=0)
 
     class Meta:
         db_table = 'api_role_usage_limit'
@@ -854,4 +883,46 @@ class ICFHistory(models.Model):
         db_table = 'api_icf_history'
         indexes = [
             models.Index(fields=['api_key', ]),
+        ]
+
+
+class Organization(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=100, null=False, blank=False)
+    image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
+    administrator = models.ForeignKey(User, null=False, blank=False, on_delete=models.CASCADE, related_name='org_admin')
+    users = models.ManyToManyField('User', through='OrganizationUser')
+    domains = ArrayField(models.CharField(max_length=100), size=2, default=list)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['administrator', ]),
+        ]
+
+    @property
+    def pending_invites(self):
+        return OrganizationInvites.objects.filter(organization=self). \
+            exclude(status=OrganizationInviteStatus.APPROVED.value).values('email', 'status')
+
+
+class OrganizationUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    status = EnumField(OrganizationUserStatus, max_length=50)
+
+
+class OrganizationInvites(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    email = models.EmailField(unique=False)
+    invite_hash = models.CharField(max_length=40)
+    inviter_key = models.CharField(max_length=100)
+    sent = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    status = EnumField(OrganizationInviteStatus, max_length=50)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['organization', ]),
+            models.Index(fields=['user', ])
         ]

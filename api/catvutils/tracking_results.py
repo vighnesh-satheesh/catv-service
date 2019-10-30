@@ -138,6 +138,7 @@ class TrackingResults:
                                        'pattern_type': item['pattern_type'].value,
                                        'pattern_subtype': item['pattern_subtype'].value})
             if cur_node.group == "Exchange & DEX":
+                seen_indicators.append(item['pattern'].lower())
                 continue
             if item["security_category"].value == "graylist":
                 if item["annotation"]:

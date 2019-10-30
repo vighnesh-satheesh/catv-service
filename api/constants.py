@@ -19,7 +19,8 @@ class Constants:
         "NOTIFICATION_MODIFY_CASE": "[Sentinel Protocol] {0} has modified the case.",
         "NOTIFICATION_DELETE_CASE": "[Sentinel Protocol] {0} has deleted the case",
         "NOTIFICATION_COMMENT": "[Sentinel Protocol] {0} has left a comment.",
-        "NOTIFICATION_COMMENT_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment"
+        "NOTIFICATION_COMMENT_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment",
+        "INVITATION_SENTINEL_PORTAL": "[Sentinel Protocol] You have been invited to join the Sentinel Portal",
     }
     QUERIES = {
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
@@ -106,10 +107,28 @@ class Constants:
                                        "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
                                        "api_key=(select api_key from api_key where user_id={2}) group by tz_date) "
                                        "x(searches, tz_date) on ts.d = x.tz_date",
-        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, api_limit, "
-                               "(last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as next_renewal_on "
-                               "from api_usage ausage inner join api_user auser on ausage.user_id=auser.id "
-                               "inner join api_role_usage_limit arul on auser.role_id=arul.role_id where ausage.user_id={1}"
+        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, "
+                                 "api_limit, (last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as "
+                                 "next_renewal_on from api_usage ausage inner join api_user auser on "
+                                 "ausage.user_id=auser.id inner join api_role_usage_limit arul on "
+                                 "auser.role_id=arul.role_id where ausage.user_id={1};",
+        "DELETE_ORG_INVITES": "DELETE from api_organizationinvites where (DATE_PART('day', "
+                              "now()::timestamp - sent::timestamp) * 24 + DATE_PART('hour', "
+                              "now()::timestamp - sent::timestamp)) >= 72;",
+        "SELECT_LEFT_PANEL_VALUES_CASE_ALL": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("
+                                             "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
+                                             "('released', 0)) x(status, cntr) left join (select status, count(*) "
+                                             "as cntr from api_case group by status) y on x.status = y.status;",
+        "SELECT_LEFT_PANEL_VALUES_CASE_MY": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("
+                                            "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
+                                            "('released', 0)) x(status, cntr) left join (select status, count(*) "
+                                            "as cntr from api_case where owner_id = {0} or reporter_id = {0} "
+                                            "group by status) y on x.status = y.status;",
+        "SELECT_LEFT_PANEL_VALUES_CASE_ORG": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("
+                                             "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
+                                             "('released', 0)) x(status, cntr) left join (select status, count(*) "
+                                             "as cntr from api_case where owner_id in {0} or reporter_id in {0} "
+                                             "group by status) y on x.status = y.status;"
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

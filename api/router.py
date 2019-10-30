@@ -56,6 +56,9 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^metrics/?$', views.Metrics.as_view(), name='metrics-view'),
         url(r'^guest_search/?$', views.GuestSearchView.as_view(), name='guest-search'),
         url(r'^usage_stats/user/(?P<pk>[0-9a-z\-]+)/?$', views.UsageStatsView.as_view(), name='usage-stats'),
+        url(r'^organization/?$', views.OrganizationDetailView.as_view(), name="org-simple"),
+        url(r'^organization/(?P<uid>[0-9a-z\-]+/?$)', views.OrganizationDetailView.as_view(), name='org-detail'),
+        url(r'^invitation/?$', views.InvitationView.as_view(), name='org-invitation'),
     ]
 
 

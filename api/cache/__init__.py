@@ -68,3 +68,15 @@ class DefaultCache:
         c = self.get_cache()
         key = request.get_full_path()
         c.delete(key)
+
+    def set_email_invitation_key(self, invitee_email, invited_email):
+        v = "".join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(40))
+        self.set(v, invitee_email + '-invite-' + invited_email, 60*60*12)
+        return v
+
+    def get_invitation_email_key(self, key):
+        c = self.get_cache()
+        email = c.get(key)
+        if not email or '-invite-' not in email:
+            return None
+        return email.split('-invite-')

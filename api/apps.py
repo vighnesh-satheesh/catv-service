@@ -47,3 +47,5 @@ class ApiConfig(AppConfig):
         self.send_slack_webhook()
         from api.scheduler import kafkascheduler
         kafkascheduler.start()
+        import api.signals
+

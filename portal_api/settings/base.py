@@ -172,7 +172,7 @@ REST_FRAMEWORK = {
         'emailVerification': '5/min',
         'indicatorPost': '20/min',
         'caraPost': '3/min',
-        'catvPost': '3/min',
+        'catvPost': '5/min',
         'guestSearchGet': '20/min'
     },
     'NUM_PROXIES': 2,
@@ -295,6 +295,10 @@ CELERYBEAT_SCHEDULE = {
     'check-quota-every-thirty-minutes': {
         'task': 'api.tasks.CheckUpdateUsageQuotaTask',
         'schedule': timedelta(minutes=30),
+    },
+    'check-invites-every-45-minutes': {
+        'task': 'api.tasks.CheckDeleteInvitesTask',
+        'schedule': timedelta(minutes=45),
     },
 }
 # email
