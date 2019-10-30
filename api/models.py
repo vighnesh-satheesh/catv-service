@@ -302,6 +302,7 @@ class NotificationType(Enum):
     CASE_DELETED = 'case_deleted'
     COMMENT = 'comment'
     COMMENT_MENTIONED = 'comment_mentioned'
+    ADDED_TO_ORG = 'added_to_org'
 
 
 class OrganizationUserStatus(Enum):
@@ -897,6 +898,11 @@ class Organization(models.Model):
         indexes = [
             models.Index(fields=['administrator', ]),
         ]
+
+    @property
+    def pending_invites(self):
+        return OrganizationInvites.objects.filter(organization=self). \
+            exclude(status=OrganizationInviteStatus.APPROVED.value).values('email', 'status')
 
 
 class OrganizationUser(models.Model):

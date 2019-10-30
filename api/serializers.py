@@ -277,7 +277,8 @@ class UserPostSerializer(serializers.ModelSerializer):
                                    allow_empty_file=True,
                                    use_url=False)
     points = serializers.IntegerField(required=False)
-    organization = OrganizationRelatedField(required=False, write_only=True, queryset=models.Organization.objects.all())
+    organization = OrganizationRelatedField(required=False, write_only=True, queryset=models.Organization.objects.all(),
+                                            allow_null=True)
     invitation_code = serializers.CharField(required=False, write_only=True, max_length=40)
 
     class Meta:
@@ -1800,6 +1801,9 @@ class OrganizationUserPostSerializer(serializers.ModelSerializer):
         request = self.context.get("request", None)
         if request is None:
             raise exceptions.AuthenticationCheckError()
+        current_user = request.user
+        if data["organization"].administrator != current_user:
+            raise exceptions.OwnerRequiredError("You are not the owner of this organization")
         return data
 
     def create(self, validated_data):
@@ -1832,7 +1836,7 @@ class OrganizationSimpleSerializer(serializers.ModelSerializer):
     users = OrganizationUserPostSerializer(read_only=True, many=True, source='organizationuser_set')
     invites_left = serializers.SerializerMethodField()
     domains = serializers.ListField(child=serializers.CharField(), read_only=True, max_length=2)
-    pending_invites = serializers.SerializerMethodField()
+    pending_invites = serializers.ReadOnlyField(required=False)
 
     def get_image(self, obj):
         if bool(obj.image) is False:
@@ -1848,10 +1852,6 @@ class OrganizationSimpleSerializer(serializers.ModelSerializer):
         existing_members = obj.organizationuser_set.count()
         return invite_limit - (members_invited + existing_members)
 
-    def get_pending_invites(self, obj):
-        return models.OrganizationInvites.objects.filter(organization=obj).\
-            exclude(status=models.OrganizationInviteStatus.APPROVED.value).values('email', 'status')
-
 
 class OrganizationPostSerializer(serializers.ModelSerializer):
     uid = serializers.UUIDField(required=False, read_only=True)
@@ -1861,10 +1861,11 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
     users = OrganizationUserPostSerializer(read_only=True, required=False, many=True, source='organizationuser_set')
     invites_left = serializers.SerializerMethodField()
     domains = serializers.ListField(child=serializers.CharField(), required=False, max_length=2)
+    pending_invites = serializers.ReadOnlyField(required=False)
 
     class Meta:
         model = models.Organization
-        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'domains')
+        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'domains', 'pending_invites')
 
     def get_invites_left(self, obj):
         invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
@@ -1894,6 +1895,8 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
                                              "organization")
 
         if request.method == "PUT":
+            if self.instance.administrator != request.user:
+                raise exceptions.OwnerRequiredError("You are not the owner of this organization")
             data["uid"] = request.data.get('uid', None)
             data["name"] = request.data.get('name', None)
             image = request.data.get("image", None)
@@ -1926,10 +1929,17 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         try:
+            instance_domain_set = set(instance.domains)
+            updated_domain_set = set(validated_data['domains'])
+            changed_domain = list(updated_domain_set.symmetric_difference(instance_domain_set))
+            changed_domain = changed_domain[0] if changed_domain else None
+            if changed_domain:
+                models.OrganizationUser.objects.filter(organization=instance,
+                                                       user__email__icontains='@{}'.format(changed_domain)).delete()
             instance = super().update(instance, validated_data)
+            return instance
         except IntegrityError:
             raise exceptions.DataIntegrityError()
-        return instance
 
 
 class InvitationSerializer(serializers.Serializer):

@@ -1915,6 +1915,19 @@ class OrganizationDetailView(APIView):
         except json.decoder.JSONDecodeError:
             raise exceptions.ValidationError("Error parsing JSON user list or domains")
 
+    def delete(self, request, uid=None):
+        organization = self.get_object(uid)
+        current_user = request.user
+        try:
+            org_user = OrganizationUser.objects.get(organization=organization, user=current_user)
+            org_user.delete()
+            Notification.objects.filter(user=current_user, initiator=organization.administrator).delete()
+            return APIResponse({
+                "data": "Succesfully deleted"
+            })
+        except OrganizationUser.DoesNotExist:
+            raise exceptions.ValidationError("You are not a member of this organization")
+
 
 class InvitationView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
