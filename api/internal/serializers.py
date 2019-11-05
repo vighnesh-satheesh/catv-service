@@ -263,13 +263,18 @@ class CasePostSerializer(serializers.ModelSerializer):
                         if not force:
                             if indi["pattern_subtype"] == "ETH":
                                 filter_queries = Q(pattern_lower=indi["pattern"].lower())
-                                dup = models.Indicator.objects.annotate(pattern_lower=Lower('pattern')).\
-                                    filter(filter_queries).order_by("-id")[:1]
+                                filter_queries &= Q(cases__status=models.CaseStatus.RELEASED)
+                                dup = models.Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(filter_queries).prefetch_related('cases').values(
+                                    'security_category', 'cases__status', 'cases__updated').order_by("-cases__updated")[:1]
                             else:
                                 filter_queries = Q(pattern=indi["pattern"])
-                                dup = models.Indicator.objects.filter(filter_queries).order_by("-id")[:1]
+                                filter_queries &= Q(cases__status=models.CaseStatus.RELEASED)
+                                dup = models.Indicator.objects.filter(filter_queries).prefetch_related('cases').\
+                                          values('security_category', 'cases__status', 'cases__updated').\
+                                          order_by("-cases__updated")[:1]
 
-                        if len(dup) > 0 and (dup[0].security_category == indi["security_category"] or dup[0].security_category is models.IndicatorSecurityCategory.WHITELIST):
+
+                        if len(dup) > 0 and (dup[0]['security_category'] == indi["security_category"] or dup[0]['security_category'] is models.IndicatorSecurityCategory.WHITELIST):
                             if force is False:
                                 raise exceptions.DataIntegrityError("duplicate indicator")
                             else:
