@@ -47,8 +47,15 @@ class FileNameTooLong(ValidationError):
 class FileSizeTooSmall(ValidationError):
     default_detail = _('the size of file should be larger than 50 bytes.')
 
+
+class FileNotAllowed(exceptions.APIException):
+    status_code = status.HTTP_403_FORBIDDEN
+    default_detail = _('Incorrect file type passed')
+
+
 class ICFAlreadyExist(ValidationError):
     default_detail = _('icf api already exists.')
+
 
 class PasswordResetCodeNotValid(ValidationError):
     default_detail = _('password reset code is not valid')
