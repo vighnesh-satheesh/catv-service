@@ -2000,8 +2000,8 @@ def exchange_oauth_api_token(request, backend):
     serializer.is_valid(raise_exception=True)
     try:
         user = request.backend.do_auth(serializer.validated_data['access_token'])
-    except HTTPError as e:
-        raise exceptions.AuthenticationValidationError("Invalid token. {}".format(str(e)))
+    except HTTPError:
+        raise exceptions.AuthenticationValidationError("Invalid access token provided.")
     if user:
         login_serializer = LoginSerializer(data={'email': user.email, 'password': ''}, context={"request": request})
         login_data = login_serializer.generate_oauth_login_response(user)

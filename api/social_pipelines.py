@@ -43,6 +43,9 @@ def create_user(strategy, details, backend, user=None, *args, **kwargs):
     :return: dictionary with key values indicating if the user exists.
     If not then an extra user key with the created user object.
     """
+    if user:
+        return {'is_new': False}
+
     email_username = "".join(details['email'].split('@')[:-1])
     email_username = NO_ASCII_REGEX.sub('', email_username)
     email_username = NO_SPECIAL_REGEX.sub('', email_username)
@@ -54,9 +57,6 @@ def create_user(strategy, details, backend, user=None, *args, **kwargs):
     fields['permission'] = UserPermission.USER.value
     fields['status'] = UserStatus.APPROVED.value
     fields['role'] = Role.objects.get(role_name=UserRoles.COMMUNITY.value)
-
-    if user:
-        return {'is_new': False}
 
     return {
         'is_new': True,
