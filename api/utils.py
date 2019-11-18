@@ -245,8 +245,8 @@ class TRDBApiClient(object):
         }
 
 
-def generate_random_key():
-    v = "".join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(40))
+def generate_random_key(key_length):
+    v = "".join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(key_length))
     return v
 
 

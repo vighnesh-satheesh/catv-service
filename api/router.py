@@ -59,6 +59,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^organization/?$', views.OrganizationDetailView.as_view(), name="org-simple"),
         url(r'^organization/(?P<uid>[0-9a-z\-]+/?$)', views.OrganizationDetailView.as_view(), name='org-detail'),
         url(r'^invitation/?$', views.InvitationView.as_view(), name='org-invitation'),
+        url(r'^social/login/(?P<backend>[0-9a-z\-]+)/?$', views.exchange_oauth_api_token, name='oauth-api-login'),
     ]
 
 

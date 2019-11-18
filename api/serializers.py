@@ -202,6 +202,15 @@ class LoginSerializer(serializers.Serializer):
         user.save()
         return self.__create_success_response(user, token)
 
+    def generate_oauth_login_response(self, user):
+        if user.status == models.UserStatus.APPROVED:
+            token, _ = MultiToken.create_token(user)
+        else:
+            token = ""
+        user.timestamp = timezone.now()
+        user.save()
+        return self.__create_success_response(user, token)
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True, write_only=True, style={'input_type': 'password'})
@@ -1992,6 +2001,9 @@ class InvitationSerializer(serializers.Serializer):
     def save(self, data):
         raise NotImplementedError("save is not implemented yet for this serializer")
 
+
+class SocialSerializer(serializers.Serializer):
+    access_token = serializers.CharField(allow_blank=False, trim_whitespace=True, required=True)
 
 
 

@@ -1,24 +1,30 @@
-from collections import defaultdict
+import gzip
+import datetime
+import pytz
+import json
+import math
+from json import dumps
 
 from django.conf import settings
-from web3.auto.infura import w3
-import gzip
-from kafka import KafkaProducer
-from json import dumps
+from django_filters import rest_framework as filters
+from django.db.models import Q, When, Value, Case as CaseFunc, IntegerField
+from django.db import transaction, IntegrityError
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.db import connection
+from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.renderers import JSONRenderer
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from django_filters import rest_framework as filters
-from django.db.models import Q, When, Value, Case as CaseFunc, IntegerField
-from django.db import transaction, IntegrityError
-
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from django.db import connection
+from social_django.utils import psa
+from web3.auto.infura import w3
+from kafka import KafkaProducer
+from requests.exceptions import HTTPError
 
 from .models import (
     User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment, CaseHistory,
@@ -29,7 +35,7 @@ from .models import (
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser)
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
-    CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer, CaseHistoryPostSerializer,
+    CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer,
     AutoCompleteSerializer, AttachedFilePostSerializer,
     ICODetailSerializer, ICOListSerializer,
     IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
@@ -41,7 +47,7 @@ from .serializers import (
     NotificationSerializer, CATVSerializer,
     RewardSettingSerializer, OrganizationPostSerializer,
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
-    InvitationSerializer
+    InvitationSerializer, SocialSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -58,17 +64,10 @@ from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .settings import api_settings
 from .cache import DefaultCache
 from .cache.catv import TrackingCache
-from .cache.local import LocalCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
-from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases, CaraHistoryTask
-from django.utils import timezone
-
-import datetime
-import pytz
-import json
-import math
+from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases
 
 
 class HealthCheckView(APIView):
@@ -236,7 +235,7 @@ class DashboardView(APIView):
         if user.permission is UserPermission.EXCHANGE:
             cases[0]["children"] = [c for c in cases[0]["children"] if "confirmed" in c["id"] or "released" in c["id"]]
         elif user.permission is UserPermission.USER:
-            cases = cases[1]
+            cases = [cases[1]]
 
         with connection.cursor() as cursor:
             if lpv:
@@ -1969,7 +1968,7 @@ class InvitationView(APIView):
         serializer.is_valid(raise_exception=True)
         invited_email = serializer.data['email']
         invitee_email = request.user.email
-        invite_hash = utils.generate_random_key()
+        invite_hash = utils.generate_random_key(40)
         inviter_key = invitee_email + '-invite-' + invited_email
         e = Email()
         kv = {
@@ -1991,3 +1990,24 @@ class InvitationView(APIView):
         return APIResponse({
             "data": "Successfully invited"
         })
+
+
+@api_view(http_method_names=['POST'])
+@authentication_classes([CachedTokenAuthentication])
+@permission_classes([AllowAny])
+@psa()
+def exchange_oauth_api_token(request, backend):
+    serializer = SocialSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        user = request.backend.do_auth(serializer.validated_data['access_token'])
+    except HTTPError:
+        raise exceptions.AuthenticationValidationError("Invalid access token provided.")
+    if user:
+        login_serializer = LoginSerializer(data={'email': user.email, 'password': ''}, context={"request": request})
+        login_data = login_serializer.generate_oauth_login_response(user)
+        return APIResponse({
+            "data": login_data
+        })
+    else:
+        raise exceptions.AuthenticationValidationError()
