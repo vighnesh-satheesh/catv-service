@@ -15,7 +15,7 @@ because Elastic APM inserts the APM middleware to the top of the middleware list
 https://www.elastic.co/guide/en/apm/agent/python/current/configuration.html#config-django-autoinsert-middleware
 Just to be double sure if the build fails
 """
-MIDDLEWARE = MIDDLEWARE.insert(0, 'elasticapm.contrib.django.middleware.TracingMiddleware')
+MIDDLEWARE.insert(0, 'elasticapm.contrib.django.middleware.TracingMiddleware')
 ELASTIC_APM = {
     # Set required service name. Allowed characters:
     # a-z, A-Z, 0-9, -, _, and space
