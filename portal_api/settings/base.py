@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'raven.contrib.django.raven_compat',
+    'elasticapm.contrib.django',
     'djcelery',
     'corsheaders',
     'rest_framework',
