@@ -119,20 +119,6 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
 )
 
-# Elastic APM Configurations
-ELASTIC_APM = {
-    # Set required service name. Allowed characters:
-    # a-z, A-Z, 0-9, -, _, and space
-    'SERVICE_NAME': os.environ["APM_SERVICE_NAME"],
-    # Set custom APM Server URL (default: http://localhost:8200)
-    'SERVER_URL': 'http://10.12.37.38:8200',
-}
-# To send performance metrics, add our tracing middleware
-MIDDLEWARE = (
-    'elasticapm.contrib.django.middleware.TracingMiddleware',
-    # ...
-)
-
 # Databases
 DATABASES = {
     'default': env.db(),
