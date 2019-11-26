@@ -1742,12 +1742,12 @@ class CARA(APIView):
         user = self.request.GET.get('user')
         force = self.request.GET.get('force')
         if force :
-            cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(address, user)
+            cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(address.lower(), user)
             with connection.cursor() as cursor:
                 cursor.execute(cara_history_delete_query)
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
         time = datetime.datetime.now(datetime.timezone.utc)
-        data = (user, address, time)
+        data = (user, address.lower(), time)
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
         data = {'address': address,
