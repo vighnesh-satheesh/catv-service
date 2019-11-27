@@ -1735,7 +1735,8 @@ class CARA(APIView):
     def get(self, request):
         kafka_broker_1 = settings.KAFKA_BROKER_1
         kafka_broker_2 = settings.KAFKA_BROKER_2
-        producer = KafkaProducer(bootstrap_servers=[kafka_broker_1, kafka_broker_2],
+        kafka_broker_3 = settings.KAFKA_BROKER_3
+        producer = KafkaProducer(bootstrap_servers=[kafka_broker_1, kafka_broker_2, kafka_broker_3],
                                  value_serializer=lambda x:
                                  dumps(x).encode('utf-8'))
         address = self.request.GET.get('address')
