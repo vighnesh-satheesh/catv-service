@@ -4,13 +4,13 @@ import re
 from collections import OrderedDict
 import socket
 
-from web3.auto.infura import w3
+from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import (check_password, make_password)
 from django.core.validators import validate_email
 from django.db.models import Q, Value, BooleanField
 from django.db import transaction, IntegrityError
 from django.utils import timezone
-from datetime import timedelta
+from web3.auto.infura import w3
 
 from rest_framework import serializers
 
@@ -502,7 +502,7 @@ class ICFPostSerializer(serializers.ModelSerializer):
             if obj.exists() == True:
                 raise exceptions.ICFAlreadyExist()
             data["user"] = user
-            data["expire_datetime"] = timezone.now() + timedelta(days=30)
+            data["expire_datetime"] = timezone.now() + relativedelta(years=+1)
         return data
 
     def create(self, validated_data):
@@ -521,6 +521,8 @@ class ICFPostSerializer(serializers.ModelSerializer):
             if new_key != prev_key:
                 obj.api_key = new_key
                 break
+        if obj.expire_datetime.date() < timezone.now().date():
+            obj.expire_datetime = timezone.now() + relativedelta(years=+1)
         obj.save()
         return obj
 
