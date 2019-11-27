@@ -1,5 +1,4 @@
-from datetime import timedelta
-
+from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -42,7 +41,7 @@ def assign_usage_quota(sender, instance, created, **kwargs):
                 Usage.objects.create(user=current_user, api_calls_left=user_role.api_limit,
                                      catv_calls_left=user_role.catv_limit, cara_calls_left=user_role.cara_limit,
                                      last_renewal_at=now())
-                Key.objects.create(user=current_user, expire_datetime=now() + timedelta(days=30))
+                Key.objects.create(user=current_user, expire_datetime=now() + relativedelta(years=+1))
         except RoleUsageLimit.DoesNotExist:
             pass
 
