@@ -42,17 +42,17 @@ class TrackingResults:
         if args and 'error' in args[0]:
             self.error = args[0]['error']
 
-    def get_results_from_bloxy(self, bloxy_interface, depth, till_date, for_source=False):
-        return bloxy_interface.get_transactions(self.wallet_address, depth,
+    def get_results_from_bloxy(self, bloxy_interface, depth, till_date, tx_limit, limit, for_source=False):
+        return bloxy_interface.get_transactions(self.wallet_address, tx_limit, limit, depth,
                                                 self.from_date, till_date, self.token_address,
-                                                source=for_source)
+                                                for_source)
 
     def save_bloxy_result(self, bloxy_db_class, depth, from_date, to_date, result):
         bloxy_db_class(address=self.wallet_address, depth_limit=depth, transaction_limit=self.transaction_limit,
                        from_time=from_date, till_time=to_date, result=result,
                        token_address=self.token_address, updated=make_aware(datetime.now())).save()
 
-    def fetch_results(self, for_source=False):
+    def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
         till_date_extend = self.to_date + "T23:59:59"
         bloxy = BloxyAPIInterface(settings.BLOXY_API_KEY)
 
@@ -69,8 +69,9 @@ class TrackingResults:
         aware_to_date = make_aware(datetime.strptime(self.to_date, '%Y-%m-%d'))
         try:
             if self.force_lookup:
-                transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, for_source)
-                self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date, transaction_data)
+                transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, tx_limit, limit, for_source)
+                if save_to_db:
+                    self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date, transaction_data)
                 self.ext_api_calls += 1
             else:
                 db_results = bloxy_db_class.objects.filter(address=self.wallet_address, depth_limit=depth_limit,
@@ -81,11 +82,12 @@ class TrackingResults:
                                                             .order_by('-id', '-updated', '-till_time',
                                                                       'from_time')[0:1]
                 if not db_results or len(db_results[0]['result']) == 0:
-                    transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, for_source)
+                    transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, tx_limit, limit, for_source)
                     if len(transaction_data) == 0:
                         raise IndexError
-                    self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date,
-                                           transaction_data)
+                    if save_to_db:
+                        self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date,
+                                               transaction_data)
                     self.ext_api_calls += 1
                 else:
                     transaction_data = db_results[0]['result']
@@ -93,15 +95,15 @@ class TrackingResults:
         except IndexError:
             raise IndexError("This address has missing {} results.".format(error_placeholder))
 
-    def get_tracking_data(self):
+    def get_tracking_data(self, tx_limit, limit, save_to_db):
         pool = ThreadPool(processes=2)
         if self.source_depth:
             self._skip_source = False
-            self._async_source_result = pool.apply_async(self.fetch_results, (True,),
+            self._async_source_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, True),
                                                          callback=self.bloxy_response_callback)
         if self.distribution_depth:
             self._skip_dist = False
-            self._async_dist_result = pool.apply_async(self.fetch_results, (False,),
+            self._async_dist_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, False),
                                                        callback=self.bloxy_response_callback)
         pool.close()
         pool.join()

@@ -20,7 +20,7 @@ from .serializers import (
     CaseHistoryPostSerializer,
 )
 
-from ..serializers import CaseTRDBSerializer
+from ..serializers import CaseTRDBSerializer, CATVSerializer
 from ..constants import Constants
 from .. import utils
 from .. import permissions
@@ -171,4 +171,18 @@ class IndicatorInternalView(APIView):
         result_serializer = IndicatorDetailSerializer(indicators, many=True)
         return APIResponse({
             "data": result_serializer.data
+        })
+
+
+class CATVInternalView(APIView):
+    authentication_classes = ()
+    permission_classes = (permissions.InternalOnly,)
+
+    def post(self, request):
+        serializer = CATVSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        addr_limit = serializer.data.get("transaction_limit", 100000)
+        results, api_calls = serializer.get_tracking_results(tx_limit=addr_limit, limit=addr_limit, save_to_db=False)
+        return APIResponse({
+            "data": results
         })

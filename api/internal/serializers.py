@@ -24,7 +24,6 @@ class NonNullModelSerializer(serializers.ModelSerializer):
         result = super(NonNullModelSerializer, self).to_representation(instance)
         return OrderedDict([(key, result[key]) for key in result if result[key] is not None])
 
-
 class IndicatorSimpleListSerializer(NonNullModelSerializer):
     class Meta:
         model = models.Indicator
@@ -329,3 +328,4 @@ class CasePostSerializer(serializers.ModelSerializer):
         except Exception as err:
             raise err
         return case
+

@@ -18,7 +18,8 @@ urlpatterns = [
 urlpatterns += [
     url(r'^internal/indicator/?$', views_internal.IndicatorInternalView.as_view(), name='internal-indicator'),
     url(r'^internal/indicators/?$', views_internal.IndicatorInternalPostView.as_view(), name='internal-indicator-post'),
-    url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(), name='internal-case')
+    url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(), name='internal-case'),
+    url(r'^internal/catv/?$', views_internal.CATVInternalView.as_view(), name='internal-catv'),
 ]
 
 if settings.EXPOSE_GENERAL_API:

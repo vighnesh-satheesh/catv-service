@@ -1755,7 +1755,7 @@ class CATVSerializer(serializers.Serializer):
     wallet_address = serializers.CharField(required=True)
     source_depth = serializers.IntegerField(required=False, min_value=1, max_value=10)
     distribution_depth = serializers.IntegerField(required=False, min_value=1, max_value=10)
-    transaction_limit = serializers.IntegerField(required=True, min_value=100, max_value=10000)
+    transaction_limit = serializers.IntegerField(required=True, min_value=100, max_value=100000)
     from_date = serializers.CharField(required=True)
     to_date = serializers.CharField(required=True)
     token_address = serializers.CharField(required=False)
@@ -1787,10 +1787,10 @@ class CATVSerializer(serializers.Serializer):
         except ValueError:
             raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
 
-    def get_tracking_results(self):
+    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
         tracking_results = TrackingResults(**self.data)
         try:
-            tracking_results.get_tracking_data()
+            tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
             tracking_results.set_annotations_from_db()
             return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
