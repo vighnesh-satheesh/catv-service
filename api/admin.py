@@ -15,7 +15,9 @@ from .models import (
     AttachedFile, User, UserStatus,
     UppwardRewardInfo, CaseInvalidateCandidates,
     Key, EmailSent, Action, Role, RolePermission, RoleUsageLimit,
-    RewardSetting, OrganizationUser, OrganizationInvites, OrganizationInviteStatus, OrganizationUserStatus)
+    RewardSetting, OrganizationUser, OrganizationInvites,
+    OrganizationInviteStatus, OrganizationUserStatus, Usage
+)
 from .email import Email
 from .settings import api_settings
 from .constants import Constants
@@ -90,7 +92,11 @@ class UserForm(forms.ModelForm):
             if user.password != m.password:
                 m.password = make_password(m.password)
             if user.status == UserStatus.EMAIL_CONFIRMED and m.status == UserStatus.APPROVED:
-                Key.objects.create(user=user, expire_datetime=timezone.now() + relativedelta(years=+1))
+                api_key_object, is_created = Key.objects.get_or_create(user=user)
+                if is_created:
+                    api_key_object.expire_datetime = timezone.now() + relativedelta(years=+1)
+                    api_key_object.save()
+
                 e = Email()
                 e.sendemail(
                     kv = {
@@ -102,9 +108,16 @@ class UserForm(forms.ModelForm):
                     sender = e.EMAIL_SENDER["NO-REPLY"],
                     recipient = [user.email]
                 )
-                query = Constants.QUERIES['INSERT_USER_USAGE_QUOTA']
-                data = (user.id, m.role_id,)
-                execute_custom_query(query, data)
+
+                user_role = RoleUsageLimit.objects.get(role=user.role)
+                usage_role_object, is_created = Usage.objects.get_or_create(user=user)
+                if is_created:
+                    usage_role_object.api_calls_left = user_role.api_limit
+                    usage_role_object.catv_calls_left = user_role.catv_limit
+                    usage_role_object.cara_calls_left = user_role.cara_limit
+                    usage_role_object.last_renewal_at = timezone.now()
+                    usage_role_object.save()
+
                 org_invites = OrganizationInvites.objects.select_related('organization').\
                     get(email=user.email, status=OrganizationInviteStatus.PENDING_APPROVAL.value)
                 if org_invites:
