@@ -49,10 +49,13 @@ INSTALLED_APPS = [
     'djcelery',
     'corsheaders',
     'rest_framework',
+    'django_elasticsearch_dsl',
+    'django_elasticsearch_dsl_drf',
     'django_filters',
     'django_extensions',
     'social_django',
     'api',
+    'search_indexes',
 ]
 
 MIDDLEWARE = [
@@ -72,8 +75,8 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-        os.path.join(os.path.dirname(BASE_DIR), 'templates')
-    ],
+            os.path.join(os.path.dirname(BASE_DIR), 'templates')
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -143,10 +146,25 @@ CACHES = {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
     },
-	'catv_data': {
+    'catv_data': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': env.str('API_CATV_CACHE_SERVER')
     }
+}
+
+ELASTICSEARCH_DSL = {
+    'default': {
+        'hosts': env.str('API_ELASTICSEARCH_HOST', 'localhost:9200'),
+        'timeout': env.str('API_ELASTICSEARCH_TIMEOUT', 7200),
+        'http_auth': env.str('API_ELASTICSEARCH_CREDENTIALS', '')
+    },
+}
+
+ELASTICSEARCH_INDEX_NAMES = {
+    'search_indexes.documents.role': 'role',
+    'search_indexes.documents.user': 'user',
+    'search_indexes.documents.case': 'case',
+    'search_indexes.documents.indicator': 'indicator',
 }
 
 # Internationalization

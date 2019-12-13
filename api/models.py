@@ -501,6 +501,21 @@ class User(models.Model):
         validates.validate_password(self, self.password, model=True)
         return super(User, self).clean()
 
+    @property
+    def role_indexing(self):
+        if self.role is not None:
+            return self.role.role_name
+
+    @property
+    def permission_indexing(self):
+        if self.permission is not None:
+            return self.permission.value
+
+    @property
+    def status_indexing(self):
+        if self.status is not None:
+            return self.status.value
+
 
 class RoleUsageLimit(models.Model):
     role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='usage_role')
@@ -537,6 +552,26 @@ class Case(models.Model):
 
     ico = models.ForeignKey('ICO', null=True, blank=True, on_delete=models.DO_NOTHING)
     indicators = models.ManyToManyField('Indicator', through='CaseIndicator')
+
+    @property
+    def status_indexing(self):
+        if self.status is not None:
+            return self.status.value
+
+    @property
+    def indicator_indexing(self):
+        if self.indicators is not None:
+            return [
+                {
+                    'id': indicator.id,
+                    'uid': indicator.uid,
+                    'security_type': indicator.security_category,
+                    'pattern_type': indicator.pattern_type,
+                    'pattern_subtype': indicator.pattern_subtype,
+                    'annotation': indicator.annotation,
+                    'pattern': indicator.pattern
+                } for indicator in self.indicator_set.all()
+            ]
 
     class Meta:
         indexes = [
@@ -595,6 +630,58 @@ class Indicator(models.Model):
 
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+
+    @property
+    def security_category_indexing(self):
+        if self.security_category is not None:
+            return self.security_category.value
+
+    @property
+    def pattern_type_indexing(self):
+        if self.pattern_type is not None:
+            return self.pattern_type.value
+
+    @property
+    def pattern_subtype_indexing(self):
+        if self.pattern_subtype is not None:
+            return self.pattern_subtype.value
+
+    @property
+    def security_tags_indexing(self):
+        if self.security_tags:
+            return [tag for tag in self.security_tags]
+        return []
+
+    @property
+    def vector_indexing(self):
+        if self.vector:
+            return [vector.value for vector in self.vector]
+        return []
+
+    @property
+    def environment_indexing(self):
+        if self.environment:
+            return [env.value for env in self.environment]
+        return []
+
+    @property
+    def cases_status_indexing(self):
+        if self.cases:
+            status_list = []
+            enum_status_list = self.cases.all().values_list('status', flat=True)
+            for enum_status in enum_status_list:
+                status_list.append(enum_status.value)
+            return status_list
+        else:
+            return []
+
+    @property
+    def annotations_indexing(self):
+        if self.annotations:
+            annotation_list = self.annotations.all().values_list('annotation', flat=True)
+            return annotation_list
+        else:
+            return []
 
     class Meta:
         indexes = [
