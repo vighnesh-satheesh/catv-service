@@ -24,6 +24,13 @@ ELASTIC_APM = {
     'SERVER_URL': env.str('API_ELASTIC_SERVER_URL', ''),
 }
 
+ELASTICSEARCH_INDEX_NAMES = {
+    'search_indexes.documents.role': 'role',
+    'search_indexes.documents.user': 'user',
+    'search_indexes.documents.case': 'case',
+    'search_indexes.documents.indicator': 'indicator',
+}
+
 # Sentry
 # TODO: version file or tag?
 version = env.str('PORTAL_API_VERSION', None)
