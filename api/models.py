@@ -1013,3 +1013,25 @@ class OrganizationInvites(models.Model):
             models.Index(fields=['organization', ]),
             models.Index(fields=['user', ])
         ]
+
+
+class IndicatorMView(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+
+    security_category = models.CharField(max_length=10)
+    security_tags = models.TextField(blank=True, null=True)
+    vector = models.TextField(blank=True, null=True)
+    environment = models.TextField(blank=True, null=True)
+
+    pattern_type = models.CharField(blank=False, null=False, max_length=32)
+    pattern_subtype = models.CharField(blank=True, null=True, max_length=10)
+    pattern = models.CharField(max_length=256, blank=False, null=False)
+
+    detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
+    created = models.DateTimeField(default=now)
+    cases = models.TextField(blank=True, null=True)
+    annotations = models.CharField(max_length=256, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'matvw_indicator_search'

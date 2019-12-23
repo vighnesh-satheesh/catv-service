@@ -2,7 +2,7 @@ from django.conf import settings
 from django_elasticsearch_dsl import Document, Index, fields
 from django_elasticsearch_dsl_drf.compat import KeywordField, StringField
 
-from api.models import Indicator
+from api.models import IndicatorMView
 from ..analyzer import HTML_STRIP
 
 __all__ = ('IndicatorDocument',)
@@ -37,62 +37,44 @@ class IndicatorDocument(Document):
     )
 
     security_category = StringField(
-        attr='security_category_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP)
         }
     )
 
-    security_tags = fields.ListField(
-        StringField(
-            attr='security_tags_indexing',
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-                'lower': StringField(analyzer=HTML_STRIP)
-            }
-        )
-    )
-
-    vector = fields.ListField(
-        StringField(
-            attr='vector_indexing',
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-                'lower': StringField(analyzer=HTML_STRIP)
-            }
-        )
-    )
-
-    environment = fields.ListField(
-        StringField(
-            attr='environment_indexing',
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-                'lower': StringField(analyzer=HTML_STRIP)
-            }
-        )
-    )
-
-    pattern_type = StringField(
-        attr='pattern_type_indexing',
+    security_tags = StringField(
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP)
+        }
+    )
+
+    vector = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
+        }
+    )
+
+    environment = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
+        }
+    )
+
+    pattern_type = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
         }
     )
 
     pattern_subtype = StringField(
-        attr='pattern_subtype_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP)
         }
     )
 
@@ -100,7 +82,6 @@ class IndicatorDocument(Document):
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP)
         }
     )
 
@@ -108,39 +89,30 @@ class IndicatorDocument(Document):
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP)
         }
     )
 
     created = fields.DateField()
 
-    cases = fields.ListField(
-        StringField(
-            attr='cases_status_indexing',
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-                'lower': StringField(analyzer=HTML_STRIP)
-            }
-        )
+    cases = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
+        }
     )
 
-    annotations = fields.ListField(
-        StringField(
-            attr='annotations_indexing',
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-                'lower': StringField(analyzer=HTML_STRIP)
-            }
-        )
+    annotations = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
+        }
     )
 
     class Django(object):
         """
         Inner nested class to link Elasticsearch with Django ORM
         """
-        model = Indicator  # The model associated with this document.
+        model = IndicatorMView  # The model associated with this document.
 
     class Meta(object):
         parallel_indexing = True

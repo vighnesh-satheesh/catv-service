@@ -1,10 +1,5 @@
 from django_elasticsearch_dsl_drf.constants import (
-    LOOKUP_FILTER_RANGE,
     LOOKUP_QUERY_IN,
-    LOOKUP_QUERY_GT,
-    LOOKUP_QUERY_GTE,
-    LOOKUP_QUERY_LT,
-    LOOKUP_QUERY_LTE,
     LOOKUP_FILTER_WILDCARD,
     LOOKUP_QUERY_CONTAINS,
 )
@@ -12,7 +7,6 @@ from django_elasticsearch_dsl_drf.filter_backends import (
     IdsFilterBackend,
     OrderingFilterBackend,
     DefaultOrderingFilterBackend,
-    SearchFilterBackend,
 )
 from django_elasticsearch_dsl_drf.viewsets import BaseDocumentViewSet
 from rest_framework.permissions import AllowAny
@@ -21,6 +15,7 @@ from api.multitoken.tokens_auth import CachedTokenAuthentication
 from ..documents import IndicatorDocument
 from ..filtering import CustomFilteringBackend
 from ..pagination import CustomPageNumberPagination
+from ..search import CustomSearchBackend
 from ..serializers import IndicatorDocumentSerializer
 
 __all__ = ('IndicatorDocumentView',)
@@ -38,82 +33,68 @@ class IndicatorDocumentView(BaseDocumentViewSet):
         IdsFilterBackend,
         OrderingFilterBackend,
         DefaultOrderingFilterBackend,
-        SearchFilterBackend,
+        CustomSearchBackend,
     ]
+    search_fields = {
+        'pattern': {'boost': 4},
+        'detail': {'boost': 2},
+        'annotations': {'boost': 1}
+    }
     filter_fields = {
-        'id': {
-            'field': 'id',
-            'lookups': [
-                LOOKUP_FILTER_RANGE,
-                LOOKUP_QUERY_IN,
-                LOOKUP_QUERY_GT,
-                LOOKUP_QUERY_GTE,
-                LOOKUP_QUERY_LT,
-                LOOKUP_QUERY_LTE,
-            ]
-        },
         'security_category': {
-            'field': 'security_category.lower',
+            'field': 'security_category.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
+                LOOKUP_QUERY_CONTAINS,
+                LOOKUP_FILTER_WILDCARD,
             ],
         },
         'security_tags': {
-            'field': 'security_tags.lower',
+            'field': 'security_tags.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
+                LOOKUP_QUERY_CONTAINS,
+                LOOKUP_FILTER_WILDCARD,
             ]
         },
         'vector': {
-            'field': 'vector.lower',
+            'field': 'vector.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
+                LOOKUP_QUERY_CONTAINS,
+                LOOKUP_FILTER_WILDCARD,
             ],
         },
         'environment': {
-            'field': 'environment.lower',
+            'field': 'environment.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
+                LOOKUP_QUERY_CONTAINS,
+                LOOKUP_FILTER_WILDCARD,
             ]
         },
         'pattern_type': {
-            'field': 'pattern_type.lower',
+            'field': 'pattern_type.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
+                LOOKUP_QUERY_CONTAINS,
+                LOOKUP_FILTER_WILDCARD,
             ],
         },
         'pattern_subtype': {
-            'field': 'pattern_subtype.lower',
+            'field': 'pattern_subtype.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
-            ],
-        },
-        'pattern': {
-            'field': 'pattern.lower',
-            'lookups': [
-                LOOKUP_QUERY_IN,
-                LOOKUP_FILTER_WILDCARD,
                 LOOKUP_QUERY_CONTAINS,
-            ],
-        },
-        'detail': {
-            'field': 'detail.lower',
-            'lookups': [
-                LOOKUP_QUERY_IN,
                 LOOKUP_FILTER_WILDCARD,
+            ],
+        },
+        'cases': {
+            'field': 'cases.raw',
+            'lookups': [
+                LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
-            ],
-        },
-        'case_status': {
-            'field': 'case_status.lower',
-            'lookups': [
-                LOOKUP_QUERY_IN,
-            ],
-        },
-        'annotations': {
-            'field': 'annotations.lower',
-            'lookups': [
-                LOOKUP_QUERY_IN,
+                LOOKUP_FILTER_WILDCARD,
             ],
         },
     }

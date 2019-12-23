@@ -1,9 +1,9 @@
 import gzip
 import datetime
-import pytz
 import json
 import math
-from json import dumps
+import pytz
+import socket
 
 from django.conf import settings
 from django_filters import rest_framework as filters
@@ -25,6 +25,7 @@ from social_django.utils import psa
 from web3.auto.infura import w3
 from kafka import KafkaProducer
 from requests.exceptions import HTTPError
+import requests
 
 from .models import (
     User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment, CaseHistory,
@@ -713,17 +714,42 @@ class IndicatorView(generics.ListCreateAPIView):
             ftr &= Q(pattern_subtype__in=pattern_subtype)
         if len(keyword) > 0:
             for idx, k in enumerate(keyword):
-                keyword_filter |= Q(pattern__ilike=k)
-                keyword_filter |= Q(detail__icontains=k)
-                keyword_filter |= Q(annotation=k)
-                if k.isdigit():
-                    keyword_filter |= Q(id=k)
+                if api_settings.SWITCH_ES_SEARCH:
+                    keyword_filter |= Q(search=k)
+                else:
+                    keyword_filter |= Q(pattern__ilike=k)
+                    keyword_filter |= Q(detail__icontains=k)
+                    keyword_filter |= Q(annotation=k)
+                    if k.isdigit():
+                        keyword_filter |= Q(id=k)
             ftr &= keyword_filter
 
         if len(status) > 0:
             ftr &= Q(cases__status__in=status)
 
         return ftr
+
+    def get_es_results(self, query_list, order_key, page):
+        payload = {}
+        for predicate in query_list:
+            if type(predicate) == Q:
+                # this will only happen for keyword search
+                for nested_predicate in predicate.children:
+                    payload[nested_predicate[0]] = "__".join(nested_predicate[1]) \
+                        if nested_predicate[0] != "search" else nested_predicate[1]
+            else:
+                payload[predicate[0]] = "__".join(predicate[1]) if predicate[0] != "search" else predicate[1]
+        payload["ordering"] = order_key
+        payload["page"] = page
+        headers = {
+            'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
+        }
+        result = requests.get('{0}ecsearch/indicators/?'.format(api_settings.BASE_API_URL),
+                              params=payload, headers=headers)
+        if result.status_code == 200:
+            return json.loads(result.text)
+        else:
+            return {}
 
     def list(self, request, *args, **kwargs):
         order_by = self.request.GET.get('order_by', 'id_desc')
@@ -738,23 +764,35 @@ class IndicatorView(generics.ListCreateAPIView):
         page = int(page)
         page_size = 25
         ftr = self.get_filter()
+        if api_settings.SWITCH_ES_SEARCH and ftr.children:
+            indicators = self.get_es_results(ftr.children, key, page)
+        else:
+            indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
+                         page_size * (page - 1):page_size * page]
+            serializer = IndicatorListSerializer(indicators, many=True)
 
-        indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
-                     page_size * (page - 1):page_size * page]
-        serializer = IndicatorListSerializer(indicators, many=True)
+            if len(ftr) == 0 and total_items == 0:
+                c = DefaultCache()
+                d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+                if d:
+                    if permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
+                        total_items = d['all']
+                    else:
+                        total_items = d['cr']
 
-        if len(ftr) == 0 and total_items == 0:
-            c = DefaultCache()
-            d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
-            if d:
-                if permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
-                    total_items = d['all']
-                else:
-                    total_items = d['cr']
+            if total_items == 0:
+                total_items = self.model.objects.filter(ftr).distinct('id').count()
+                CacheNumberOfIndicatorsCases().delay()
 
-        if total_items == 0:
-            total_items = self.model.objects.filter(ftr).distinct('id').count()
-            CacheNumberOfIndicatorsCases().delay()
+        if api_settings.SWITCH_ES_SEARCH and ftr.children:
+            return APIResponse({
+                "data": {
+                    "indicators": indicators.get("results", []),
+                    "totalItems": indicators.get("totalItems", 0),
+                    "totalPages": indicators.get("totalPages", 0),
+                    "pageIndex": indicators.get("pageIndex", 0)
+                }
+            })
 
         return APIResponse({
             "data": {
@@ -1738,7 +1776,7 @@ class CARA(APIView):
         kafka_broker_3 = settings.KAFKA_BROKER_3
         producer = KafkaProducer(bootstrap_servers=[kafka_broker_1, kafka_broker_2, kafka_broker_3],
                                  value_serializer=lambda x:
-                                 dumps(x).encode('utf-8'))
+                                 json.dumps(x).encode('utf-8'))
         address = self.request.GET.get('address')
         user = self.request.GET.get('user')
         force = self.request.GET.get('force')

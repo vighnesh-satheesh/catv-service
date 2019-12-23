@@ -332,7 +332,9 @@ API_SETTINGS = {
     "TIME_INTERVAL": env.int('TIME_INTERVAL', 24),
     "KAFKA_USER_TOPIC": env.str('KAFKA_USER_TOPIC', 'cara-address'),
     "KAFKA_BATCH_TOPIC": env.str('KAFKA_BATCH_TOPIC', 'cara-indicator'),
-    "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test')
+    "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
+    "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', False),
+    "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
