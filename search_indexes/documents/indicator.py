@@ -2,7 +2,7 @@ from django.conf import settings
 from django_elasticsearch_dsl import Document, Index, fields
 from django_elasticsearch_dsl_drf.compat import KeywordField, StringField
 
-from api.models import IndicatorMView
+from api.models import Indicator
 from ..analyzer import HTML_STRIP
 
 __all__ = ('IndicatorDocument',)
@@ -37,6 +37,7 @@ class IndicatorDocument(Document):
     )
 
     security_category = StringField(
+        attr='security_category_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -44,6 +45,7 @@ class IndicatorDocument(Document):
     )
 
     security_tags = StringField(
+        attr='security_tags_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -51,6 +53,7 @@ class IndicatorDocument(Document):
     )
 
     vector = StringField(
+        attr='vector_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -58,6 +61,7 @@ class IndicatorDocument(Document):
     )
 
     environment = StringField(
+        attr='environment_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -65,6 +69,7 @@ class IndicatorDocument(Document):
     )
 
     pattern_type = StringField(
+        attr='pattern_type_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -72,6 +77,7 @@ class IndicatorDocument(Document):
     )
 
     pattern_subtype = StringField(
+        attr='pattern_subtype_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -95,6 +101,7 @@ class IndicatorDocument(Document):
     created = fields.DateField()
 
     cases = StringField(
+        attr='cases_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -102,6 +109,7 @@ class IndicatorDocument(Document):
     )
 
     annotations = StringField(
+        attr='annotations_indexing',
         analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
@@ -112,7 +120,7 @@ class IndicatorDocument(Document):
         """
         Inner nested class to link Elasticsearch with Django ORM
         """
-        model = IndicatorMView  # The model associated with this document.
+        model = Indicator  # The model associated with this document.
 
     class Meta(object):
         parallel_indexing = True
