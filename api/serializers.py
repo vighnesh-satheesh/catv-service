@@ -7,8 +7,9 @@ import socket
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import (check_password, make_password)
 from django.core.validators import validate_email
-from django.db.models import Q, Value, BooleanField
 from django.db import transaction, IntegrityError
+from django.db.models import Q, Value, BooleanField
+from django.db.models.signals import post_save
 from django.utils import timezone
 from web3.auto.infura import w3
 
@@ -1158,7 +1159,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                         raise exceptions.DataIntegrityError("file already included in other cases.")
                     file_obj.case = case
                     file_obj.save()
-
+            post_save.send(case.__class__, instance=case, created=False)
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
@@ -1235,6 +1236,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                     file_obj.save()
                 # case items
                 instance = super().update(instance, validated_data)
+            post_save.send(instance.__class__, instance=instance, created=False)
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:

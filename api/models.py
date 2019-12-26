@@ -26,6 +26,7 @@ from .settings import api_settings
 from .storages.s3 import StaticS3Storage
 from .fields import LtreeField
 from . import validates
+from .managers import CustomManager
 
 ImageStorage = StaticS3Storage(
     region=api_settings.S3_REGION,
@@ -630,6 +631,7 @@ class Indicator(models.Model):
 
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+    objects = CustomManager()
 
     @property
     def security_category_indexing(self):
@@ -648,40 +650,40 @@ class Indicator(models.Model):
 
     @property
     def security_tags_indexing(self):
+        s_tags = []
         if self.security_tags:
-            return [tag for tag in self.security_tags]
-        return []
+            for tag in self.security_tags:
+                s_tags.append(tag)
+        return ", ".join(s_tags)
 
     @property
     def vector_indexing(self):
+        vectors = []
         if self.vector:
-            return [vector.value for vector in self.vector]
-        return []
+            for vector in self.vector:
+                vectors.append(vector.value)
+        return ", ".join(vectors)
 
     @property
     def environment_indexing(self):
+        environs = []
         if self.environment:
-            return [env.value for env in self.environment]
-        return []
+            for environ in self.environment:
+                environs.append(environ.value)
+        return ", ".join(environs)
 
     @property
-    def cases_status_indexing(self):
+    def cases_indexing(self):
+        status_list = []
         if self.cases:
-            status_list = []
             enum_status_list = self.cases.all().values_list('status', flat=True)
             for enum_status in enum_status_list:
                 status_list.append(enum_status.value)
-            return status_list
-        else:
-            return []
+        return ", ".join(status_list)
 
     @property
     def annotations_indexing(self):
-        if self.annotations:
-            annotation_list = self.annotations.all().values_list('annotation', flat=True)
-            return annotation_list
-        else:
-            return []
+        return self.annotation
 
     class Meta:
         indexes = [
