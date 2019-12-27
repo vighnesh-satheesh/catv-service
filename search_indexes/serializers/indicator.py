@@ -1,5 +1,7 @@
 import uuid
 
+from django.utils.dateparse import parse_datetime
+from django.utils.dateformat import format
 from rest_framework import serializers
 
 from ..documents import IndicatorDocument
@@ -22,7 +24,7 @@ class IndicatorDocumentSerializer(serializers.Serializer):
     pattern_subtype = serializers.CharField(read_only=True)
     pattern = serializers.CharField(read_only=True)
     detail = serializers.CharField(read_only=True)
-    created = serializers.DateTimeField(read_only=True)
+    created = serializers.SerializerMethodField()
     cases = serializers.SerializerMethodField()
     annotations = serializers.CharField(read_only=True)
 
@@ -70,3 +72,8 @@ class IndicatorDocumentSerializer(serializers.Serializer):
         if obj.cases:
             return obj.cases.split(", ")
         return []
+
+    def get_created(self, obj):
+        if obj.created:
+            created_datetime = parse_datetime(obj.created)
+            return format(created_datetime, 'U')
