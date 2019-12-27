@@ -26,6 +26,7 @@ from .settings import api_settings
 from .storages.s3 import StaticS3Storage
 from .fields import LtreeField
 from . import validates
+from .managers import CustomManager
 
 ImageStorage = StaticS3Storage(
     region=api_settings.S3_REGION,
@@ -501,6 +502,21 @@ class User(models.Model):
         validates.validate_password(self, self.password, model=True)
         return super(User, self).clean()
 
+    @property
+    def role_indexing(self):
+        if self.role is not None:
+            return self.role.role_name
+
+    @property
+    def permission_indexing(self):
+        if self.permission is not None:
+            return self.permission.value
+
+    @property
+    def status_indexing(self):
+        if self.status is not None:
+            return self.status.value
+
 
 class RoleUsageLimit(models.Model):
     role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='usage_role')
@@ -537,6 +553,26 @@ class Case(models.Model):
 
     ico = models.ForeignKey('ICO', null=True, blank=True, on_delete=models.DO_NOTHING)
     indicators = models.ManyToManyField('Indicator', through='CaseIndicator')
+
+    @property
+    def status_indexing(self):
+        if self.status is not None:
+            return self.status.value
+
+    @property
+    def indicator_indexing(self):
+        if self.indicators is not None:
+            return [
+                {
+                    'id': indicator.id,
+                    'uid': indicator.uid,
+                    'security_type': indicator.security_category,
+                    'pattern_type': indicator.pattern_type,
+                    'pattern_subtype': indicator.pattern_subtype,
+                    'annotation': indicator.annotation,
+                    'pattern': indicator.pattern
+                } for indicator in self.indicator_set.all()
+            ]
 
     class Meta:
         indexes = [
@@ -595,6 +631,59 @@ class Indicator(models.Model):
 
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+    objects = CustomManager()
+
+    @property
+    def security_category_indexing(self):
+        if self.security_category is not None:
+            return self.security_category.value
+
+    @property
+    def pattern_type_indexing(self):
+        if self.pattern_type is not None:
+            return self.pattern_type.value
+
+    @property
+    def pattern_subtype_indexing(self):
+        if self.pattern_subtype is not None:
+            return self.pattern_subtype.value
+
+    @property
+    def security_tags_indexing(self):
+        s_tags = []
+        if self.security_tags:
+            for tag in self.security_tags:
+                s_tags.append(tag)
+        return ", ".join(s_tags)
+
+    @property
+    def vector_indexing(self):
+        vectors = []
+        if self.vector:
+            for vector in self.vector:
+                vectors.append(vector.value)
+        return ", ".join(vectors)
+
+    @property
+    def environment_indexing(self):
+        environs = []
+        if self.environment:
+            for environ in self.environment:
+                environs.append(environ.value)
+        return ", ".join(environs)
+
+    @property
+    def cases_indexing(self):
+        status_list = []
+        if self.cases:
+            enum_status_list = self.cases.all().values_list('status', flat=True)
+            for enum_status in enum_status_list:
+                status_list.append(enum_status.value)
+        return ", ".join(status_list)
+
+    @property
+    def annotations_indexing(self):
+        return self.annotation
 
     class Meta:
         indexes = [
@@ -926,3 +1015,25 @@ class OrganizationInvites(models.Model):
             models.Index(fields=['organization', ]),
             models.Index(fields=['user', ])
         ]
+
+
+class IndicatorMView(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+
+    security_category = models.CharField(max_length=10)
+    security_tags = models.TextField(blank=True, null=True)
+    vector = models.TextField(blank=True, null=True)
+    environment = models.TextField(blank=True, null=True)
+
+    pattern_type = models.CharField(blank=False, null=False, max_length=32)
+    pattern_subtype = models.CharField(blank=True, null=True, max_length=10)
+    pattern = models.CharField(max_length=256, blank=False, null=False)
+
+    detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
+    created = models.DateTimeField(default=now)
+    cases = models.TextField(blank=True, null=True)
+    annotations = models.CharField(max_length=256, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'matvw_indicator_search'

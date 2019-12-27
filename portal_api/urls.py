@@ -20,10 +20,12 @@ from django.urls import path
 from django.conf.urls.static import static
 
 from api.router import urlpatterns as api_urls
+from search_indexes.urls import urlpatterns as search_index_urls
 
 
 urlpatterns = [
-    url('^', include(api_urls))
+    url('^', include(api_urls)),
+    url(r'^ecsearch/', include(search_index_urls)),
 ]
 
 if settings.ENVIRONMENT == "development":

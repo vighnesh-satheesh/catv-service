@@ -2,6 +2,8 @@ from celery.task import Task
 from celery.registry import tasks
 from django.db import connections
 from django.utils.timezone import now
+from django_elasticsearch_dsl.registries import registry
+
 from .cache import DefaultCache
 from .constants import Constants
 
@@ -94,9 +96,23 @@ class CheckDeleteInvitesTask(Task):
         return True
 
 
+class IndicatorESDocumentTask(Task):
+    def run(self, *args, **kwargs):
+        case_instance = kwargs.get('case', None)
+        indicator_instance = kwargs.get('indicator', None)
+        if case_instance:
+            related_indicators = case_instance.indicators.all()
+            for indicator in related_indicators:
+                registry.update(indicator)
+        elif indicator_instance:
+            registry.update(indicator_instance)
+        return True
+
+
 tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
 tasks.register(CacheNumberOfIndicatorsCases)
 tasks.register(CaraHistoryTask)
 tasks.register(CheckDeleteInvitesTask)
+tasks.register(IndicatorESDocumentTask)
