@@ -35,11 +35,15 @@ class CustomFilteringBackend(FilteringFilterBackend):
         :return: Modified queryset.
         """
 
-        value__lower = value.lower()
+        value_lower = value
+
+        if options.get('field', None) != 'pattern_subtype.raw':
+            value_lower = value.lower()
+
         return super(CustomFilteringBackend, cls).apply_query_contains(
             queryset=queryset,
             options=options,
-            value=value__lower
+            value=value_lower
         )
 
     @classmethod
@@ -66,7 +70,10 @@ class CustomFilteringBackend(FilteringFilterBackend):
         :return: Modified queryset.
         """
 
-        value_lower = value.lower()
+        value_lower = value
+
+        if options.get('field', None) != 'pattern_subtype.raw':
+            value_lower = value.lower()
 
         return super(CustomFilteringBackend, cls).apply_query_in(
             queryset=queryset,
@@ -97,7 +104,10 @@ class CustomFilteringBackend(FilteringFilterBackend):
         :type value: str
         :return: Modified queryset.
         """
-        value_lower = value.lower()
+        value_lower = value
+
+        if options.get('field', None) != 'pattern_subtype.raw':
+            value_lower = value.lower()
 
         return super(CustomFilteringBackend, cls).apply_query_wildcard(
             queryset=queryset,
