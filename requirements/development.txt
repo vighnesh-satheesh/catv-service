@@ -44,7 +44,6 @@ pylint==2.4.3
 python-dateutil==2.7.3
 python-magic==0.4.15
 pytz==2018.5
-raven==6.9.0
 redis==2.10.6
 requests==2.19.1
 s3transfer==0.1.13
@@ -65,3 +64,4 @@ django-elasticsearch-dsl==7.1.0
 django-elasticsearch-dsl-drf==0.20.3
 elasticsearch==7.1.0
 elasticsearch-dsl==7.1.0
+python3-logstash==0.4.80
