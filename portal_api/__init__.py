@@ -90,7 +90,9 @@ class AppInit:
 
         if os.environ.get("CONTAINER_TYPE") == "portal_admin":
             allowed_host.append('prdadmin.sentinelportal.com')
-            allowed_host.append('stgadmin.sentinelportal.com')
+            allowed_host.append('admin.sentinelportal.com')
+            allowed_host.append('stgadmin.stgsentinelportal.com')
+            
 
         allowed_host.append('stgportal.sentinelportal.com')
         allowed_host.append('prdportal.sentinelportal.com')
