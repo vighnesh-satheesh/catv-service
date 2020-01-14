@@ -48,7 +48,7 @@ from .serializers import (
     NotificationSerializer, CATVSerializer,
     RewardSettingSerializer, OrganizationPostSerializer,
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
-    InvitationSerializer, SocialSerializer
+    InvitationSerializer, SocialSerializer, CATVBTCSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -1634,6 +1634,23 @@ class CATVView(APIView):
             from_db = (api_calls == 0)
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
             CatvHistoryTask().delay(history=history, from_history=from_db)
+        return APIResponse({
+            "data": results
+        })
+
+
+class CATVBTCView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVBTCSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        results, api_calls = serializer.get_tracking_results()
         return APIResponse({
             "data": results
         })

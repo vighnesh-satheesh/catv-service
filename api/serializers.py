@@ -30,7 +30,7 @@ from .constants import Constants
 from .cache.uppward import UppwardCache
 from indicatorlib import Pattern
 from .cache import DefaultCache
-from .catvutils.tracking_results import TrackingResults
+from .catvutils.tracking_results import TrackingResults, BTCTrackingResults
 
 
 class NonNullModelSerializer(serializers.ModelSerializer):
@@ -1800,6 +1800,39 @@ class CATVSerializer(serializers.Serializer):
             return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
         except socket.timeout:
             raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
+        except Exception as e:
+            err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
+            if tracking_results.error:
+                err_msg = tracking_results.error
+            elif e:
+                err_msg = "Oops! Something went wrong while getting results for this address. Please try again later."
+            raise exceptions.FileNotFound(err_msg)
+
+
+class CATVBTCSerializer(CATVSerializer):
+    tx_hash = serializers.CharField(required=True)
+
+    def validate_wallet_address(self, value):
+        pattern = re.compile("^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
+        return value
+
+    def valid_tx_hash(self, value):
+        pattern = re.compile("^[a-fA-F0-9]{64}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Transaction hash is an invalid Bitcoin transaction hash")
+        return value
+
+    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
+        tracking_results = BTCTrackingResults(**self.data)
+        try:
+            tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
+            tracking_results.create_graph_data()
+            tracking_results.set_annotations_from_db()
+            return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
+        except socket.timeout:
+            raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:

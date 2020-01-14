@@ -8,8 +8,9 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 
 from .bloxy_interface import BloxyAPIInterface
-from .graphtools import generate_nodes_edges
+from .graphtools import generate_nodes_edges, generate_nodes_edges_btc
 from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
+from .vendor_api import LyzeAPIInterface
 
 
 def find_key(_dict, key):
@@ -204,3 +205,45 @@ class TrackingResults:
             graph_dict['receive_count'] = graph_dict.pop('volume_count_-1')
 
         return graph_dict
+
+
+class BTCTrackingResults(TrackingResults):
+    def __init__(self, **kwargs):
+        super(BTCTrackingResults, self).__init__(**kwargs)
+        self.tx_hash = find_key(kwargs, 'tx_hash')
+
+    def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
+        external_api_client = LyzeAPIInterface(settings.LYZE_API_KEY)
+        if for_source:
+            depth_limit = self.source_depth
+        else:
+            depth_limit = self.distribution_depth
+        transaction_data = external_api_client.get_transactions(self.tx_hash, limit, depth_limit)
+        self.ext_api_calls += 1
+        return transaction_data
+
+    def get_tracking_data(self, tx_limit, limit, save_to_db):
+        pool = ThreadPool(processes=2)
+        if self.source_depth:
+            self._skip_source = False
+            self._async_source_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, True),
+                                                         callback=self.bloxy_response_callback)
+        if self.distribution_depth:
+            self._skip_dist = False
+            self._async_dist_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, True),
+                                                       callback=self.bloxy_response_callback)
+        pool.close()
+        pool.join()
+
+    def create_graph_data(self):
+        pool = Pool(processes=2)
+        if not self._skip_source:
+            source_result = self._async_source_result.get()
+            self._async_source_graph = pool.apply_async(generate_nodes_edges_btc, (source_result, -1,))
+            # self._async_source_graph = generate_nodes_edges_btc(source_result, -1)
+        if not self._skip_dist:
+            dist_result = self._async_dist_result.get()
+            self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1,))
+            # self._async_dist_graph = generate_nodes_edges_btc(dist_result, 1)
+        pool.close()
+        pool.join()
