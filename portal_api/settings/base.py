@@ -370,6 +370,7 @@ BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://apisentinel.blox
 LYZE_API_KEY = env.str('API_LYZE_KEY')
 LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'http://localhost:8088/api/catv/btc/tracking/dist')
 LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'http://localhost:8088/api/catv/btc/tracking/src')
+LYZE_TXLIST_ENDPOINT = env.str('API_LYZE_TXLIST_ENDPOINT', 'http://localhost:8088/api/catv/btc/txlist')
 
 #CARA KAFKA
 KAFKA_BROKER_1 = API_SETTINGS['KAFKA_BROKER_1']

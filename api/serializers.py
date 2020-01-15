@@ -31,6 +31,7 @@ from .cache.uppward import UppwardCache
 from indicatorlib import Pattern
 from .cache import DefaultCache
 from .catvutils.tracking_results import TrackingResults, BTCTrackingResults
+from .catvutils.vendor_api import LyzeAPIInterface
 
 
 class NonNullModelSerializer(serializers.ModelSerializer):
@@ -1840,6 +1841,45 @@ class CATVBTCSerializer(CATVSerializer):
             elif e:
                 err_msg = "Oops! Something went wrong while getting results for this address. Please try again later."
             raise exceptions.FileNotFound(err_msg)
+
+
+class CATVBTCTxlistSerializer(serializers.Serializer):
+    wallet_address = serializers.CharField(required=True)
+    from_date = serializers.CharField(required=True)
+    to_date = serializers.CharField(required=True)
+
+    def validate_wallet_address(self, value):
+        pattern = re.compile("^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
+        return value
+
+    def validate_from_date(self, value):
+        try:
+            utils.validate_dateformat(value, '%Y-%m-%d')
+            return value
+        except ValueError:
+            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+
+    def validate_to_date(self, value):
+        try:
+            utils.validate_dateformat(value, '%Y-%m-%d')
+            return value
+        except ValueError:
+            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+
+    def get_btc_txlist(self):
+        txlist_client = LyzeAPIInterface(api_settings.LYZE_API_KEY)
+        data = self.data
+        resp = txlist_client.get_txlist(data['wallet_address'], data['from_date'], data['to_date'])
+        txlist = []
+        for tx in resp:
+            tx_dict = {}
+            for k, v in tx.items():
+                if k == 'tx_id' or k == 'ts':
+                    tx_dict[k] = v
+            txlist.append(tx_dict)
+        return txlist
 
 
 class OrganizationUserPostSerializer(serializers.ModelSerializer):

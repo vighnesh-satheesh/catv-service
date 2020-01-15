@@ -48,7 +48,8 @@ from .serializers import (
     NotificationSerializer, CATVSerializer,
     RewardSettingSerializer, OrganizationPostSerializer,
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
-    InvitationSerializer, SocialSerializer, CATVBTCSerializer
+    InvitationSerializer, SocialSerializer, CATVBTCSerializer,
+    CATVBTCTxlistSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -1653,6 +1654,25 @@ class CATVBTCView(APIView):
         results, api_calls = serializer.get_tracking_results()
         return APIResponse({
             "data": results
+        })
+
+
+class CATVBTCTxlistView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVBTCTxlistSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        txlist = serializer.get_btc_txlist()
+        if not txlist:
+            raise exceptions.FileNotFound("No transactions could be found for this address. Please try again later.")
+        return APIResponse({
+            "data": txlist
         })
 
 
