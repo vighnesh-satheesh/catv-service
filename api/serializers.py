@@ -105,7 +105,8 @@ class LoginSerializer(serializers.Serializer):
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
             bal = (token_upp.call().balanceOf(user.address))/1000000000000000000
-        catv_history = models.CatvHistory.objects.raw(Constants.QUERIES["SELECT_USER_CATV_HISTORY"], [user.id])
+        catv_history = models.CatvHistory.objects.raw(Constants.QUERIES["SELECT_USER_CATV_HISTORY"].
+                                                      format(user.id, models.CatvTokens.ETH.value))
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {"api_key": None, "expire_datetime": None}
         history_list = []
@@ -2088,4 +2089,11 @@ class SocialSerializer(serializers.Serializer):
     access_token = serializers.CharField(allow_blank=False, trim_whitespace=True, required=True)
 
 
+class CATVHistorySerializer(serializers.Serializer):
+    token_type = fields.EnumField(enum=models.CatvTokens, required=True)
+
+    def validate_token_type(self, data):
+        if not data or data.value.upper() not in models.CatvTokens.__members__.keys():
+            raise serializers.ValidationError("Token type unsupported.")
+        return data
 
