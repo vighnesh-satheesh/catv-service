@@ -122,9 +122,9 @@ class TrackingResults:
         pool.join()
 
     @staticmethod
-    def update_annotations(nc, item_list):
+    def update_annotations(nc, item_list, token_type):
         addr_list = nc.get_node_enum().keys()
-        query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype="ETH", pattern_type="cryptoaddr")
+        query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype=token_type, pattern_type="cryptoaddr")
         query_list &= Q(pattern_lower__in=[addr.lower() for addr in addr_list])
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).\
             prefetch_related('cases').values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail',
@@ -135,8 +135,10 @@ class TrackingResults:
         for item in indicators:
             if item['pattern'].lower() in seen_indicators:
                 continue
-
             cur_node = nc.get_node(item["pattern"].lower())
+            cur_node = nc.get_node(item["pattern"]) if cur_node is None else cur_node
+            if cur_node is None:
+                continue
             cur_node.update(trdb_info={**item, 'uid': str(item['uid']),
                                        'security_category': item['security_category'].value,
                                        'pattern_type': item['pattern_type'].value,
@@ -167,16 +169,16 @@ class TrackingResults:
             seen_indicators.append(item['pattern'].lower())
         return nc, item_list
 
-    def set_annotations_from_db(self):
+    def set_annotations_from_db(self, token_type='ETH'):
         if not self._skip_source:
             tracking_results, nc = self._async_source_graph.get()
-            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             self._source_graph = tracking_results
         if not self._skip_dist:
             tracking_results, nc = self._async_dist_graph.get()
-            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             self._dist_graph = tracking_results

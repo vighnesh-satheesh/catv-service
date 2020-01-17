@@ -1790,7 +1790,7 @@ class CATVSerializer(serializers.Serializer):
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
-            tracking_results.set_annotations_from_db()
+            tracking_results.set_annotations_from_db(token_type=models.CatvTokens.ETH.value)
             return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
         except socket.timeout:
             raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
@@ -1823,7 +1823,7 @@ class CATVBTCSerializer(CATVSerializer):
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
-            tracking_results.set_annotations_from_db()
+            tracking_results.set_annotations_from_db(token_type=models.CatvTokens.BTC.value)
             return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
         except socket.timeout:
             raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")

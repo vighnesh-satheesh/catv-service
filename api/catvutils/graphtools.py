@@ -59,7 +59,7 @@ class NodesCollection:
         return {k: v.__dict__ for k, v in self.__nodes.items()}
 
     def get_node(self, address):
-        return self.get_nodes()[address]
+        return self.get_nodes().get(address, None)
 
     def add_node(self, Node):
         self.__nodes[Node.address] = Node
@@ -249,7 +249,7 @@ def assign_nodes_btc(result, mode):
         address=result[0][inner],
         depth=0,
         annotation=result[0].get(inner + '_annotation', ""),
-        type=result[0].get(inner + '_type', 'BTC Wallet')
+        type=result[0].get(inner + '_type', 'Wallet')
     )
 
     nc.add_node(temp_node)
@@ -262,7 +262,7 @@ def assign_nodes_btc(result, mode):
             address=item[outer],
             depth=item_depth,
             annotation=item.get(outer + '_annotation', ""),
-            type=item.get(outer + '_type', 'BTC Wallet'),
+            type=item.get(outer + '_type', 'Wallet'),
             balance=item.get(outer + '_balance', None),
             amount_in=item.get(outer + '_amount_in', None),
             amount_out=item.get(outer + '_amount_out', None)
