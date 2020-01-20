@@ -1866,12 +1866,15 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
         data = self.data
         resp = txlist_client.get_txlist(data['wallet_address'], data['from_date'], data['to_date'])
         txlist = []
+        seen_txid = []
         for tx in resp:
             tx_dict = {}
-            for k, v in tx.items():
-                if k == 'tx_id' or k == 'ts':
-                    tx_dict[k] = v
-            txlist.append(tx_dict)
+            if tx['tx_id'].lower() not in seen_txid:
+                for k, v in tx.items():
+                    if k == 'tx_id' or k == 'ts':
+                        tx_dict[k] = v
+                txlist.append(tx_dict)
+                seen_txid.append(tx['tx_id'].lower())
         return txlist
 
 

@@ -334,6 +334,7 @@ API_SETTINGS = {
     "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
     "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', False),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
+    "LYZE_API_KEY": env.str('API_LYZE_KEY'),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
@@ -368,9 +369,9 @@ BLOXY_API_KEY = env.str('API_BLOXY_KEY')
 BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/outbound_graph_with_stat')
 BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/inbound_graph_with_stat')
 LYZE_API_KEY = env.str('API_LYZE_KEY')
-LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'http://localhost:8088/api/catv/btc/tracking/dist')
-LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'http://localhost:8088/api/catv/btc/tracking/src')
-LYZE_TXLIST_ENDPOINT = env.str('API_LYZE_TXLIST_ENDPOINT', 'http://localhost:8088/api/catv/btc/txlist')
+LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'https://upp.lyze.ai/btc_forward_tracking')
+LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'https://upp.lyze.ai/btc_backward_tracking')
+LYZE_TXLIST_ENDPOINT = env.str('API_LYZE_TXLIST_ENDPOINT', 'https://upp.lyze.ai/btc_address_transfers')
 
 #CARA KAFKA
 KAFKA_BROKER_1 = API_SETTINGS['KAFKA_BROKER_1']
