@@ -19,6 +19,7 @@ class LyzeAPIInterface:
         }
         response = requests.get(api_url, params=data, timeout=timeout, headers=header)
         if response.status_code != 200:
+            print(response)
             return []
         response_list = response.json()
         return response_list["body"].get("result", [])
