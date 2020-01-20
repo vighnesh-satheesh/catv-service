@@ -24,8 +24,8 @@ class Constants:
     }
     QUERIES = {
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
-                                    "distribution_depth,transaction_limit,from_date,to_date,logged_time) "
-                                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s);",
+                                    "distribution_depth,transaction_limit,from_date,to_date,logged_time,token_type) "
+                                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);",
         "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls_left=(catv_calls_left-1) where user_id=%s and "
                                   "catv_calls_left > 0;",
         "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left-1) where user_id='{0}' and "
@@ -84,11 +84,9 @@ class Constants:
                              "direct_links_to_malicious_activities, illegit_activity_links, error, ground_truth_label, num_blacklisted_addr_contacted from cara_report"
                              " where address='{0}'",
         "CARA_REPORT_DELETE_QUERY": "DELETE from cara_report where address='{0}'",
-        "SELECT_USER_CATV_HISTORY": "SELECT DISTINCT ON (id, wallet_address, token_address, source_depth, "
-                                    "distribution_depth, transaction_limit, from_date, to_date) ROW_NUMBER() over () "
-                                    "as id, wallet_address, token_address, source_depth, distribution_depth, "
-                                    "transaction_limit, from_date, to_date FROM api_catv_history WHERE user_id=%s "
-                                    "ORDER BY id DESC LIMIT 10;",
+        "SELECT_USER_CATV_HISTORY": "select 0 as id, wallet_address, token_address, source_depth, distribution_depth, "
+                                    "transaction_limit, from_date, to_date from vw_catv_history where row_num = 1 and "
+                                    "user_id={0} and token_type='{1}' limit 10;",
         "SELECT_CATV_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
                                        "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
                                        "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("

@@ -33,7 +33,9 @@ from .models import (
     AttachedFile, UserPermission, UppwardRewardInfo,
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
-    RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser)
+    RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
+    CatvHistory, CatvTokens
+)
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
     CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer,
@@ -48,7 +50,8 @@ from .serializers import (
     NotificationSerializer, CATVSerializer,
     RewardSettingSerializer, OrganizationPostSerializer,
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
-    InvitationSerializer, SocialSerializer
+    InvitationSerializer, SocialSerializer, CATVBTCSerializer,
+    CATVBTCTxlistSerializer, CATVHistorySerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -1625,7 +1628,7 @@ class CATVView(APIView):
         cache_key = utils.create_tracking_cache_pattern(serializer.data)
         cached_entry = tracking_cache.get_cache_entry(cache_key)
         history = serializer.data
-        history.update({'user_id': request.user.id})
+        history.update({'user_id': request.user.id, 'token_type': CatvTokens.ETH.value})
         if not serializer.data.get('force_lookup', False) and cached_entry:
             results = json.loads(gzip.decompress(cached_entry).decode())
             CatvHistoryTask().delay(history=history, from_history=True)
@@ -1636,6 +1639,65 @@ class CATVView(APIView):
             CatvHistoryTask().delay(history=history, from_history=from_db)
         return APIResponse({
             "data": results
+        })
+
+
+class CATVBTCView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVBTCSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        history = serializer.data
+        history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
+        results, api_calls = serializer.get_tracking_results()
+        CatvHistoryTask().delay(history=history, from_history=False)
+        return APIResponse({
+            "data": results
+        })
+
+
+class CATVBTCTxlistView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVBTCTxlistSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        txlist = serializer.get_btc_txlist()
+        if not txlist:
+            raise exceptions.FileNotFound("No transactions could be found for this address. Please try again later.")
+        return APIResponse({
+            "data": txlist
+        })
+
+
+class CATVHistoryView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request):
+        serializer = CATVHistorySerializer(data=request.GET)
+        serializer.is_valid(raise_exception=True)
+        history = CatvHistory.objects.raw(Constants.QUERIES["SELECT_USER_CATV_HISTORY"].
+                                          format(request.user.id, request.GET['token_type'].upper()))
+        history_list = []
+        for item in history:
+            history_list.append({'wallet_address': item.wallet_address, 'distribution_depth': item.distribution_depth,
+                                 'source_depth': item.source_depth, 'transaction_limit': item.transaction_limit,
+                                 'token_address': item.token_address, 'from_date': item.from_date,
+                                 'to_date': item.to_date})
+        return APIResponse({
+            "data": history_list
         })
 
 

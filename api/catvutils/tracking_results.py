@@ -8,8 +8,9 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 
 from .bloxy_interface import BloxyAPIInterface
-from .graphtools import generate_nodes_edges
+from .graphtools import generate_nodes_edges, generate_nodes_edges_btc
 from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
+from .vendor_api import LyzeAPIInterface
 
 
 def find_key(_dict, key):
@@ -121,9 +122,9 @@ class TrackingResults:
         pool.join()
 
     @staticmethod
-    def update_annotations(nc, item_list):
+    def update_annotations(nc, item_list, token_type):
         addr_list = nc.get_node_enum().keys()
-        query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype="ETH", pattern_type="cryptoaddr")
+        query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype=token_type, pattern_type="cryptoaddr")
         query_list &= Q(pattern_lower__in=[addr.lower() for addr in addr_list])
         indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).\
             prefetch_related('cases').values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail',
@@ -134,8 +135,10 @@ class TrackingResults:
         for item in indicators:
             if item['pattern'].lower() in seen_indicators:
                 continue
-
             cur_node = nc.get_node(item["pattern"].lower())
+            cur_node = nc.get_node(item["pattern"]) if cur_node is None else cur_node
+            if cur_node is None:
+                continue
             cur_node.update(trdb_info={**item, 'uid': str(item['uid']),
                                        'security_category': item['security_category'].value,
                                        'pattern_type': item['pattern_type'].value,
@@ -166,16 +169,16 @@ class TrackingResults:
             seen_indicators.append(item['pattern'].lower())
         return nc, item_list
 
-    def set_annotations_from_db(self):
+    def set_annotations_from_db(self, token_type='ETH'):
         if not self._skip_source:
             tracking_results, nc = self._async_source_graph.get()
-            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             self._source_graph = tracking_results
         if not self._skip_dist:
             tracking_results, nc = self._async_dist_graph.get()
-            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'])
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             self._dist_graph = tracking_results
@@ -204,3 +207,45 @@ class TrackingResults:
             graph_dict['receive_count'] = graph_dict.pop('volume_count_-1')
 
         return graph_dict
+
+
+class BTCTrackingResults(TrackingResults):
+    def __init__(self, **kwargs):
+        super(BTCTrackingResults, self).__init__(**kwargs)
+        self.tx_hash = find_key(kwargs, 'tx_hash')
+
+    def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
+        external_api_client = LyzeAPIInterface(settings.LYZE_API_KEY)
+        if for_source:
+            depth_limit = self.source_depth
+        else:
+            depth_limit = self.distribution_depth
+        transaction_data = external_api_client.get_transactions(self.tx_hash, limit, depth_limit)
+        self.ext_api_calls += 1
+        return transaction_data
+
+    def get_tracking_data(self, tx_limit, limit, save_to_db):
+        pool = ThreadPool(processes=2)
+        if self.source_depth:
+            self._skip_source = False
+            self._async_source_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, True),
+                                                         callback=self.bloxy_response_callback)
+        if self.distribution_depth:
+            self._skip_dist = False
+            self._async_dist_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, True),
+                                                       callback=self.bloxy_response_callback)
+        pool.close()
+        pool.join()
+
+    def create_graph_data(self):
+        pool = Pool(processes=2)
+        if not self._skip_source:
+            source_result = self._async_source_result.get()
+            self._async_source_graph = pool.apply_async(generate_nodes_edges_btc, (source_result, -1,))
+            # self._async_source_graph = generate_nodes_edges_btc(source_result, -1)
+        if not self._skip_dist:
+            dist_result = self._async_dist_result.get()
+            self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1,))
+            # self._async_dist_graph = generate_nodes_edges_btc(dist_result, 1)
+        pool.close()
+        pool.join()

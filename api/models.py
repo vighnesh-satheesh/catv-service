@@ -321,6 +321,11 @@ class OrganizationInviteStatus(str, Enum):
     EXPIRED = 'Expired'
 
 
+class CatvTokens(Enum):
+    ETH = 'ETH'
+    BTC = 'BTC'
+
+
 @unique
 class FileStatus(IntEnum):
     NEW = 0
@@ -939,6 +944,7 @@ class CatvHistory(models.Model):
     transaction_limit = models.IntegerField(null=False)
     from_date = models.CharField(null=False, max_length=10)
     to_date = models.CharField(null=False, max_length=10)
+    token_type = EnumField(CatvTokens, default=CatvTokens.ETH)
     logged_time = models.DateTimeField(default=now)
 
     class Meta:

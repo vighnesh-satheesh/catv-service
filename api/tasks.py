@@ -58,7 +58,7 @@ class CatvHistoryTask(Task):
         query_list = [Constants.QUERIES['INSERT_USER_CATV_HISTORY'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
         query_data = [(entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
                        entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
-                       entry['from_date'], entry['to_date'], now(),),
+                       entry['from_date'], entry['to_date'], now(), entry['token_type']),
                       (entry['user_id'],)]
 
         with connections['default'].cursor() as cursor:
