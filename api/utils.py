@@ -6,6 +6,8 @@ import requests.exceptions as re_exceptions
 from datetime import datetime
 import random
 import string
+from multiprocessing.pool import ThreadPool
+from json import loads
 
 from django.utils import six
 from django.utils.encoding import force_text
@@ -251,3 +253,60 @@ def generate_random_key(key_length):
 
 
 TRDB_CLIENT = TRDBApiClient()
+
+
+class QueryDictList(dict):
+    def __setitem__(self, key: str, value: list) -> None:
+        try:
+            self[key]
+        except KeyError:
+            super().__setitem__(key, [])
+        self[key].extend(value) if type(value) is list else self[key].append(value)
+
+    def build_query_drf(self, query_operator='=', subquery_joiner='__', query_joiner='&', skip_join_key='search'):
+        query_list = []
+        for k, v in self.items():
+            if k == skip_join_key:
+                for term in v:
+                    query_list.append(f'{skip_join_key}{query_operator}{term}')
+            else:
+                query_list.append(f'{k}{query_operator}{subquery_joiner.join(v)}')
+        return query_joiner.join(query_list)
+
+    def build_query_raw(self, query_operator=':', subquery_joiner=' OR ', query_joiner=' AND ', skip_term_key='search',
+                        key_splitter='__'):
+        query_list = []
+        for k, v in self.items():
+            if k == skip_term_key:
+                wildcard_v = list(map(lambda t: f'*{t}*', v))
+                query_list.append(f'({subquery_joiner.join(wildcard_v)})')
+            else:
+                query_list.append(f'({k.split(key_splitter)[0]}{query_operator}{subquery_joiner.join(v)})')
+        return query_joiner.join(query_list)
+
+
+class AsyncAPICaller:
+    def __init__(self, url_list, concurrent=2):
+        self.api_urls = url_list
+        self.concurrency = concurrent
+
+    def make_request(self, req):
+        try:
+            s = requests.Session()
+            prepped = req.prepare()
+            resp = s.send(prepped)
+            if resp.status_code != 200:
+                return resp.status_code, {}
+            return resp.status_code, loads(resp.text)
+        except requests.HTTPError:
+            return 500, {}
+
+    def execute_request_pool(self):
+        pool = ThreadPool(processes=self.concurrency)
+        resp_list = pool.map(self.make_request, self.api_urls)
+        pool.close()
+        resp_dict = {}
+        for _, resp in resp_list:
+            resp_dict = {**resp_dict, **resp}
+        return resp_dict
+
