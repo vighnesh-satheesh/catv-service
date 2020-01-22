@@ -334,6 +334,9 @@ API_SETTINGS = {
     "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
     "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', False),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
+    "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
+    "ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
+    "ELASTICSEARCH_INDICATOR_IDX": env.str("API_ELASTIC_INDICATOR_IDX", 'dev_indicator')
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.

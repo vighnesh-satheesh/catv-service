@@ -739,26 +739,36 @@ class IndicatorView(generics.ListCreateAPIView):
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
-        payload = {}
+        payload = utils.QueryDictList()
         for predicate in query_list:
             if type(predicate) == Q:
                 # this will only happen for keyword search
                 for nested_predicate in predicate.children:
-                    payload[nested_predicate[0]] = "__".join(nested_predicate[1]) \
-                        if nested_predicate[0] != "search" else nested_predicate[1]
+                    payload[nested_predicate[0]] = [nested_predicate[1]]
             else:
-                payload[predicate[0]] = "__".join(predicate[1]) if predicate[0] != "search" else predicate[1]
-        payload["ordering"] = order_key
-        payload["page"] = page
+                payload[predicate[0]] = predicate[1]
+        query_string_drf = payload.build_query_drf()
+        query_string_raw = payload.build_query_raw()
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
-        result = requests.get('{0}ecsearch/indicators/?'.format(api_settings.BASE_API_URL),
-                              params=payload, headers=headers)
-        if result.status_code == 200:
-            return json.loads(result.text)
+        if api_settings.ELASTICSEARCH_CREDENTIALS:
+            user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
+            cred = (user, pwd)
         else:
-            return {}
+            cred = None
+
+        es_serializer_req = requests.Request('GET',
+                                             url=f'{api_settings.BASE_API_URL}ecsearch/indicators/?{query_string_drf}'
+                                             f'&ordering={order_key}&page={page}', headers=headers)
+        es_raw_req = requests.Request('GET',
+                                      f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/_count?q={query_string_raw}',
+                                      auth=cred)
+
+        async_req_caller = utils.AsyncAPICaller([es_serializer_req, es_raw_req])
+        result = async_req_caller.execute_request_pool()
+
+        return result
 
     def list(self, request, *args, **kwargs):
         order_by = self.request.GET.get('order_by', 'id_desc')
@@ -781,7 +791,8 @@ class IndicatorView(generics.ListCreateAPIView):
                     "indicators": indicators.get("results", []),
                     "totalItems": indicators.get("totalItems", 0),
                     "totalPages": indicators.get("totalPages", 0),
-                    "pageIndex": indicators.get("pageIndex", 0)
+                    "pageIndex": indicators.get("pageIndex", 0),
+                    "actualCount": indicators.get("count", indicators.get("totalItems", 0)),
                 }
             })
         else:
