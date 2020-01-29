@@ -56,7 +56,7 @@ LOGGING = {
         'logstash': {
             'level': 'WARNING',
             'class': 'logstash.TCPLogstashHandler',
-            'host': env.str('API_LOGSTASH_SERVER', '10.12.37.38'),
+            'host': env.str('API_LOGSTASH_SERVER', 'localhost'),
             'port': 5959,
             'version': 1,
             'message_type': 'logstash',
