@@ -1,7 +1,10 @@
-import os
-import boto3
-import requests
 import json
+import os
+import requests
+
+import boto3
+from botocore.session import Session
+from botocore.config import Config
 
 class AppInit:
     REQUEST_URL = {
@@ -37,7 +40,10 @@ class AppInit:
                 os.environ["PORTAL_API_MODE"] = "staging"
 
             region = os.environ.get("AWS_REGION", "ap-northeast-2")
-            ssm = boto3.client('ssm', region_name=region)
+            session = Session()
+            ssm = session.create_client('ssm', region_name=region,
+                                        config=Config(connect_timeout=120, read_timeout=120,
+                                                      retries={'max_attempts': 3}))
 
             next_token = None
             while True:
