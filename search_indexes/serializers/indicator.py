@@ -27,6 +27,7 @@ class IndicatorDocumentSerializer(serializers.Serializer):
     created = serializers.SerializerMethodField()
     cases = serializers.SerializerMethodField()
     annotations = serializers.CharField(read_only=True)
+    latest_case = serializers.SerializerMethodField()
 
     class Meta(object):
 
@@ -77,3 +78,8 @@ class IndicatorDocumentSerializer(serializers.Serializer):
         if obj.created:
             created_datetime = parse_datetime(obj.created)
             return format(created_datetime, 'U')
+
+    def get_latest_case(self, obj):
+        if obj.latest_case:
+            return uuid.UUID(obj.latest_case.hex)
+        return None
