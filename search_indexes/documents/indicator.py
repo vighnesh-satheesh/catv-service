@@ -116,6 +116,14 @@ class IndicatorDocument(Document):
         }
     )
 
+    latest_case = fields.ObjectField(
+        attr='latest_case_indexing',
+        enabled=False,
+        properties={
+            'hex': StringField()
+        }
+    )
+
     class Django(object):
         """
         Inner nested class to link Elasticsearch with Django ORM

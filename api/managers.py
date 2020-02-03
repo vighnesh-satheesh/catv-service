@@ -22,6 +22,4 @@ class CustomManager(models.Manager):
         :return: the bulk created model items
         """
         bulk_items = super().bulk_create(items, **kwargs)
-        for item in items:
-            post_save.send(item.__class__, instance=item, created=True)
         return bulk_items

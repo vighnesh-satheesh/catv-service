@@ -278,7 +278,7 @@ class QueryDictList(dict):
         query_list = []
         for k, v in self.items():
             if k == skip_term_key:
-                wildcard_v = list(map(lambda t: f'*{t}*', v))
+                wildcard_v = list(map(lambda t: f'{t}{subquery_joiner}*{t}*', v))
                 query_list.append(f'({subquery_joiner.join(wildcard_v)})')
             else:
                 query_list.append(f'({k.split(key_splitter)[0]}{query_operator}{subquery_joiner.join(v)})')

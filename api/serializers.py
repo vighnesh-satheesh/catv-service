@@ -1505,8 +1505,8 @@ class CasePatchSerializer(NonNullModelSerializer):
 
                 ch_serializer.save()
                 updated_instance = super(CasePatchSerializer, self).update(instance, validated_data)
-                post_save.send(updated_instance.__class__, instance=updated_instance, created=False)
-                return updated_instance
+            post_save.send(updated_instance.__class__, instance=updated_instance, created=False)
+            return updated_instance
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")
         except Exception as e:

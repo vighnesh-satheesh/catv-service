@@ -690,6 +690,13 @@ class Indicator(models.Model):
     def annotations_indexing(self):
         return self.annotation
 
+    @property
+    def latest_case_indexing(self):
+        if self.cases:
+            latest_case = self.cases.latest('id')
+            return latest_case.uid
+        return ""
+
     class Meta:
         indexes = [
             GistIndex(fields=['pattern_tree', ]),
@@ -1039,6 +1046,7 @@ class IndicatorMView(models.Model):
     created = models.DateTimeField(default=now)
     cases = models.TextField(blank=True, null=True)
     annotations = models.CharField(max_length=256, blank=True, null=True)
+    latest_case = models.UUIDField(null=True, editable=False)
 
     class Meta:
         managed = False

@@ -40,8 +40,8 @@ class CustomSearchBackend(SearchFilterBackend):
 
         for search_term in query_params:
             old_query = query_proto["query_string"]["query"]
-            query_proto["query_string"]["query"] = "{0} OR *{1}*".format(old_query, search_term) \
-                if old_query else "*{}*".format(search_term)
+            query_proto["query_string"]["query"] = "{0} OR ({1} OR *{1}*)".format(old_query, search_term) \
+                if old_query else "({0} OR *{0}*)".format(search_term)
 
         queries.append(query_proto)
 
