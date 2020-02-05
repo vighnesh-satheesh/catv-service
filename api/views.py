@@ -1723,6 +1723,7 @@ class CATVBTCCoinpathView(APIView):
         else:
             results, api_calls = serializer.get_tracking_results()
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+        CatvHistoryTask().delay(history=history, from_history=False)
 
         return APIResponse({
             "data": results
