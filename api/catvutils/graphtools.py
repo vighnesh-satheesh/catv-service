@@ -45,6 +45,7 @@ class Node:
 class BTCNode(Node):
     def __init__(self, **kwargs):
         super(BTCNode, self).__init__(**kwargs)
+        self.group = "No Tag"
 
 
 class NodesCollection:
@@ -279,15 +280,59 @@ def assign_nodes_btc(result, mode, wallet_address):
     return nc, volume_count
 
 
+def assign_nodes_btc_coinpath(result, mode):
+    nc = NodesCollection()
+    volume_count = {}
+    counter = 1
+
+    if mode == 1:
+        outer = 'receiver'
+        inner = 'sender'
+    elif mode == -1:
+        outer = 'sender'
+        inner = 'receiver'
+
+    temp_node = BTCNode(
+        id=0,
+        address=result[0][inner],
+        annotation=result[0][inner + '_annotation'],
+        type=result[0][inner + '_type'],
+        depth=0,
+        balance=0
+    )
+
+    nc.add_node(temp_node)
+
+    exclusions = {result[0][inner]: result[0]}
+    for item in uniqfy_generator(result, outer, exclusions):
+        item_depth = (item['depth']) * mode
+        temp_node = BTCNode(
+            id=mode*counter,
+            address=item[outer],
+            annotation=item[outer + '_annotation'],
+            type=item[outer + '_type'],
+            depth=item_depth,
+            balance=item.get(outer + '_balance', 0),
+            amount_in=item['tx_value_in'],
+            amount_out=item['tx_value_out']
+        )
+        nc.add_node(temp_node)
+        try:
+            volume_count[item[inner]] += 1
+        except KeyError:
+            volume_count[item[inner]] = 1
+        counter += 1
+    return nc, volume_count
+
+
 def depth_shift_for_source(result):
     for item_dict in result:
         item_dict.update((k, (int(v) + SOURCE_DEPTH_OFFSET) * (-1)) for k, v in item_dict.items() if k == "depth")
 
 
 def depth_shift_btc(result, mode):
-    offset = BTC_DIST_DEPTH_OFFSET if mode == 1 else BTC_SOURCE_DEPTH_OFFSET
     for item_dict in result:
-        item_dict.update((k, (int(v) + offset) * mode) for k, v in item_dict.items() if k == "depth")
+        item_dict.update((k, (int(v)) * mode) for k, v in item_dict.items() if k == "depth")
 
 
 def add_keys_btc(result):
@@ -314,6 +359,19 @@ def generate_nodes_edges_btc(result, mode, wallet_address):
     edge_dict = assign_edges_btc(result, mode, nc.get_node_enum())
     depth_shift_btc(result, mode)
     # add_keys_btc(result)
+
+    track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
+                    'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
+                    'volume_count_{}'.format(mode): volume_count}
+    return track_result, nc
+
+
+def generate_nodes_edges_coinpath(result, mode):
+    keys = list(result[0].keys())
+    nc, volume_count = assign_nodes_btc_coinpath(result, mode)
+    edge_dict = assign_edges(result, mode, nc.get_node_enum())
+    if mode == -1:
+        depth_shift_btc(result, mode)
 
     track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),

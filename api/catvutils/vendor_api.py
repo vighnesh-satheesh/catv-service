@@ -3,7 +3,7 @@ import requests
 
 from django.conf import settings
 
-__all__ = ('LyzeAPIInterface', )
+__all__ = ('LyzeAPIInterface', 'BloxyBTCAPIInterface', )
 
 
 class LyzeAPIInterface:
@@ -52,4 +52,29 @@ class LyzeAPIInterface:
             "to_time": to_time
         }
         r = self.fetch_api_response(self.__txlist_endpoint, payload)
+        return r
+
+
+class BloxyBTCAPIInterface:
+    def __init__(self, key):
+        self.__key = key
+        self.__source_endpoint = settings.BLOXY_BTC_SRC_ENDPOINT
+        self.__distribution_endpoint = settings.BLOXY_BTC_DIST_ENDPOINT
+
+    def fetch_api_response(self, api_url, data, timeout=600):
+        response = requests.get(api_url, params=data, timeout=timeout)
+        if response.status_code != 200:
+            print(response)
+            return []
+        response_list = response.json()
+        return response_list
+
+    def get_transactions(self, address, tx_limit, limit, depth_limit=2, from_time=datetime(2015, 1, 1, 0, 0),
+                         till_time=datetime.now(), source=True):
+        api_url = self.__source_endpoint if source else self.__distribution_endpoint
+        depth = depth_limit
+        payload = {'key': self.__key, 'address': address, 'depth_limit': depth,
+                   'from_date': from_time, 'till_date': till_time, 'snapshot_time': from_time if source else till_time,
+                   'limit_address_tx_count': tx_limit, 'limit': limit, 'format': 'json'}
+        r = self.fetch_api_response(api_url, payload)
         return r

@@ -8,9 +8,9 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 
 from .bloxy_interface import BloxyAPIInterface
-from .graphtools import generate_nodes_edges, generate_nodes_edges_btc
+from .graphtools import generate_nodes_edges, generate_nodes_edges_btc, generate_nodes_edges_coinpath
 from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
-from .vendor_api import LyzeAPIInterface
+from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface
 
 
 def find_key(_dict, key):
@@ -248,5 +248,44 @@ class BTCTrackingResults(TrackingResults):
             dist_result = self._async_dist_result.get()
             self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1, wallet_address))
             # self._async_dist_graph = generate_nodes_edges_btc(dist_result, 1, wallet_address)
+        pool.close()
+        pool.join()
+
+
+class BTCCoinpathTrackingResults(TrackingResults):
+    def __init__(self, **kwargs):
+        super(BTCCoinpathTrackingResults, self).__init__(**kwargs)
+
+    def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
+        external_api_client = BloxyBTCAPIInterface(settings.BLOXY_API_KEY)
+        depth_limit = self.source_depth if for_source else self.distribution_depth
+        till_date_extend = self.to_date + "T23:59:59"
+        transaction_data = external_api_client.get_transactions(self.wallet_address, tx_limit, limit,
+                                                                depth_limit, till_time=till_date_extend,
+                                                                source=for_source)
+        self.ext_api_calls += 1
+        return transaction_data
+
+    def get_tracking_data(self, tx_limit, limit, save_to_db):
+        pool = ThreadPool(processes=2)
+        if self.source_depth:
+            self._skip_source = False
+            self._async_source_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, True),
+                                                         callback=self.bloxy_response_callback)
+        if self.distribution_depth:
+            self._skip_dist = False
+            self._async_dist_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, False),
+                                                       callback=self.bloxy_response_callback)
+        pool.close()
+        pool.join()
+
+    def create_graph_data(self):
+        pool = Pool(processes=2)
+        if not self._skip_source:
+            source_result = self._async_source_result.get()
+            self._async_source_graph = pool.apply_async(generate_nodes_edges_coinpath, (source_result, -1))
+        if not self._skip_dist:
+            dist_result = self._async_dist_result.get()
+            self._async_dist_graph = pool.apply_async(generate_nodes_edges_coinpath, (dist_result, 1))
         pool.close()
         pool.join()

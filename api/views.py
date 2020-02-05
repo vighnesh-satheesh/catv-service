@@ -51,7 +51,7 @@ from .serializers import (
     RewardSettingSerializer, OrganizationPostSerializer,
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
-    CATVBTCTxlistSerializer, CATVHistorySerializer
+    CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -1709,6 +1709,26 @@ class CATVHistoryView(APIView):
                                  'to_date': item.to_date})
         return APIResponse({
             "data": history_list
+        })
+
+
+class CATVBTCCoinpathView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVBTCCoinpathSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        history = serializer.data
+        history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
+        results, api_calls = serializer.get_tracking_results()
+        CatvHistoryTask().delay(history=history, from_history=False)
+        return APIResponse({
+            "data": results
         })
 
 

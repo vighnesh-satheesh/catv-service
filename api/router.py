@@ -56,6 +56,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
         url(r'^catv_btc_tracking/?$', views.CATVBTCView.as_view(), name='catv-btc-view'),
         url(r'^catv_btc_txlist/?$', views.CATVBTCTxlistView.as_view(), name='catv-btc-txlist-view'),
+        url(r'^catv_btc/?$', views.CATVBTCCoinpathView.as_view(), name='catv-btc-coinpath'),
         url(r'^catv_history/?$', views.CATVHistoryView.as_view(), name='catv-history'),
         url(r'^metrics/?$', views.Metrics.as_view(), name='metrics-view'),
         url(r'^guest_search/?$', views.GuestSearchView.as_view(), name='guest-search'),

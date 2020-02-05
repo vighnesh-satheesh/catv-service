@@ -30,7 +30,7 @@ from .constants import Constants
 from .cache.uppward import UppwardCache
 from indicatorlib import Pattern
 from .cache import DefaultCache
-from .catvutils.tracking_results import TrackingResults, BTCTrackingResults
+from .catvutils.tracking_results import TrackingResults, BTCTrackingResults, BTCCoinpathTrackingResults
 from .catvutils.vendor_api import LyzeAPIInterface
 
 
@@ -1877,6 +1877,32 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
                 txlist.append(tx_dict)
                 seen_txid.append(tx['tx_id'].lower())
         return txlist
+
+
+class CATVBTCCoinpathSerializer(CATVSerializer):
+    def validate_wallet_address(self, value):
+        pattern = re.compile("^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
+        return value
+
+    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
+        serializer_data = self.data
+        tracking_results = BTCCoinpathTrackingResults(**serializer_data)
+        try:
+            tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
+            tracking_results.create_graph_data()
+            tracking_results.set_annotations_from_db(token_type=models.CatvTokens.BTC.value)
+            return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
+        except socket.timeout:
+            raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")
+        except Exception as e:
+            err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
+            if tracking_results.error:
+                err_msg = tracking_results.error
+            elif e:
+                err_msg = "Oops! Something went wrong while getting results for this address. Please try again later."
+            raise exceptions.FileNotFound(err_msg)
 
 
 class OrganizationUserPostSerializer(serializers.ModelSerializer):
