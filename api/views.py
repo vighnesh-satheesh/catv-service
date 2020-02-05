@@ -1724,9 +1724,17 @@ class CATVBTCCoinpathView(APIView):
         serializer = CATVBTCCoinpathSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         history = serializer.data
+        tracking_cache = TrackingCache()
+        cache_key = utils.create_tracking_cache_pattern(history)
+        cached_entry = tracking_cache.get_cache_entry(cache_key)
         history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
-        results, api_calls = serializer.get_tracking_results()
-        CatvHistoryTask().delay(history=history, from_history=False)
+
+        if not history.get('force_lookup', False) and cached_entry:
+            results = json.loads(gzip.decompress(cached_entry).decode())
+        else:
+            results, api_calls = serializer.get_tracking_results()
+            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+
         return APIResponse({
             "data": results
         })
