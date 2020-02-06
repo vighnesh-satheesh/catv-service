@@ -1807,7 +1807,7 @@ class CATVBTCSerializer(CATVSerializer):
     tx_hash = serializers.CharField(required=True)
 
     def validate_wallet_address(self, value):
-        pattern = re.compile("^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+        pattern = re.compile("^([13]|bc1).*[a-km-zA-HJ-NP-Z1-9]{26,35}$")
         if not pattern.match(value):
             raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
         return value
@@ -1843,7 +1843,7 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
     to_date = serializers.CharField(required=True)
 
     def validate_wallet_address(self, value):
-        pattern = re.compile("^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+        pattern = re.compile("^([13]|bc1).*[a-km-zA-HJ-NP-Z1-9]{26,35}$")
         if not pattern.match(value):
             raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
         return value
@@ -1881,7 +1881,7 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
 
 class CATVBTCCoinpathSerializer(CATVSerializer):
     def validate_wallet_address(self, value):
-        pattern = re.compile("^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$")
+        pattern = re.compile("^([13]|bc1).*[a-km-zA-HJ-NP-Z1-9]{26,35}$")
         if not pattern.match(value):
             raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
         return value
