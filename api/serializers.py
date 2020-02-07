@@ -1791,7 +1791,11 @@ class CATVSerializer(serializers.Serializer):
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
             tracking_results.set_annotations_from_db(token_type=models.CatvTokens.ETH.value)
-            return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
+            return {
+                "graph": tracking_results.make_graph_dict(),
+                "api_calls": tracking_results.ext_api_calls,
+                "messages": tracking_results.error_messages
+            }
         except socket.timeout:
             raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
         except Exception as e:
@@ -1825,7 +1829,11 @@ class CATVBTCSerializer(CATVSerializer):
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data(serializer_data["wallet_address"])
             tracking_results.set_annotations_from_db(token_type=models.CatvTokens.BTC.value)
-            return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
+            return {
+                "graph": tracking_results.make_graph_dict(),
+                "api_calls": tracking_results.ext_api_calls,
+                "messages": tracking_results.error_messages
+            }
         except socket.timeout:
             raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")
         except Exception as e:
@@ -1893,7 +1901,11 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
             tracking_results.set_annotations_from_db(token_type=models.CatvTokens.BTC.value)
-            return tracking_results.make_graph_dict(), tracking_results.ext_api_calls
+            return {
+                "graph": tracking_results.make_graph_dict(),
+                "api_calls": tracking_results.ext_api_calls,
+                "messages": tracking_results.error_messages
+            }
         except socket.timeout:
             raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")
         except Exception as e:

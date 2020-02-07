@@ -1644,10 +1644,16 @@ class CATVView(APIView):
             results = json.loads(gzip.decompress(cached_entry).decode())
             CatvHistoryTask().delay(history=history, from_history=True)
         else:
-            results, api_calls = serializer.get_tracking_results()
-            from_db = (api_calls == 0)
-            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+            results = serializer.get_tracking_results()
+            from_db = results["api_calls"] > 0
+            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results["graph"]).encode()), 86400)
             CatvHistoryTask().delay(history=history, from_history=from_db)
+
+        if "graph" in results and "messages" in results:
+            return APIResponse({
+                "data": {**results["graph"]},
+                "messages": {**results["messages"]}
+            })
         return APIResponse({
             "data": results
         })
@@ -1666,8 +1672,13 @@ class CATVBTCView(APIView):
         serializer.is_valid(raise_exception=True)
         history = serializer.data
         history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
-        results, api_calls = serializer.get_tracking_results()
+        results = serializer.get_tracking_results()
         CatvHistoryTask().delay(history=history, from_history=False)
+        if "graph" in results and "messages" in results:
+            return APIResponse({
+                "data": {**results["graph"]},
+                "messages": {**results["messages"]}
+            })
         return APIResponse({
             "data": results
         })
@@ -1732,10 +1743,15 @@ class CATVBTCCoinpathView(APIView):
         if not history.get('force_lookup', False) and cached_entry:
             results = json.loads(gzip.decompress(cached_entry).decode())
         else:
-            results, api_calls = serializer.get_tracking_results()
+            results = serializer.get_tracking_results()
             tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
         CatvHistoryTask().delay(history=history, from_history=False)
 
+        if "graph" in results and "messages" in results:
+            return APIResponse({
+                "data": {**results["graph"]},
+                "messages": {**results["messages"]}
+            })
         return APIResponse({
             "data": results
         })

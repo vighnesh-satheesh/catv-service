@@ -38,15 +38,20 @@ class TrackingResults:
         self.force_lookup = find_key(kwargs, 'force_lookup')
         self.error = None
         self.ext_api_calls = 0
+        self.error_messages = {"source": "", "distribution": ""}
 
     def bloxy_response_callback(self, *args, **kwargs):
         if args and 'error' in args[0]:
             self.error = args[0]['error']
 
     def get_results_from_bloxy(self, bloxy_interface, depth, till_date, tx_limit, limit, for_source=False):
-        return bloxy_interface.get_transactions(self.wallet_address, tx_limit, limit, depth,
-                                                self.from_date, till_date, self.token_address,
-                                                for_source)
+        bloxy_response = bloxy_interface.get_transactions(self.wallet_address, tx_limit, limit, depth,
+                                                          self.from_date, till_date, self.token_address, for_source)
+        if not bloxy_response:
+            error_key = "source" if for_source else "distribution"
+            self.error_messages[error_key] = "Missing {} results for the wallet address within the date range " \
+                                             "specified".format(error_key)
+        return bloxy_response
 
     def save_bloxy_result(self, bloxy_db_class, depth, from_date, to_date, result):
         bloxy_db_class(address=self.wallet_address, depth_limit=depth, transaction_limit=self.transaction_limit,
@@ -71,7 +76,7 @@ class TrackingResults:
         try:
             if self.force_lookup:
                 transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, tx_limit, limit, for_source)
-                if save_to_db:
+                if save_to_db and transaction_data:
                     self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date, transaction_data)
                 self.ext_api_calls += 1
             else:
@@ -84,9 +89,7 @@ class TrackingResults:
                                                                       'from_time')[0:1]
                 if not db_results or len(db_results[0]['result']) == 0:
                     transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, tx_limit, limit, for_source)
-                    if len(transaction_data) == 0:
-                        raise IndexError
-                    if save_to_db:
+                    if save_to_db and transaction_data:
                         self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date,
                                                transaction_data)
                     self.ext_api_calls += 1
@@ -94,7 +97,8 @@ class TrackingResults:
                     transaction_data = db_results[0]['result']
             return transaction_data
         except IndexError:
-            raise IndexError("This address has missing {} results.".format(error_placeholder))
+            self.error_messages[error_placeholder] = "Missing {} results for the wallet address within the date " \
+                                                     "range specified".format(error_placeholder)
 
     def get_tracking_data(self, tx_limit, limit, save_to_db):
         pool = ThreadPool(processes=2)
@@ -113,11 +117,13 @@ class TrackingResults:
         pool = Pool(processes=2)
         if not self._skip_source:
             source_result = self._async_source_result.get()
-            self._async_source_graph = pool.apply_async(generate_nodes_edges, (source_result, -1,))
+            if source_result:
+                self._async_source_graph = pool.apply_async(generate_nodes_edges, (source_result, -1,))
 
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
-            self._async_dist_graph = pool.apply_async(generate_nodes_edges, (dist_result, 1,))
+            if dist_result:
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges, (dist_result, 1,))
         pool.close()
         pool.join()
 
@@ -170,13 +176,13 @@ class TrackingResults:
         return nc, item_list
 
     def set_annotations_from_db(self, token_type='ETH'):
-        if not self._skip_source:
+        if not self._skip_source and self._async_source_graph:
             tracking_results, nc = self._async_source_graph.get()
             updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             self._source_graph = tracking_results
-        if not self._skip_dist:
+        if not self._skip_dist and self._async_dist_graph:
             tracking_results, nc = self._async_dist_graph.get()
             updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
@@ -186,7 +192,7 @@ class TrackingResults:
     def make_graph_dict(self):
         graph_dict = {}
 
-        if not self._skip_source and not self._skip_dist:
+        if not self._skip_source and not self._skip_dist and all([self._source_graph, self._dist_graph]):
             track_dist_result = self._dist_graph
             track_source_result = self._source_graph
             graph_dict['item_list'] = track_dist_result['item_list'] + track_source_result['item_list']
@@ -197,11 +203,11 @@ class TrackingResults:
             graph_dict['node_enum'] = {**track_dist_result['node_enum'], **track_source_result['node_enum']}
             graph_dict['send_count'] = track_dist_result['volume_count_1']
             graph_dict['receive_count'] = track_source_result['volume_count_-1']
-        elif not self._skip_dist:
+        elif not self._skip_dist and self._dist_graph:
             track_dist_result = self._dist_graph
             graph_dict.update(track_dist_result)
             graph_dict['send_count'] = graph_dict.pop('volume_count_1')
-        elif not self._skip_source:
+        elif not self._skip_source and self._source_graph:
             track_source_result = self._source_graph
             graph_dict.update(track_source_result)
             graph_dict['receive_count'] = graph_dict.pop('volume_count_-1')
@@ -223,6 +229,10 @@ class BTCTrackingResults(TrackingResults):
             depth_limit = self.distribution_depth if self.distribution_depth < 3 else 2
         transaction_data = external_api_client.get_transactions(self.address, limit, self.tx_hash, depth_limit, for_source)
         self.ext_api_calls += 1
+        if not transaction_data:
+            error_key = "source" if for_source else "distribution"
+            self.error_messages[error_key] = "Missing {} results for the wallet address within the date range " \
+                                             "specified".format(error_key)
         return transaction_data
 
     def get_tracking_data(self, tx_limit, limit, save_to_db):
@@ -242,12 +252,12 @@ class BTCTrackingResults(TrackingResults):
         pool = Pool(processes=2)
         if not self._skip_source:
             source_result = self._async_source_result.get()
-            self._async_source_graph = pool.apply_async(generate_nodes_edges_btc, (source_result, -1, wallet_address))
-            # self._async_source_graph = generate_nodes_edges_btc(source_result, -1, wallet_address)
+            if source_result:
+                self._async_source_graph = pool.apply_async(generate_nodes_edges_btc, (source_result, -1, wallet_address))
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
-            self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1, wallet_address))
-            # self._async_dist_graph = generate_nodes_edges_btc(dist_result, 1, wallet_address)
+            if dist_result:
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1, wallet_address))
         pool.close()
         pool.join()
 
@@ -264,6 +274,10 @@ class BTCCoinpathTrackingResults(TrackingResults):
                                                                 depth_limit, till_time=till_date_extend,
                                                                 source=for_source)
         self.ext_api_calls += 1
+        if not transaction_data:
+            error_key = "source" if for_source else "distribution"
+            self.error_messages[error_key] = "Missing {} results for the wallet address within the date range " \
+                                             "specified".format(error_key)
         return transaction_data
 
     def get_tracking_data(self, tx_limit, limit, save_to_db):
@@ -283,9 +297,11 @@ class BTCCoinpathTrackingResults(TrackingResults):
         pool = Pool(processes=2)
         if not self._skip_source:
             source_result = self._async_source_result.get()
-            self._async_source_graph = pool.apply_async(generate_nodes_edges_coinpath, (source_result, -1))
+            if source_result:
+                self._async_source_graph = pool.apply_async(generate_nodes_edges_coinpath, (source_result, -1))
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
-            self._async_dist_graph = pool.apply_async(generate_nodes_edges_coinpath, (dist_result, 1))
+            if dist_result:
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges_coinpath, (dist_result, 1))
         pool.close()
         pool.join()

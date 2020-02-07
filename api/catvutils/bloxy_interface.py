@@ -12,6 +12,9 @@ class BloxyAPIInterface:
 
     def call_bloxy_api(self, api_url, data, timeout=600):
         response = requests.get(api_url, params=data, timeout=timeout)
+        if response.status_code != 200:
+            print(response)
+            return []
         response_list = response.json()
         return response_list
 
