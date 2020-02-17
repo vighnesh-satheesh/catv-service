@@ -284,6 +284,13 @@ class APIKeyType(Enum):
     LIMITED = 1
 
 
+class ExchangeStatus(Enum):
+    PENDING = 'PENDING_APPROVAL'
+    APPROVED = 'APPROVED'
+    TRANSFERRED = 'TRANSFERRED'
+    REJECTED = 'REJECTED'
+
+
 class EmailSentType(Enum):
     REGISTER = 'REGISTER'
     VERIFICATION_RESEND = 'VERIFICATION_RESEND'
@@ -291,6 +298,7 @@ class EmailSentType(Enum):
     VERIFIED = 'VERIFIED'
     NOTIFICATION = 'NOTIFICATION'
     INVITATION = 'INVITATION'
+    EXCHANGE_SUBMIT = 'EXCHANGE_SUBMIT'
 
 
 class NotificationType(Enum):
@@ -363,14 +371,29 @@ models.CharField.register_lookup(PostgresILike)
 models.TextField.register_lookup(PostgresILike)
 ArrayField.register_lookup(PostgresArrayILike)
 
+
 class RewardSetting(models.Model):
     min_token = models.BigIntegerField(null=True, blank=True)
     token_abi = models.CharField(null=True, blank=True, max_length=5196)
     token_address = models.CharField(null=True, blank=True, max_length=512)
-
+    sentinel_point_reward = models.BigIntegerField(null=True, blank=True)
+    upp_reward = models.BigIntegerField(null=True, blank=True)
+    sp_required = models.BigIntegerField(null=True, blank=True)
 
     def __int__(self):
         return self.min_token
+
+
+class ExchangeToken(models.Model):
+    sp_amount = models.IntegerField(null=True, blank=True)
+    status = EnumField(enum=ExchangeStatus, default=ExchangeStatus.PENDING)
+    req_time = models.CharField(null=True, blank=True, max_length=1024)
+    app_time = models.CharField(null=True, blank=True, max_length=1024)
+    upp = models.IntegerField(null=True, blank=True)
+    user_id = models.CharField(null=True, blank=True, max_length=1024)
+
+    class Meta:
+        db_table = 'api_exchange_token'
 
 
 class Role(models.Model):

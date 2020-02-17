@@ -14,9 +14,14 @@ class Email:
             "VERIFIED": "VERIFIED",
             "PASSWORD_RESET": "PASSWORD_RESET",
             "NOTIFICATION": "NOTIFICATION",
-            "INVITATION": "INVITATION"
+            "INVITATION": "INVITATION",
+            "EXCHANGE_SUBMIT": "EXCHANGE_SUBMIT"
         }
         self.EMAIL_TEMPLATE = {
+            "EXCHANGE_SUBMIT": {
+                "text": "email/exchangesubmit.txt",
+                "html": "email/exchangesubmit.html"
+            },
             "REGISTER": {
                 "text": "email/register.txt",
                 "html": "email/register.html"
@@ -49,6 +54,7 @@ class Email:
             subject = kwargs["subject"]
             sender = kwargs["sender"]
             recipient = kwargs["recipient"]
+            print("txt:", get_template(self.EMAIL_TEMPLATE[email_type]["text"]))
         except KeyError:
             return False
         try:

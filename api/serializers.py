@@ -253,7 +253,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.User
-        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created", "points", "role")
+        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created", "points", "role", "email")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -1449,10 +1449,11 @@ class CaseTRDBSerializer(NonNullModelSerializer):
 
 class CasePatchSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus, required=True)
+    reporter = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
-        fields = ("status",)
+        fields = ("status", "reporter")
         read_only_fields = ("id", "uid", "created")
 
     def validate_status(self, status):
@@ -1465,6 +1466,19 @@ class CasePatchSerializer(NonNullModelSerializer):
         utils.CASE_STATUS_FSM.validate(self.instance.status, status, is_super, is_owner)
         return status
 
+    def validate_reporter(self, reporter):
+        return reporter
+
+    def get_reporter(self, obj):
+        try:
+            queryset = obj.reporter
+            reporter_serializer = UserDetailSerializer(queryset)
+            print("reporter-ser=", reporter_serializer.data)
+            return reporter_serializer.data
+        except models.User.DoesNotExist:
+            pass
+        return None
+
     def update(self, instance, validated_data):
         if validated_data["status"] == models.CaseStatus.NEW:
             instance.owner = None
@@ -1475,6 +1489,14 @@ class CasePatchSerializer(NonNullModelSerializer):
                 raise exceptions.ValidationError("at least one indicator should be contained.")
         elif validated_data["status"] == models.CaseStatus.RELEASED:
             instance.verifier = self.context["request"].user
+            i = 0
+            # indicators = IndicatorListSerializer(instance.indicators.all)
+            for ind in instance.indicators.all():
+                ind_list = models.Indicator.objects.exclude(pattern_type='filehash').filter(pattern=ind.pattern)
+                if ind_list.all().count() == 1:
+                    i = i + 1
+            instance.reporter.points = instance.reporter.points + (10 * i)
+            UserPointsSerializer().update(instance.reporter, {"points": instance.reporter.points})
         elif validated_data["status"] == models.CaseStatus.REJECTED:
             instance.verifier = self.context["request"].user
 
@@ -1518,6 +1540,16 @@ class CasePatchSerializer(NonNullModelSerializer):
             print (e)
             raise exceptions.DataIntegrityError('exception error')
         return {}
+
+
+class UserPointsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.User
+        fields = ("points",)
+
+    def update(self, instance, validated_data):
+        print("rep-data=", validated_data)
+        return super(UserPointsSerializer, self).update(instance, validated_data)
 
 
 class AutoCompleteSerializer(serializers.Serializer):
@@ -1748,10 +1780,13 @@ class RewardSettingSerializer(NonNullModelSerializer):
     token_abi = serializers.JSONField(required=True)
     token_address = serializers.CharField(required=True)
     id = serializers.IntegerField(required=True)
+    sentinel_point_reward = serializers.IntegerField(required=True)
+    upp_reward = serializers.IntegerField(required=True)
+    sp_required = serializers.IntegerField(required=True)
 
     class Meta:
         model = models.RewardSetting
-        fields = ("id", "min_token", "token_abi", "token_address")
+        fields = ("id", "min_token", "token_abi", "token_address", "sentinel_point_reward", "upp_reward", "sp_required")
 
 
 class CATVSerializer(serializers.Serializer):

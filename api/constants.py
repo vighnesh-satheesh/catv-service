@@ -21,6 +21,13 @@ class Constants:
         "NOTIFICATION_COMMENT": "[Sentinel Protocol] {0} has left a comment.",
         "NOTIFICATION_COMMENT_MENTION": "[Sentinel Protocol] {0} has mentioned you on the comment",
         "INVITATION_SENTINEL_PORTAL": "[Sentinel Protocol] You have been invited to join the Sentinel Portal",
+        "EXCHANGE_TOKEN_SUBMITTED": "[Sentinel Protocol] You have successfully submitted your exchange request",
+        "EXCHANGE_TOKEN_UPDATE": "[Sentinel Protocol] Your exchange request status has been updated to {0}",
+    }
+    EMAIL_BODY = {
+        "EXCHANGE_TOKEN_SUB_BODY": "This request has been sent for verification and approval which may take 2-3 working days. \n" +
+                                    "Email notification will be sent once approval process is completed or you can check on the history status.",
+        "EXCHANGE_TOKEN_UP_BODY": "Your request has been {0}"
     }
     QUERIES = {
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
@@ -69,6 +76,7 @@ class Constants:
         "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history VALUES(%s,%s,%s);",
         "DELETE_ADDRESS_FROM_HISTORY": "DELETE from cara_search_history where address='{0}' and id='{1}'",
         "CARA_HISTORY_USER": "SELECT address, query_time from cara_search_history where id = '{0}'",
+        "SWAP_HISTORY_USER": "SELECT req_time, status, sp_amount, upp from api_exchange_token where user_id = '{0}' and req_time >= '{1}' and req_time <= '{2}'",
         "CARA_ERROR_USER": "SELECT id, query_time from cara_search_history where address = '{0}'",
         "UPDATE_ERROR_REPORT": "UPDATE cara_search_history set error_generated='{0}' where id='{1}' and address='{2}'",
         "CARA_ERROR_COUNT": "SELECT address from cara_search_history where id='{0}' and error_generated=1",
