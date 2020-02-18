@@ -46,7 +46,7 @@ class ApiConfig(AppConfig):
         self.init_cache(self.get_model('User'))
         self.send_slack_webhook()
         from api.scheduler import kafkascheduler
-        kafkascheduler.start()
+        #kafkascheduler.start()
         import api.signals
         import search_indexes.signals
 
