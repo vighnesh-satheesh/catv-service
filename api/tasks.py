@@ -1,12 +1,14 @@
+import requests
+
 from celery.task import Task
 from celery.registry import tasks
 from django.db import connections
 from django.utils.timezone import now
-from django_elasticsearch_dsl.registries import registry
 
 from .cache import DefaultCache
 from .constants import Constants
 from .models import Case
+from .settings import api_settings
 
 
 class CacheLeftPanelValuesTask(Task):
@@ -101,9 +103,42 @@ class IndicatorESDocumentTask(Task):
     def run(self, *args, **kwargs):
         case_instance = kwargs['case']
         if case_instance:
-            related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
+            try:
+                related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
+            except Case.DoesNotExist:
+                related_indicators = []
+
+            session = requests.Session()
+            if api_settings.ELASTICSEARCH_CREDENTIALS:
+                user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
+                session.auth = (user, pwd)
+            session.headers.update({'Content-Type': 'application/json'})
+
             for indicator in related_indicators:
-                registry.update(indicator)
+                payload = {
+                    'id': indicator.id,
+                    'uid': {
+                        'hex': indicator.uid.hex
+                    },
+                    'security_category': indicator.security_category_indexing,
+                    'security_tags': indicator.security_tags_indexing,
+                    'vector': indicator.vector_indexing,
+                    'environment': indicator.environment_indexing,
+                    'pattern_type': indicator.pattern_type_indexing,
+                    'pattern_subtype': indicator.pattern_subtype_indexing,
+                    'pattern': indicator.pattern,
+                    'detail': indicator.detail,
+                    'created': indicator.created.isoformat(sep='T', timespec='milliseconds'),
+                    'cases': indicator.cases_indexing,
+                    'annotations': indicator.annotations_indexing,
+                    'latest_case': {
+                        'hex': getattr(indicator.latest_case_indexing, 'hex', '')
+                    }
+                }
+                resp = session.post(
+                    f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/_doc/{indicator.id}',
+                    json=payload)
+            session.close()
         return True
 
 
