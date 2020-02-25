@@ -117,6 +117,17 @@ def create_tracking_cache_pattern(data):
                                                      transaction_limit, from_date, to_date, token_address)
 
 
+def create_path_cache_pattern(data):
+    address_from = data.get("address_from", "")
+    address_to = data.get("address_to", '')
+    token_address = data.get("token_address", "")
+    depth = data.get("depth", "")
+    from_date = data.get("from_date", "")
+    to_date = data.get("to_date", "")
+
+    return f"af{address_from}at{address_to}d{depth}fd{from_date}td{to_date}tk{token_address}"
+
+
 class CaseStatusTransition(object):
     # status, is_owner
     owner_transit = {

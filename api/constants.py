@@ -131,7 +131,16 @@ class Constants:
                                              "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
                                              "('released', 0)) x(status, cntr) left join (select status, count(*) "
                                              "as cntr from api_case where owner_id in {0} or reporter_id in {0} "
-                                             "group by status) y on x.status = y.status;"
+                                             "group by status) y on x.status = y.status;",
+        "INSERT_SWAP_HISTORY_QUERY": "INSERT INTO api_exchange_token(user_id,sp_amount,status,req_time,upp) VALUES(%s,%s,%s,%s,%s);",
+        "UPDATE_USER_POINTS_QUERY": "UPDATE api_user set points = (points-'{0}') where uid='{1}'",
+        "UPDATE_USER_POINTS_QUERY_REJECT": "UPDATE api_user set points = (points+'{0}') where uid='{1}'",
+        "INSERT_USER_CATV_PATH_SEARCH": "INSERT INTO api_catv_path_history(user_id,address_from,address_to,depth, "
+                                        "from_date,to_date,logged_time,token_type,min_tx_amount, "
+                                        "limit_address_tx_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);",
+        "SELECT_USER_CATV_PATH": "select 0 as id, address_from, address_to, null as token_address, depth, from_date, "
+                                 "to_date from vw_catv_path_history where row_num = 1 and user_id={0} "
+                                 "and token_type='{1}' limit 10;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

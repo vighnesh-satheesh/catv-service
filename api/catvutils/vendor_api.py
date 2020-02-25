@@ -3,7 +3,7 @@ import requests
 
 from django.conf import settings
 
-__all__ = ('LyzeAPIInterface', 'BloxyBTCAPIInterface', )
+__all__ = ('LyzeAPIInterface', 'BloxyBTCAPIInterface', 'BloxyEthAPIInterface', )
 
 
 class LyzeAPIInterface:
@@ -78,3 +78,37 @@ class BloxyBTCAPIInterface:
                    'limit_address_tx_count': tx_limit, 'limit': limit, 'format': 'json'}
         r = self.fetch_api_response(api_url, payload)
         return r
+
+
+class BloxyEthAPIInterface:
+    def __init__(self, key):
+        self.__key = key
+        self.__coinpath_endpoint = settings.BLOXY_ETHCOINPATH_ENDPOINT
+
+    def fetch_api_response(self, api_url, data, timeout=600):
+        response = requests.get(api_url, params=data, timeout=timeout)
+        if response.status_code != 200:
+            print(response)
+            return []
+        response_list = response.json()
+        return response_list
+
+    def get_path_transactions(self, path_tracker):
+        api_url = self.__coinpath_endpoint
+        payload = {
+            'key': self.__key,
+            'address1': path_tracker.address_from,
+            'address2': path_tracker.address_to,
+            'depth_limit': path_tracker.depth_limit,
+            'min_tx_amount': path_tracker.min_tx_amount,
+            'from_date': path_tracker.from_date,
+            'till_date': path_tracker.to_date,
+            'limit_address_tx_count': path_tracker.limit_address_tx,
+            'format': 'json'
+        }
+        if path_tracker.token_address:
+            payload.update({'token': path_tracker.token_address})
+
+        r = self.fetch_api_response(api_url, payload)
+        return r
+

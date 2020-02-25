@@ -373,6 +373,7 @@ BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://apisentinel.bl
 BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/inbound_graph_with_stat')
 BLOXY_BTC_SRC_ENDPOINT = env.str('API_BLOXY_BTC_SRC_ENDPOINT', 'https://api.bloxy.info/bitcoin:coinpath/inbound_graph')
 BLOXY_BTC_DIST_ENDPOINT = env.str('API_BLOXY_BTC_DIST_ENDPOINT', 'https://api.bloxy.info/bitcoin:coinpath/outbound_graph')
+BLOXY_ETHCOINPATH_ENDPOINT = env.str('API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://apisentinel.bloxy.info/coinpath/paths')
 LYZE_API_KEY = env.str('API_LYZE_KEY')
 LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'https://upp.lyze.ai/btc_forward_tracking')
 LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'https://upp.lyze.ai/btc_backward_tracking')

@@ -8,9 +8,12 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 
 from .bloxy_interface import BloxyAPIInterface
-from .graphtools import generate_nodes_edges, generate_nodes_edges_btc, generate_nodes_edges_coinpath
+from .graphtools import (
+    generate_nodes_edges, generate_nodes_edges_btc,
+    generate_nodes_edges_coinpath, generate_nodes_edges_ethcoinpath
+)
 from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
-from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface
+from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface, BloxyEthAPIInterface
 
 
 def find_key(_dict, key):
@@ -170,8 +173,15 @@ class TrackingResults:
                 cur_node.update(**kwargs)
             nc.update_node(item['pattern'].lower(), cur_node)
             for transaction in item_list:
-                transaction.update((k + "_annotation", cur_node.annotation) for k, v in transaction.items()
-                                   if (k == 'sender' or k == 'receiver') and v.lower() == cur_node.address)
+                if not transaction.get('sender_annotation', None):
+                    transaction['sender_annotation'] = ''
+                if not transaction.get('receiver_annotation', None):
+                    transaction['receiver_annotation'] = ''
+
+                if transaction['sender'].lower() == cur_node.address:
+                    transaction['sender_annotation'] = cur_node.annotation
+                elif transaction['receiver'].lower() == cur_node.address:
+                    transaction['receiver_annotation'] = cur_node.annotation
             seen_indicators.append(item['pattern'].lower())
         return nc, item_list
 
@@ -303,5 +313,43 @@ class BTCCoinpathTrackingResults(TrackingResults):
             dist_result = self._async_dist_result.get()
             if dist_result:
                 self._async_dist_graph = pool.apply_async(generate_nodes_edges_coinpath, (dist_result, 1))
+        pool.close()
+        pool.join()
+
+
+class EthPathResults(TrackingResults):
+    def __init__(self, **kwargs):
+        super(EthPathResults, self).__init__(**kwargs)
+        self.address_from = kwargs['address_from']
+        self.address_to = kwargs['address_to']
+        self.depth_limit = kwargs['depth']
+        self.min_tx_amount = kwargs['min_tx_amount']
+        self.limit_address_tx = kwargs['limit_address_tx']
+
+    def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
+        external_api_client = BloxyEthAPIInterface(settings.BLOXY_API_KEY)
+        transaction_data = external_api_client.get_path_transactions(self)
+        self.ext_api_calls += 1
+        if not transaction_data:
+            error_key = "distribution"
+            self.error_messages[error_key] = "Missing {} results for the wallet address within the date range " \
+                                             "specified".format(error_key)
+        return transaction_data
+
+    def get_tracking_data(self, tx_limit=None, limit=None, save_to_db=False):
+        pool = ThreadPool(processes=1)
+        if self.depth_limit:
+            self._skip_dist = False
+            self._async_dist_result = pool.apply_async(self.fetch_results, (tx_limit, limit, save_to_db, False),
+                                                       callback=self.bloxy_response_callback)
+        pool.close()
+        pool.join()
+
+    def create_graph_data(self):
+        pool = Pool(processes=1)
+        if not self._skip_dist:
+            dist_result = self._async_dist_result.get()
+            if dist_result:
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges_ethcoinpath, (dist_result, 1))
         pool.close()
         pool.join()

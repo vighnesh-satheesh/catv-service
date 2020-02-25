@@ -211,8 +211,8 @@ def assign_nodes(result, mode):
     temp_node = Node(
         id=0,
         address=result[0][inner],
-        annotation=result[0][inner + '_annotation'],
-        type=result[0][inner + '_type'],
+        annotation=result[0].get(inner + '_annotation', ''),
+        type=result[0].get(inner + '_type', 'Wallet'),
         depth=0
     )
 
@@ -224,12 +224,12 @@ def assign_nodes(result, mode):
         temp_node = Node(
             id=mode*counter,
             address=item[outer],
-            annotation=item[outer + '_annotation'],
-            type=item[outer + '_type'],
+            annotation=item.get(outer + '_annotation', ''),
+            type=item.get(outer + '_type', 'Wallet'),
             depth=item_depth,
-            balance=item[outer + '_balance'],
-            amount_in=item[outer + '_amount_in'],
-            amount_out=item[outer + '_amount_out'],
+            balance=item.get(outer + '_balance', 0),
+            amount_in=item.get(outer + '_amount_in', 0),
+            amount_out=item.get(outer + '_amount_out', 0),
         )
         nc.add_node(temp_node)
         try:
@@ -385,6 +385,30 @@ def generate_nodes_edges_coinpath(result, mode):
         depth_shift_btc(result, mode)
 
     track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
+                    'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
+                    'volume_count_{}'.format(mode): volume_count}
+    return track_result, nc
+
+
+def generate_nodes_edges_ethcoinpath(result, mode):
+    nodes = result[0]['path']
+    keys = list(nodes[0].keys())
+    item_list = []
+    seen_tx_hash = []
+
+    for path_info in result:
+        for path in path_info['path']:
+            if path['tx_hash'] not in seen_tx_hash:
+                item_list.append(path)
+                seen_tx_hash.append(path['tx_hash'])
+
+    nc, volume_count = assign_nodes(item_list, mode)
+    edge_dict = assign_edges(item_list, mode, nc.get_node_enum())
+
+    if mode == -1:
+        depth_shift_for_source(result)
+
+    track_result = {'item_list': item_list, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
                     'volume_count_{}'.format(mode): volume_count}
     return track_result, nc

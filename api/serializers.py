@@ -30,7 +30,10 @@ from .constants import Constants
 from .cache.uppward import UppwardCache
 from indicatorlib import Pattern
 from .cache import DefaultCache
-from .catvutils.tracking_results import TrackingResults, BTCTrackingResults, BTCCoinpathTrackingResults
+from .catvutils.tracking_results import (
+    TrackingResults, BTCTrackingResults,
+    BTCCoinpathTrackingResults, EthPathResults
+)
 from .catvutils.vendor_api import LyzeAPIInterface
 
 
@@ -2126,9 +2129,74 @@ class SocialSerializer(serializers.Serializer):
 
 class CATVHistorySerializer(serializers.Serializer):
     token_type = fields.EnumField(enum=models.CatvTokens, required=True)
+    path_search = serializers.BooleanField(default=False, required=False)
 
     def validate_token_type(self, data):
         if not data or data.value.upper() not in models.CatvTokens.__members__.keys():
             raise serializers.ValidationError("Token type unsupported.")
         return data
 
+
+class CATVEthPathSerializer(serializers.Serializer):
+    address_from = serializers.CharField(required=True)
+    address_to = serializers.CharField(required=True)
+    token_address = serializers.CharField(required=False)
+    depth = serializers.IntegerField(required=False, min_value=1, max_value=30, default=5)
+    from_date = serializers.CharField(required=False, default=timezone.datetime(2015, 1, 1).strftime('%Y-%m-%d'))
+    to_date = serializers.CharField(required=False, default=timezone.now().strftime('%Y-%m-%d'))
+    min_tx_amount = serializers.FloatField(required=False, default=0.0)
+    limit_address_tx = serializers.IntegerField(required=False, default=100000)
+    force_lookup = serializers.BooleanField(required=False, default=False)
+
+    def validate_address_from(self, value):
+        pattern = re.compile("^0x[a-fA-F0-9]{40}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address 'address_form' is not a valid ethereum address.")
+        return value
+
+    def validate_address_to(self, value):
+        pattern = re.compile("^0x[a-fA-F0-9]{40}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address 'address_to' is not a valid ethereum address.")
+        return value
+
+    def validate_from_date(self, value):
+        try:
+            utils.validate_dateformat(value, '%Y-%m-%d')
+            return value
+        except ValueError:
+            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+
+    def validate_to_date(self, value):
+        try:
+            utils.validate_dateformat(value, '%Y-%m-%d')
+            return value
+        except ValueError:
+            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+
+    def validate(self, data):
+        if data['address_from'].lower() == data['address_to'].lower():
+            raise serializers.ValidationError("Source and destination addresses cannot be same. Perhaps you meant to "
+                                              "use the '/catv' resource?")
+        return data
+
+    def get_tracking_results(self, save_to_db=False):
+        tracking_instance = EthPathResults(**self.data)
+        try:
+            tracking_instance.get_tracking_data()
+            tracking_instance.create_graph_data()
+            tracking_instance.set_annotations_from_db(token_type=models.CatvTokens.ETH.value)
+            return {
+                "graph": tracking_instance.make_graph_dict(),
+                "api_calls": tracking_instance.ext_api_calls,
+                "messages": tracking_instance.error_messages
+            }
+        except socket.timeout:
+            raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
+        except Exception as e:
+            err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
+            if tracking_instance.error:
+                err_msg = tracking_instance.error
+            elif e:
+                err_msg = "Oops! Something went wrong while getting results for this address. Please try again later."
+            raise exceptions.FileNotFound(err_msg)

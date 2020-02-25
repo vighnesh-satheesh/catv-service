@@ -34,7 +34,7 @@ from .models import (
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
-    CatvHistory, CatvTokens
+    CatvHistory, CatvTokens,CatvPathHistory
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -51,7 +51,8 @@ from .serializers import (
     RewardSettingSerializer, OrganizationPostSerializer,
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
-    CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer
+    CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
+    CATVEthPathSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -71,7 +72,10 @@ from .cache.catv import TrackingCache
 from .email import Email
 from .email.tasks import SendEmail
 from .constants import Constants
-from .tasks import CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases
+from .tasks import (
+    CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
+    CatvPathHistoryTask
+)
 
 
 class HealthCheckView(APIView):
@@ -1710,14 +1714,22 @@ class CATVHistoryView(APIView):
     def get(self, request):
         serializer = CATVHistorySerializer(data=request.GET)
         serializer.is_valid(raise_exception=True)
-        history = CatvHistory.objects.raw(Constants.QUERIES["SELECT_USER_CATV_HISTORY"].
-                                          format(request.user.id, request.GET['token_type'].upper()))
         history_list = []
+
+        if not serializer.data['path_search']:
+            model_instance = CatvHistory
+            raw_query = Constants.QUERIES["SELECT_USER_CATV_HISTORY"]
+        else:
+            model_instance = CatvPathHistory
+            raw_query = Constants.QUERIES["SELECT_USER_CATV_PATH"]
+
+        history = list(model_instance.objects.raw(raw_query.format(request.user.id, request.GET['token_type'].upper())))
+        attr_list = [
+            'wallet_address', 'distribution_depth', 'source_depth', 'transaction_limit', 'token_address',
+            'address_from', 'address_to', 'depth', 'from_date', 'to_date'
+        ]
         for item in history:
-            history_list.append({'wallet_address': item.wallet_address, 'distribution_depth': item.distribution_depth,
-                                 'source_depth': item.source_depth, 'transaction_limit': item.transaction_limit,
-                                 'token_address': item.token_address, 'from_date': item.from_date,
-                                 'to_date': item.to_date})
+            history_list.append({attr: getattr(item, attr, None) for attr in attr_list})
         return APIResponse({
             "data": history_list
         })
@@ -2176,3 +2188,38 @@ def exchange_oauth_api_token(request, backend):
         })
     else:
         raise exceptions.AuthenticationValidationError()
+
+
+class CATVEthPathView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        serializer = CATVEthPathSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        history = serializer.data
+        tracking_cache = TrackingCache()
+        cache_key = utils.create_path_cache_pattern(history)
+        cached_entry = tracking_cache.get_cache_entry(cache_key)
+        history.update({'user_id': request.user.id, 'token_type': CatvTokens.ETH.value})
+
+        if not history.get('force_lookup', False) and cached_entry:
+            results = json.loads(gzip.decompress(cached_entry).decode())
+            CatvPathHistoryTask().delay(history=history, from_history=True)
+        else:
+            results = serializer.get_tracking_results()
+            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+            CatvPathHistoryTask().delay(history=history, from_history=False)
+
+        if "graph" in results and "messages" in results:
+            return APIResponse({
+                "data": {**results["graph"]},
+                "messages": {**results["messages"]}
+            })
+        return APIResponse({
+            "data": results
+        })

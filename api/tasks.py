@@ -142,6 +142,25 @@ class IndicatorESDocumentTask(Task):
         return True
 
 
+class CatvPathHistoryTask(Task):
+    def run(self, *args, **kwargs):
+        entry = kwargs['history']
+        from_history = kwargs['from_history']
+        query_list = [Constants.QUERIES['INSERT_USER_CATV_PATH_SEARCH'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
+        query_data = [(entry['user_id'], entry['address_from'], entry['address_to'], entry['depth'],
+                       entry['from_date'], entry['to_date'], now(), entry['token_type'], entry['min_tx_amount'],
+                       entry['limit_address_tx']),
+                      (entry['user_id'],)]
+
+        with connections['default'].cursor() as cursor:
+            if not from_history:
+                for query, data in zip(query_list, query_data):
+                    cursor.execute(query, data)
+            else:
+                cursor.execute(query_list[0], query_data[0])
+        return True
+
+
 tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
@@ -149,3 +168,4 @@ tasks.register(CacheNumberOfIndicatorsCases)
 tasks.register(CaraHistoryTask)
 tasks.register(CheckDeleteInvitesTask)
 tasks.register(IndicatorESDocumentTask)
+tasks.register(CatvPathHistoryTask)

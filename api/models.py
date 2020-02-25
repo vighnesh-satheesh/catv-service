@@ -1051,3 +1051,23 @@ class IndicatorMView(models.Model):
     class Meta:
         managed = False
         db_table = 'matvw_indicator_search'
+
+
+class CatvPathHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    address_from = models.CharField(null=False, max_length=100)
+    address_to = models.CharField(null=False, max_length=100)
+    token_address = models.CharField(null=True, max_length=100)
+    depth = models.IntegerField(default=0)
+    min_tx_amount = models.FloatField(default=0.0)
+    from_date = models.CharField(null=False, max_length=10)
+    to_date = models.CharField(null=False, max_length=10)
+    limit_address_tx_count = models.IntegerField(default=0)
+    token_type = EnumField(CatvTokens, default=CatvTokens.ETH)
+    logged_time = models.DateTimeField(default=now)
+
+    class Meta:
+        db_table = 'api_catv_path_history'
+        indexes = [
+            models.Index(fields=['user', 'token_type', ]),
+        ]
