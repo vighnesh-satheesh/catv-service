@@ -392,6 +392,9 @@ class ExchangeToken(models.Model):
     upp = models.IntegerField(null=True, blank=True)
     user_id = models.CharField(null=True, blank=True, max_length=1024)
 
+    def __str__(self):
+        return self.user_id
+
     class Meta:
         db_table = 'api_exchange_token'
 
