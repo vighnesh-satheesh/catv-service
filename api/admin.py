@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from web3 import Web3 as Web3
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
@@ -77,20 +78,29 @@ class ApprovalForm(forms.ModelForm):
             print("url:", ganache_url)
             print("Connected:", web3.isConnected())
             address = '0x755b72ba19462B49Db0377b28d2AEAF38E8ad217'
+            #address = settings.CONTRACT_ADDRESS
             key = '66007BEC9450ACC1FCD5BBCA36C9FAF312A326130A747DC8EEA307E3A4DF9199'
+           # key = settings.ADMIN_WALLET_KEY
+            admin_address = settings.ADMIN_WALLET_ADDRESS
+
             nonce = web3.eth.getTransactionCount(web3.toChecksumAddress('0x7e62Dd2711261A79404Bf5EF977e2eF74E89E9CC'))
+           # nonce = web3.eth.getTransactionCount(web3.toChecksumAddress(admin_address))
             print("nonce:", nonce)
 
-
+            user = User.objects.get(uid__exact=m.user_id)
             abi = json.loads(
                 "[{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"value1\",\"type\":\"bool\"}],\"name\":\"test_value\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]")
+            #abi = settings.CONTRACT_ABI
             contract = web3.eth.contract(address=address, abi=abi)
-            txn = contract.functions.swap(m.upp*1000000000000000000, web3.toChecksumAddress('0xb7Cc1F87d32d08964Ae77A0f036a337f6De8D666')).buildTransaction({'from': web3.toChecksumAddress('0x7e62Dd2711261A79404Bf5EF977e2eF74E89E9CC'), 'nonce': nonce})
+            txn = contract.functions.swap(m.upp*1000000000000000000, web3.toChecksumAddress(user.address)).buildTransaction({'from': web3.toChecksumAddress('0x7e62Dd2711261A79404Bf5EF977e2eF74E89E9CC'), 'nonce': nonce})
+           # txn = contract.functions.swap(m.upp * 1000000000000000000, web3.toChecksumAddress(
+            #    user.address)).buildTransaction(
+             #   {'from': web3.toChecksumAddress(admin_address), 'nonce': nonce})
             print('txn:', txn)
             sign_txn = web3.eth.account.signTransaction(txn, private_key=key)
             print("signed:", sign_txn.rawTransaction)
             print("test", web3.eth.sendRawTransaction(sign_txn.rawTransaction))
-            user = User.objects.get(uid__exact=m.user_id)
+
             if user and user.email_notification:
                 e = Email()
                 kv = {
@@ -329,9 +339,9 @@ admin.site.register(UppwardRewardInfo, UppwardRewardInfoAdmin)
 admin.site.register(CaseInvalidateCandidates, CaseInvalidateCandidatesAdmin)
 admin.site.register(Key, KeyAdmin)
 admin.site.register(EmailSent, EmailSentAdmin)
+admin.site.register(ExchangeToken, ExchangeAdmin)
 admin.site.register(Action, ActionAdmin)
 admin.site.register(Role)
 admin.site.register(RewardSetting)
-admin.site.register(ExchangeToken)
 admin.site.register(RolePermission, RolePermissionAdmin)
 admin.site.register(RoleUsageLimit)

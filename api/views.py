@@ -1893,7 +1893,7 @@ class ValidateAddress(APIView):
         token_abi = json.loads(abi)
         token = w3.eth.contract(token_address, abi=token_abi)
         bal = token.call().balanceOf(self.request.GET.get('address'))
-        if (bal > (data[0].get('min_token') * 1000000000000000000)):
+        if (bal >= (data[0].get('min_token') * 1000000000000000000)):
             return APIResponse({
                 "data": "success"
             })
