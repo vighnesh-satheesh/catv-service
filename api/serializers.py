@@ -32,7 +32,8 @@ from indicatorlib import Pattern
 from .cache import DefaultCache
 from .catvutils.tracking_results import (
     TrackingResults, BTCTrackingResults,
-    BTCCoinpathTrackingResults, EthPathResults
+    BTCCoinpathTrackingResults, EthPathResults,
+    BtcPathResults
 )
 from .catvutils.vendor_api import LyzeAPIInterface
 
@@ -2140,13 +2141,18 @@ class CATVHistorySerializer(serializers.Serializer):
 class CATVEthPathSerializer(serializers.Serializer):
     address_from = serializers.CharField(required=True)
     address_to = serializers.CharField(required=True)
-    token_address = serializers.CharField(required=False)
+    token_address = serializers.CharField(required=False, default='0x0000000000000000000000000000000000000000')
     depth = serializers.IntegerField(required=False, min_value=1, max_value=30, default=5)
     from_date = serializers.CharField(required=False, default=timezone.datetime(2015, 1, 1).strftime('%Y-%m-%d'))
     to_date = serializers.CharField(required=False, default=timezone.now().strftime('%Y-%m-%d'))
     min_tx_amount = serializers.FloatField(required=False, default=0.0)
     limit_address_tx = serializers.IntegerField(required=False, default=100000)
     force_lookup = serializers.BooleanField(required=False, default=False)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._token_type = models.CatvTokens.ETH.value
+        self._tracker = EthPathResults
 
     def validate_address_from(self, value):
         pattern = re.compile("^0x[a-fA-F0-9]{40}$")
@@ -2181,11 +2187,11 @@ class CATVEthPathSerializer(serializers.Serializer):
         return data
 
     def get_tracking_results(self, save_to_db=False):
-        tracking_instance = EthPathResults(**self.data)
+        tracking_instance = self._tracker(**self.data)
         try:
             tracking_instance.get_tracking_data()
             tracking_instance.create_graph_data()
-            tracking_instance.set_annotations_from_db(token_type=models.CatvTokens.ETH.value)
+            tracking_instance.set_annotations_from_db(token_type=self._token_type)
             return {
                 "graph": tracking_instance.make_graph_dict(),
                 "api_calls": tracking_instance.ext_api_calls,
@@ -2200,3 +2206,22 @@ class CATVEthPathSerializer(serializers.Serializer):
             elif e:
                 err_msg = "Oops! Something went wrong while getting results for this address. Please try again later."
             raise exceptions.FileNotFound(err_msg)
+
+
+class CatvBtcPathSerializer(CATVEthPathSerializer):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._token_type = models.CatvTokens.BTC.value
+        self._tracker = BtcPathResults
+
+    def validate_address_from(self, value):
+        pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address 'address_form' is not a valid bitcoin address.")
+        return value
+
+    def validate_address_to(self, value):
+        pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
+        if not pattern.match(value):
+            raise serializers.ValidationError("Wallet address 'address_to' is not a valid bitcoin address.")
+        return value
