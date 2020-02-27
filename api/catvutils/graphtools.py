@@ -336,6 +336,54 @@ def assign_nodes_btc_coinpath(result, mode):
     return nc, volume_count
 
 
+def assign_nodes_btc_path(result, mode):
+    # mode = 1: distribution
+    # mode = -1: source
+    nc = NodesCollection()
+    volume_count = {}
+    counter = 1
+
+    if mode == 1:
+        outer = 'receiver'
+        inner = 'sender'
+        depth_offset = DIST_DEPTH_OFFSET
+    elif mode == -1:
+        outer = 'sender'
+        inner = 'receiver'
+        depth_offset = SOURCE_DEPTH_OFFSET
+
+    temp_node = Node(
+        id=0,
+        address=result[0][inner],
+        annotation=result[0].get(inner + '_annotation', ''),
+        type=result[0].get(inner + '_type', 'Wallet'),
+        depth=0
+    )
+
+    nc.add_node(temp_node)
+
+    exclusions = {result[0][inner]: result[0]}
+    for item in uniqfy_generator(result, outer, exclusions):
+        item_depth = (item['depth'] + depth_offset) * mode
+        temp_node = Node(
+            id=mode*counter,
+            address=item[outer],
+            annotation=item.get(outer + '_annotation', ''),
+            type=item.get(outer + '_type', 'Wallet'),
+            depth=item_depth,
+            balance=item.get(outer + '_balance', 0),
+            amount_in=item.get('tx_value_in', 0),
+            amount_out=item.get('tx_value_out', 0),
+        )
+        nc.add_node(temp_node)
+        try:
+            volume_count[item[inner]] += 1
+        except KeyError:
+            volume_count[item[inner]] = 1
+        counter += 1
+    return nc, volume_count
+
+
 def depth_shift_for_source(result):
     for item_dict in result:
         item_dict.update((k, (int(v) + SOURCE_DEPTH_OFFSET) * (-1)) for k, v in item_dict.items() if k == "depth")
@@ -403,6 +451,30 @@ def generate_nodes_edges_ethcoinpath(result, mode):
                 seen_tx_hash.append(path['tx_hash'])
 
     nc, volume_count = assign_nodes(item_list, mode)
+    edge_dict = assign_edges(item_list, mode, nc.get_node_enum())
+
+    if mode == -1:
+        depth_shift_for_source(result)
+
+    track_result = {'item_list': item_list, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
+                    'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
+                    'volume_count_{}'.format(mode): volume_count}
+    return track_result, nc
+
+
+def generate_nodes_edges_btccoinpath(result, mode):
+    nodes = result[0]['path']
+    keys = list(nodes[0].keys())
+    item_list = []
+    seen_tx_hash = []
+
+    for path_info in result:
+        for path in path_info['path']:
+            if path['tx_hash'] not in seen_tx_hash:
+                item_list.append(path)
+                seen_tx_hash.append(path['tx_hash'])
+
+    nc, volume_count = assign_nodes_btc_path(item_list, mode)
     edge_dict = assign_edges(item_list, mode, nc.get_node_enum())
 
     if mode == -1:

@@ -10,7 +10,8 @@ from django.db.models.functions import Lower
 from .bloxy_interface import BloxyAPIInterface
 from .graphtools import (
     generate_nodes_edges, generate_nodes_edges_btc,
-    generate_nodes_edges_coinpath, generate_nodes_edges_ethcoinpath
+    generate_nodes_edges_coinpath, generate_nodes_edges_ethcoinpath,
+    generate_nodes_edges_btccoinpath
 )
 from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
 from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface, BloxyEthAPIInterface
@@ -325,10 +326,11 @@ class EthPathResults(TrackingResults):
         self.depth_limit = kwargs['depth']
         self.min_tx_amount = kwargs['min_tx_amount']
         self.limit_address_tx = kwargs['limit_address_tx']
+        self._external_api_client = BloxyEthAPIInterface(settings.BLOXY_API_KEY, settings.BLOXY_ETHCOINPATH_ENDPOINT)
+        self._graph_func = generate_nodes_edges_ethcoinpath
 
     def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
-        external_api_client = BloxyEthAPIInterface(settings.BLOXY_API_KEY)
-        transaction_data = external_api_client.get_path_transactions(self)
+        transaction_data = self._external_api_client.get_path_transactions(self)
         self.ext_api_calls += 1
         if not transaction_data:
             error_key = "distribution"
@@ -350,6 +352,13 @@ class EthPathResults(TrackingResults):
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
             if dist_result:
-                self._async_dist_graph = pool.apply_async(generate_nodes_edges_ethcoinpath, (dist_result, 1))
+                self._async_dist_graph = pool.apply_async(self._graph_func, (dist_result, 1))
         pool.close()
         pool.join()
+
+
+class BtcPathResults(EthPathResults):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._external_api_client = BloxyEthAPIInterface(settings.BLOXY_API_KEY, settings.BLOXY_BTCCOINPATH_ENDPOINT)
+        self._graph_func = generate_nodes_edges_btccoinpath

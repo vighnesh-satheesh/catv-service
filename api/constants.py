@@ -137,10 +137,13 @@ class Constants:
         "UPDATE_USER_POINTS_QUERY_REJECT": "UPDATE api_user set points = (points+'{0}') where uid='{1}'",
         "INSERT_USER_CATV_PATH_SEARCH": "INSERT INTO api_catv_path_history(user_id,address_from,address_to,depth, "
                                         "from_date,to_date,logged_time,token_type,min_tx_amount, "
-                                        "limit_address_tx_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);",
-        "SELECT_USER_CATV_PATH": "select 0 as id, address_from, address_to, null as token_address, depth, from_date, "
-                                 "to_date from vw_catv_path_history where row_num = 1 and user_id={0} "
-                                 "and token_type='{1}' limit 10;",
+                                        "limit_address_tx_count, token_address) "
+                                        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);",
+        "SELECT_USER_CATV_PATH": "select 0 as id, address_from, address_to, "
+                                 "(CASE WHEN token_address='0x0000000000000000000000000000000000000000' THEN null "
+                                 "WHEN token_address='' THEN null ELSE token_address END) as token_address, "
+                                 "depth, from_date, to_date from vw_catv_path_history "
+                                 "where row_num = 1 and user_id={0} and token_type='{1}' limit 10;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

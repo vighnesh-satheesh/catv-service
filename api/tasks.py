@@ -149,7 +149,7 @@ class CatvPathHistoryTask(Task):
         query_list = [Constants.QUERIES['INSERT_USER_CATV_PATH_SEARCH'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
         query_data = [(entry['user_id'], entry['address_from'], entry['address_to'], entry['depth'],
                        entry['from_date'], entry['to_date'], now(), entry['token_type'], entry['min_tx_amount'],
-                       entry['limit_address_tx']),
+                       entry['limit_address_tx'], entry['token_address']),
                       (entry['user_id'],)]
 
         with connections['default'].cursor() as cursor:

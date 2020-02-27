@@ -52,7 +52,7 @@ from .serializers import (
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
     CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer
+    CATVEthPathSerializer, CatvBtcPathSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -2199,13 +2199,22 @@ class CATVEthPathView(APIView):
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
 
     def post(self, request):
-        serializer = CATVEthPathSerializer(data=request.data, context={"request": request})
+        serializer_map = {
+            CatvTokens.ETH.value: CATVEthPathSerializer,
+            CatvTokens.BTC.value: CatvBtcPathSerializer
+        }
+        token_type = self.request.query_params.get('token_type', CatvTokens.ETH.value)
+        if token_type.upper() not in serializer_map.keys():
+            serializer_instance = serializer_map[CatvTokens.ETH.value]
+        else:
+            serializer_instance = serializer_map[token_type.upper()]
+        serializer = serializer_instance(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         history = serializer.data
         tracking_cache = TrackingCache()
         cache_key = utils.create_path_cache_pattern(history)
         cached_entry = tracking_cache.get_cache_entry(cache_key)
-        history.update({'user_id': request.user.id, 'token_type': CatvTokens.ETH.value})
+        history.update({'user_id': request.user.id, 'token_type': token_type})
 
         if not history.get('force_lookup', False) and cached_entry:
             results = json.loads(gzip.decompress(cached_entry).decode())

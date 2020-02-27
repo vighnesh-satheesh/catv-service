@@ -81,9 +81,9 @@ class BloxyBTCAPIInterface:
 
 
 class BloxyEthAPIInterface:
-    def __init__(self, key):
+    def __init__(self, key, api_url=settings.BLOXY_ETHCOINPATH_ENDPOINT):
         self.__key = key
-        self.__coinpath_endpoint = settings.BLOXY_ETHCOINPATH_ENDPOINT
+        self.__coinpath_endpoint = api_url
 
     def fetch_api_response(self, api_url, data, timeout=600):
         response = requests.get(api_url, params=data, timeout=timeout)
@@ -99,6 +99,7 @@ class BloxyEthAPIInterface:
             'key': self.__key,
             'address1': path_tracker.address_from,
             'address2': path_tracker.address_to,
+            'token': path_tracker.token_address,
             'depth_limit': path_tracker.depth_limit,
             'min_tx_amount': path_tracker.min_tx_amount,
             'from_date': path_tracker.from_date,
