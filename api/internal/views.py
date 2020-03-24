@@ -31,8 +31,14 @@ from .. import utils
 from .. import permissions
 from ..cache import DefaultCache
 from ..response import APIResponse
+<<<<<<< HEAD
 from ..settings import api_settings
 
+=======
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+import json
+>>>>>>> 835b569... add internal route to generate token from api key
 
 class CaseIntervalView(APIView):
     authentication_classes = ()

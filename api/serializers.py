@@ -1334,6 +1334,11 @@ class CasePostSerializer(serializers.ModelSerializer):
                     file_obj.save()
                 # case items
                 instance = super().update(instance, validated_data)
+<<<<<<< HEAD
+=======
+            post_save.send(instance.__class__,
+                           instance=instance, created=False)
+>>>>>>> 835b569... add internal route to generate token from api key
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
@@ -1603,9 +1608,15 @@ class CasePatchSerializer(NonNullModelSerializer):
                     pattern_type='filehash').filter(pattern=ind.pattern)
                 if ind_list.all().count() == 1:
                     i = i + 1
+<<<<<<< HEAD
             if instance.reporter:
                 instance.reporter.points = instance.reporter.points + (10 * i)
                 UserPointsSerializer().update(instance.reporter, {"points": instance.reporter.points})
+=======
+            instance.reporter.points = instance.reporter.points + (10 * i)
+            UserPointsSerializer().update(instance.reporter, {
+                "points": instance.reporter.points})
+>>>>>>> 835b569... add internal route to generate token from api key
         elif validated_data["status"] == models.CaseStatus.REJECTED:
             instance.verifier = self.context["request"].user
 
@@ -1640,7 +1651,14 @@ class CasePatchSerializer(NonNullModelSerializer):
                         c.invalidate_cache(indicator.pattern)
 
                 ch_serializer.save()
+<<<<<<< HEAD
                 updated_instance = super(CasePatchSerializer, self).update(instance, validated_data)
+=======
+                updated_instance = super(CasePatchSerializer, self).update(
+                    instance, validated_data)
+            post_save.send(updated_instance.__class__,
+                           instance=updated_instance, created=False)
+>>>>>>> 835b569... add internal route to generate token from api key
             return updated_instance
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")
@@ -2117,9 +2135,15 @@ class OrganizationUserPostSerializer(serializers.ModelSerializer):
         if request is None:
             raise exceptions.AuthenticationCheckError()
         current_user = request.user
+<<<<<<< HEAD
         if data["organization"].administrator != current_user \
                 and data["status"] != models.OrganizationUserStatus.ACTIVE:
             raise exceptions.OwnerRequiredError("You are not the owner of this organization")
+=======
+        if data["organization"].administrator != current_user:
+            raise exceptions.OwnerRequiredError(
+                "You are not the owner of this organization")
+>>>>>>> 835b569... add internal route to generate token from api key
         return data
 
     def create(self, validated_data):
@@ -2302,8 +2326,13 @@ class InvitationSerializer(serializers.Serializer):
                 raise exceptions.AuthenticationCheckError()
 
             org = models.Organization.objects.get(uid=uid, administrator=user)
+<<<<<<< HEAD
             already_invited = models.OrganizationInvites.objects.\
                 filter(email=data['email'], organization=org, status=models.OrganizationInviteStatus.EMAIL_SENT).count()
+=======
+            already_invited = models.OrganizationInvites.objects.filter(
+                email=data['email'], organization=org).count()
+>>>>>>> 835b569... add internal route to generate token from api key
 
             if already_invited:
                 raise exceptions.ValidationError("You have already sent an invitation to this email. Please wait for "
@@ -2316,8 +2345,14 @@ class InvitationSerializer(serializers.Serializer):
                 raise exceptions.ValidationError(
                     "Out of invites, cannot invite more.")
             if invited_domain not in org.domains:
+<<<<<<< HEAD
                 raise exceptions.ValidationError("You can only invite people based on your domain list.")
             if user_count > 0 and data['type'] == models.InviteType.EMAIL.value:
+=======
+                raise exceptions.ValidationError(
+                    "You can only invite people based on your domain list.")
+            if user_count > 0:
+>>>>>>> 835b569... add internal route to generate token from api key
                 raise exceptions.ValidationError("Cannot send invite as user is already signed up for Sentinel Portal. "
                                                  "Use the 'Add a member' option instead.")
             return data
