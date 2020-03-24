@@ -34,7 +34,7 @@ from .models import (
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
-    CatvHistory, CatvTokens,CatvPathHistory
+    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -2092,6 +2092,26 @@ class OrganizationDetailView(APIView):
         except json.decoder.JSONDecodeError:
             raise exceptions.ValidationError("Error parsing JSON user list or domains")
 
+    def patch(self, request, uid):
+        organization = self.get_object(uid)
+        orguser_serializer = OrganizationUserPostSerializer(data=request.data, context={"request": request})
+        orguser_serializer.is_valid(raise_exception=True)
+        validated_data = orguser_serializer.data
+        if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
+            user = User.objects.get(email=validated_data['user']['email'])
+            OrganizationUser.objects.filter(organization=organization, user=user).delete()
+        elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
+            user = User.objects.get(email=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user,
+                                                   status=OrganizationUserStatus.PENDING.value)
+            orguser.status = OrganizationUserStatus.ACTIVE.value
+            orguser.save()
+        return APIResponse({
+            "data": {
+                "uid": organization.uid
+            }
+        })
+
     def delete(self, request, uid=None):
         organization = self.get_object(uid)
         current_user = request.user
@@ -2143,27 +2163,41 @@ class InvitationView(APIView):
         org = self.get_object(request.data.get("organization", None))
         serializer = InvitationSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        invited_email = serializer.data['email']
-        invitee_email = request.user.email
-        invite_hash = utils.generate_random_key(40)
-        inviter_key = invitee_email + '-invite-' + invited_email
-        e = Email()
-        kv = {
-            "nickname": request.user.nickname,
-            "email": request.user.email,
-            "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_hash,
-            "org_name": org.name
-        }
-        SendEmail().delay(kv=kv,
-                          subject=Constants.EMAIL_TITLE["INVITATION_SENTINEL_PORTAL"],
-                          email_type=e.EMAIL_TYPE["INVITATION"],
-                          sender=e.EMAIL_SENDER["NO-REPLY"],
-                          recipient=[serializer.data['email']])
-        OrganizationInvites.objects.create(organization=org, user=org.administrator, email=invited_email,
-                                           invite_hash=invite_hash, inviter_key=inviter_key,
-                                           status=OrganizationInviteStatus.EMAIL_SENT
-                                           )
-        org.save()
+        if serializer.data['type'] == InviteType.EMAIL.value:
+            invited_email = serializer.data['email']
+            invitee_email = request.user.email
+            invite_hash = utils.generate_random_key(40)
+            inviter_key = invitee_email + '-invite-' + invited_email
+            e = Email()
+            kv = {
+                "nickname": request.user.nickname,
+                "email": request.user.email,
+                "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_hash,
+                "org_name": org.name
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["INVITATION_SENTINEL_PORTAL"],
+                              email_type=e.EMAIL_TYPE["INVITATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[serializer.data['email']])
+            OrganizationInvites.objects.update_or_create(organization=org, user=org.administrator, email=invited_email,
+                                                         defaults={
+                                                             'invite_hash': invite_hash,
+                                                             'inviter_key': inviter_key,
+                                                             'status': OrganizationInviteStatus.EMAIL_SENT.value
+                                                         }
+                                                         )
+            org.save()
+        else:
+            Notification.objects.create(user=User.objects.get(email=serializer.data['email']),
+                                        initiator=org.administrator,
+                                        type=NotificationType.ADDED_TO_ORG,
+                                        target={
+                                            "uid": str(org.uid),
+                                            "title": "has added you to the organization {}, please review and accept "
+                                                     "the invitation".format(org.name),
+                                            "type": "organization"
+                                        })
         return APIResponse({
             "data": "Successfully invited"
         })

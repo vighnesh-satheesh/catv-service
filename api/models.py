@@ -321,6 +321,11 @@ class OrganizationInviteStatus(str, Enum):
     EXPIRED = 'Expired'
 
 
+class InviteType(str, Enum):
+    EMAIL = 'EMAIL',
+    NOTIFICATION = 'NOTIFICATION'
+
+
 class CatvTokens(Enum):
     ETH = 'ETH'
     BTC = 'BTC'
