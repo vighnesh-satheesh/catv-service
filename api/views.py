@@ -23,6 +23,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 
 from social_django.utils import psa
 from web3.auto.infura import w3
+from web3 import Web3
 from kafka import KafkaProducer
 from requests.exceptions import HTTPError
 import requests
@@ -1892,7 +1893,7 @@ class ValidateAddress(APIView):
         token_abi = json.loads(abi)
         token = w3.eth.contract(token_address, abi=token_abi)
         bal = token.call().balanceOf(self.request.GET.get('address'))
-        if (bal > (data[0].get('min_token') * 1000000000000000000)):
+        if (bal >= (data[0].get('min_token') * 1000000000000000000)):
             return APIResponse({
                 "data": "success"
             })
@@ -1900,6 +1901,101 @@ class ValidateAddress(APIView):
             return APIResponse({
                 "data": "fail"
             })
+
+
+class SwapData(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        reward_setting = RewardSetting.objects.filter(id=1).values()
+        exchange_rate = reward_setting[0].get('upp_reward')
+        min_points = reward_setting[0].get('sp_required')
+        return APIResponse({
+            "minPoints": min_points,
+            "exchangeRate": exchange_rate
+        })
+
+
+class ExchangeTokenView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = User
+
+    # from web3 import Web3
+
+    def get(self, request):
+        ganache_url = "http://172.22.20.106:7545"
+        web3 = Web3(Web3.HTTPProvider(ganache_url))
+        print("url:", ganache_url)
+        print("Connected:", web3.isConnected())
+        address = '0xf5c12631E452495149B5F8f0d9718C0211835DC1'
+
+        abi =json.loads("[{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"approvalList\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"getApprovalList\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"internalType\":\"struct SwapContract.Approval[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"giveApproval\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"}]")
+        contract = web3.eth.contract(address=address, abi=abi)
+        print("test", contract.functions.swap('0xda9ae949FefC0136bD1e584fa156b9Dd3379eF56', 1000).call())
+        print("test2", contract.functions.getApprovalList().call()[0])
+
+        return APIResponse({
+            "connected": web3.isConnected()
+        })
+
+    def post(self, request):
+        data = request.data
+        print("Data: ", request.data['user_id'])
+        dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL', datetime.datetime.now(datetime.timezone.utc), data['upp'])
+        insert_swap_history_query = Constants.QUERIES['INSERT_SWAP_HISTORY_QUERY']
+        update_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY'].format(data['sp_amount'], data['user_id'])
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(insert_swap_history_query, dataQuery)
+                cursor.execute(update_points_query)
+            user = self.model.objects.get(uid__exact=data['user_id'])
+            if user and user.email_notification:
+                e = Email()
+                kv = {
+                    "nickname": user.nickname,
+                    "text": Constants.EMAIL_BODY["EXCHANGE_TOKEN_SUB_BODY"]
+                }
+                SendEmail().delay(kv=kv,
+                                  subject=Constants.EMAIL_TITLE["EXCHANGE_TOKEN_SUBMITTED"].format(
+                                      request.user.nickname),
+                                  email_type=e.EMAIL_TYPE["EXCHANGE_SUBMIT"],
+                                  attachment=None,
+                                  sender=e.EMAIL_SENDER["NO-REPLY"],
+                                  recipient=[user.email])
+
+            return APIResponse({
+                "resp": "success"
+            })
+        except Exception as e:
+            print(e)
+            return APIResponse({
+                "resp": "fail"
+            })
+
+
+class SwapHistory(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = self.request.GET.get('user')
+        sd = self.request.GET.get('sd')
+        ed = self.request.GET.get('ed')
+        #sd = datetime.fromtimestamp(sd)
+        from datetime import datetime
+        sd = datetime.utcfromtimestamp(int(sd)/1000).strftime('%Y-%m-%d %H:%M:%S')
+        ed = datetime.utcfromtimestamp(int(ed)/1000).strftime('%Y-%m-%d %H:%M:%S')
+        print("sd=", sd)
+        print("ed=", ed)
+
+        history_query = Constants.QUERIES['SWAP_HISTORY_USER'].format(user, sd, ed)
+        with connection.cursor() as cursor:
+            cursor.execute(history_query)
+            history = cursor.fetchall()
+        data = {'history': history}
+        return APIResponse(data)
 
 
 class CARA(APIView):

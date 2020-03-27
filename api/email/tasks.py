@@ -5,6 +5,7 @@ from api.email import Email
 class SendEmail(Task):
     def run(self, *args, **kwargs):
         email = Email()
+        print("rec:", kwargs["recipient"])
         email.sendemail(
             kv = kwargs["kv"],
             subject = kwargs["subject"],

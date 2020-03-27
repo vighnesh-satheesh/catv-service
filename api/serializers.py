@@ -40,7 +40,8 @@ from .catvutils.vendor_api import LyzeAPIInterface
 
 class NonNullModelSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
-        result = super(NonNullModelSerializer, self).to_representation(instance)
+        result = super(NonNullModelSerializer,
+                       self).to_representation(instance)
         return OrderedDict([(key, result[key]) for key in result if result[key] is not None])
 
 
@@ -57,7 +58,8 @@ class UserRelatedField(serializers.RelatedField):
             user_uid = data
             return models.User.objects.get(uid=user_uid)
         except ValueError:
-            raise serializers.ValidationError('administrator uid must be a string')
+            raise serializers.ValidationError(
+                'administrator uid must be a string')
         except models.User.DoesNotExist:
             raise serializers.ValidationError('user does not exist')
 
@@ -71,7 +73,8 @@ class OrganizationRelatedField(serializers.RelatedField):
             org_uid = data
             return models.Organization.objects.get(uid=org_uid)
         except ValueError:
-            raise serializers.ValidationError('organization uid must be a string')
+            raise serializers.ValidationError(
+                'organization uid must be a string')
         except models.Organization.DoesNotExist:
             return models.Organization.objects.none()
 
@@ -97,20 +100,25 @@ class IndicatorSimpleListSerializer(NonNullModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
-    password = serializers.CharField(required=False, write_only=True, style={'input_type': 'password'})
+    password = serializers.CharField(required=False, write_only=True, style={
+                                     'input_type': 'password'})
 
     def __create_success_response(self, user, token):
-        role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(user.role.id)
+        role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(
+            user.role.id)
         organization_id, is_admin = self.check_organization(user)
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
         if user.address != "" and user.address is not None:
-            address_c = w3.toChecksumAddress(reward_setting[0].get('token_address'))
+            address_c = w3.toChecksumAddress(
+                reward_setting[0].get('token_address'))
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
-            bal = (token_upp.call().balanceOf(user.address))/1000000000000000000
+            bal = (token_upp.call().balanceOf(
+                user.address))/1000000000000000000
         api_details = user.key_set.values('api_key', 'expire_datetime')
-        api_details = api_details[0] if api_details else {"api_key": None, "expire_datetime": None}
+        api_details = api_details[0] if api_details else {
+            "api_key": None, "expire_datetime": None}
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",
             "user": {
@@ -136,10 +144,10 @@ class LoginSerializer(serializers.Serializer):
     def check_organization(self, user):
         organization_id = ''
         is_admin = False
-        org_admin = models.Organization.objects.filter(administrator=user).annotate(is_admin=
-                                                                                    Value(True, BooleanField()))[:1]
+        org_admin = models.Organization.objects.filter(
+            administrator=user).annotate(is_admin=Value(True, BooleanField()))[:1]
         org_user = models.OrganizationUser.objects.filter(user=user).select_related('organization'). \
-                       annotate(is_admin=Value(False, BooleanField()))[:1]
+            annotate(is_admin=Value(False, BooleanField()))[:1]
         org_user = list(org_user)
         if org_admin:
             organization_id = str(org_admin[0].uid)
@@ -213,9 +221,17 @@ class LoginSerializer(serializers.Serializer):
         user.save()
         return self.__create_success_response(user, token)
 
+    def generate_proxy_login_response(self, user):
+        if user.status == models.UserStatus.APPROVED:
+            token, _ = MultiToken.create_token(user)
+        else:
+            token = ""
+        return token.key
+
 
 class ChangePasswordSerializer(serializers.Serializer):
-    new_password = serializers.CharField(required=True, write_only=True, style={'input_type': 'password'})
+    new_password = serializers.CharField(
+        required=True, write_only=True, style={'input_type': 'password'})
 
     class Meta:
         fields = ('new_password')
@@ -239,7 +255,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     def update(self, user, validated_data):
         new_pw = validated_data.get("new_pw", "")
         self._validate_new_password(user, new_pw)
-        user.password =  make_password(new_pw)
+        user.password = make_password(new_pw)
         user.save()
         return {}
 
@@ -253,7 +269,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.User
-        fields = ("id", "uid", "nickname", "permission", "image", "email_notification", "created", "points", "role")
+        fields = ("id", "uid", "nickname", "permission", "image",
+                  "email_notification", "created", "points", "role", "email")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -280,9 +297,12 @@ class UserPostSerializer(serializers.ModelSerializer):
     nickname = serializers.CharField(required=True)
     address = serializers.CharField(allow_blank=True, required=False)
     email_notification = serializers.BooleanField(required=False)
-    password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
-    old_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
-    new_password = serializers.CharField(allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
+    password = serializers.CharField(
+        allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
+    old_password = serializers.CharField(
+        allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
+    new_password = serializers.CharField(
+        allow_blank=True, required=False, write_only=True, style={'input_type': 'password'})
     image = serializers.ImageField(required=False,
                                    max_length=10000000,
                                    allow_empty_file=True,
@@ -290,13 +310,13 @@ class UserPostSerializer(serializers.ModelSerializer):
     points = serializers.IntegerField(required=False)
     organization = OrganizationRelatedField(required=False, write_only=True, queryset=models.Organization.objects.all(),
                                             allow_null=True)
-    invitation_code = serializers.CharField(required=False, write_only=True, max_length=40)
+    invitation_code = serializers.CharField(
+        required=False, write_only=True, max_length=40)
 
     class Meta:
         model = models.User
         fields = ("uid", "permission", "email", "nickname", "image", "password", "old_password", "new_password",
                   "email_notification", "address", "points", "organization", "invitation_code")
-
 
     def get_created(self, obj):
         if obj.created is None:
@@ -323,7 +343,8 @@ class UserPostSerializer(serializers.ModelSerializer):
         if request is None:
             raise exceptions.AuthenticationCheckError()
         if request.method == "POST":
-            timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+            timestamp = request.META.get(
+                'HTTP_X_AUTHORIZATION_TIMESTAMP', None)
             encrypted_pw = data.get("password", None)
             email = data.get("email", None)
             nickname = data.get("nickname", None)
@@ -331,7 +352,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             permission = data.get("permission", None)
             invitation_code = data.get("invitation_code", None)
             if invitation_code:
-                invite = models.OrganizationInvites.objects.get(invite_hash=invitation_code)
+                invite = models.OrganizationInvites.objects.get(
+                    invite_hash=invitation_code)
                 referred_email = invite.inviter_key.split('-invite-')[1]
                 if referred_email != data['email']:
                     raise exceptions.ValidationError("User email and email invite sent to do not match."
@@ -344,10 +366,11 @@ class UserPostSerializer(serializers.ModelSerializer):
                 raise exceptions.ValidationError("invalid data")
 
             if permission is models.UserPermission.EXCHANGE:
-                data['role'] = models.Role.objects.get(role_name='organization-trial')
+                data['role'] = models.Role.objects.get(
+                    role_name='organization-trial')
 
             # eof temporary code
-            self._validate_new_password(user = None, new_pw = password)
+            self._validate_new_password(user=None, new_pw=password)
             data['password'] = password
             data["status"] = models.UserStatus.SIGNED_UP
 
@@ -360,11 +383,13 @@ class UserPostSerializer(serializers.ModelSerializer):
             enc_old_pw = data.get("old_password", None)
             enc_new_pw = data.get("new_password", None)
             if enc_old_pw is not None and enc_new_pw is not None:
-                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+                timestamp = request.META.get(
+                    'HTTP_X_AUTHORIZATION_TIMESTAMP', None)
                 old_pw = decrypt_message(enc_old_pw, timestamp)
                 new_pw = decrypt_message(enc_new_pw, timestamp)
                 if old_pw == new_pw:
-                    raise exceptions.ValidationError("old and new password are same.")
+                    raise exceptions.ValidationError(
+                        "old and new password are same.")
                 self._validate_old_password(user, old_pw)
                 self._validate_new_password(user, new_pw)
                 data["new_password"] = new_pw
@@ -410,21 +435,20 @@ class UserPostSerializer(serializers.ModelSerializer):
         c.set("user_" + str(instance.id), instance, 0)
         return instance
 
-
     def update(self, instance, validated_data, *args, **kwargs):
         try:
             instance.update(
-                password = validated_data.get("new_password", None),
-                image = validated_data.get("image"),
-                nickname = validated_data["nickname"],
-                email_notification = validated_data["email_notification"],
-                address = validated_data["address"],
-                points = validated_data["points"]
+                password=validated_data.get("new_password", None),
+                image=validated_data.get("image"),
+                nickname=validated_data["nickname"],
+                email_notification=validated_data["email_notification"],
+                address=validated_data["address"],
+                points=validated_data["points"]
             )
         except IntegrityError as e:
             if "nickname" in str(e):
                 raise exceptions.DataIntegrityError("duplicate: nickname")
-            else :
+            else:
                 if "address" in str(e):
                     raise exceptions.DataIntegrityError("duplicate: address")
                 raise exceptions.DataIntegrityError()
@@ -497,7 +521,7 @@ class ICFPostSerializer(serializers.ModelSerializer):
             raise exceptions.NotAllowedError()
         user = request.user
         if request.method == 'POST':
-            obj = models.Key.objects.filter(user = user.pk)
+            obj = models.Key.objects.filter(user=user.pk)
             if obj.exists() == True:
                 raise exceptions.ICFAlreadyExist()
             data["user"] = user
@@ -532,7 +556,8 @@ class AttachedFileSerializer(NonNullModelSerializer):
     class Meta:
         model = models.AttachedFile
         fields = ("uid", "type", "hash", "size", "uploader", "name", "url",)
-        read_only_fields = ("uid", "type", "hash", "size", "uploader", "name", "url")
+        read_only_fields = ("uid", "type", "hash", "size",
+                            "uploader", "name", "url")
 
     def get_url(self, obj):
         if bool(obj.file) is False:
@@ -568,8 +593,10 @@ class AttachedFilePostSerializer(NonNullModelSerializer):
 
     def validate_file(self, files):
         if len(files) > api_settings.ATTACHED_FILE_UPLOAD_NUM_LIMIT:
-            raise exceptions.ValidationError({"file": "maximum number of upload files is {0}".format(api_settings.ATTACHED_FILE_UPLOAD_NUM_LIMIT)})
-        allowed_file_types = list(map(lambda x: x.lower(), api_settings.ATTACHED_FILE_ALLOWED_TYPES.split("|")))
+            raise exceptions.ValidationError({"file": "maximum number of upload files is {0}".format(
+                api_settings.ATTACHED_FILE_UPLOAD_NUM_LIMIT)})
+        allowed_file_types = list(
+            map(lambda x: x.lower(), api_settings.ATTACHED_FILE_ALLOWED_TYPES.split("|")))
         for file in files:
             file_ext = file.name.split('.')[-1]
             if file_ext.lower() not in allowed_file_types:
@@ -593,20 +620,27 @@ class AttachedFilePostSerializer(NonNullModelSerializer):
 
 
 class IndicatorDetailSerializer(NonNullModelSerializer):
-    security_category = fields.EnumField(enum=models.IndicatorSecurityCategory, required=False)
+    security_category = fields.EnumField(
+        enum=models.IndicatorSecurityCategory, required=False)
     detail = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN,
                                        required=False, allow_blank=True, allow_null=True)
-    security_tags = serializers.ListField(child=serializers.CharField(), required=False)
-    vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector), required=False)
-    environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
+    security_tags = serializers.ListField(
+        child=serializers.CharField(), required=False)
+    vector = serializers.ListField(child=fields.EnumField(
+        enum=models.IndicatorVector), required=False)
+    environment = serializers.ListField(child=fields.EnumField(
+        enum=models.IndicatorEnvironment), required=False)
     pattern = serializers.CharField(required=False)
-    pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
-    pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
+    pattern_type = fields.EnumField(
+        enum=models.IndicatorPatternType, required=False)
+    pattern_subtype = fields.EnumField(
+        enum=models.IndicatorPatternSubtype, required=False)
     annotation = serializers.CharField(required=False)
     annotations = serializers.SerializerMethodField()
     reported_by = serializers.SerializerMethodField()
     uid = serializers.UUIDField(required=False)
-    id = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
+    id = serializers.PrimaryKeyRelatedField(
+        queryset=models.Indicator.objects.all(), required=False)
 
     class Meta:
         model = models.Indicator
@@ -622,7 +656,8 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
         super(IndicatorDetailSerializer, self).__init__(*args, **kwargs)
 
         if is_authenticated:
-            self.fields["cases"] = CaseSimpleSerializer(read_only=True, many=True)
+            self.fields["cases"] = CaseSimpleSerializer(
+                read_only=True, many=True)
 
     def get_reported_by(self, obj):
         c = DefaultCache()
@@ -660,8 +695,10 @@ class IndicatorListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "created", "annotation")
-        read_only_fields = ("id", "uid", "security_category", "security_tags", "pattern", "pattern_type", "pattern_subtype", "created")
+        fields = ("id", "uid", "security_category", "security_tags", "pattern",
+                  "pattern_type", "pattern_subtype", "created", "annotation")
+        read_only_fields = ("id", "uid", "security_category", "security_tags",
+                            "pattern", "pattern_type", "pattern_subtype", "created")
 
     def __init__(self, *args, **kwargs):
         is_authenticated = False
@@ -678,24 +715,33 @@ class IndicatorLatestRecordSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Indicator
-        fields = ("id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
-        read_only_fields = ("id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
+        fields = ("id", "uid", "pattern", "security_category",
+                  "pattern_type", "pattern_subtype")
+        read_only_fields = (
+            "id", "uid", "pattern", "security_category", "pattern_type", "pattern_subtype")
 
 
 class IndicatorPostSerializer(NonNullModelSerializer):
     pattern = serializers.CharField(required=False)
-    pattern_type = fields.EnumField(enum=models.IndicatorPatternType, required=False)
-    pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype, required=False)
-    security_category = fields.EnumField(enum=models.IndicatorSecurityCategory, required=False)
+    pattern_type = fields.EnumField(
+        enum=models.IndicatorPatternType, required=False)
+    pattern_subtype = fields.EnumField(
+        enum=models.IndicatorPatternSubtype, required=False)
+    security_category = fields.EnumField(
+        enum=models.IndicatorSecurityCategory, required=False)
     detail = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN,
                                        required=False, allow_blank=True, allow_null=True)
-    security_tags = serializers.ListField(child=serializers.CharField(), required=False)
-    vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector), required=False)
-    environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment), required=False)
+    security_tags = serializers.ListField(
+        child=serializers.CharField(), required=False)
+    vector = serializers.ListField(child=fields.EnumField(
+        enum=models.IndicatorVector), required=False)
+    environment = serializers.ListField(child=fields.EnumField(
+        enum=models.IndicatorEnvironment), required=False)
     force = serializers.BooleanField(required=False)
     reporter_info = serializers.CharField(required=False)
     deleted = serializers.BooleanField(required=False)
-    annotation = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    annotation = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True)
     uid = serializers.UUIDField(required=False)
     cases = serializers.ListField(required=False)
 
@@ -720,10 +766,10 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         return data
 
     def create(self, data):
-        dup = models.Indicator.objects.filter(security_category = data["security_category"],
-                                              pattern = data["pattern"],
-                                              pattern_type = data["pattern_type"],
-                                              pattern_subtype = data["pattern_subtype"])
+        dup = models.Indicator.objects.filter(security_category=data["security_category"],
+                                              pattern=data["pattern"],
+                                              pattern_type=data["pattern_type"],
+                                              pattern_subtype=data["pattern_subtype"])
         cases = data.pop("cases", [])
         force = data.pop("force", False)
 
@@ -738,18 +784,23 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                 for case in cases:
                     case_instance = models.Case.objects.get(id=case["id"])
                     if case_instance.status not in [models.CaseStatus.NEW, models.CaseStatus.PROGRESS]:
-                        raise exceptions.DataIntegrityError("case's status is not 'new' or 'in progress'")
-                    models.CaseIndicator.objects.create(case=case_instance, indicator=indicator)
+                        raise exceptions.DataIntegrityError(
+                            "case's status is not 'new' or 'in progress'")
+                    models.CaseIndicator.objects.create(
+                        case=case_instance, indicator=indicator)
                 if "annotation" in data:
                     for annotation in [x.strip() for x in data["annotation"].split(",")]:
                         if len(annotation) == 0:
                             continue
-                        anno = models.Annotation.objects.filter(annotation=annotation)
+                        anno = models.Annotation.objects.filter(
+                            annotation=annotation)
                         if len(anno) > 0:
                             anno = anno[0]
                         else:
-                            anno = models.Annotation.objects.create(annotation=annotation)
-                        models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                            anno = models.Annotation.objects.create(
+                                annotation=annotation)
+                        models.IndicatorAnnotation.objects.create(
+                            indicator=indicator, annotation=anno)
 
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")
@@ -760,10 +811,10 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         return indicator
 
     def update(self, instance, data):
-        indi_objs = models.Indicator.objects.filter(security_category = data["security_category"],
-                                              pattern = data["pattern"],
-                                              pattern_type = data["pattern_type"],
-                                              pattern_subtype = data["pattern_subtype"])
+        indi_objs = models.Indicator.objects.filter(security_category=data["security_category"],
+                                                    pattern=data["pattern"],
+                                                    pattern_type=data["pattern_type"],
+                                                    pattern_subtype=data["pattern_subtype"])
         cases = data.pop("cases", [])
         force = data.pop("force", False)
 
@@ -771,7 +822,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
             data.pop("annotation")
 
         if len(indi_objs) > 0 and not force:
-            for indicator in  indi_objs:
+            for indicator in indi_objs:
                 if instance.pk != indicator.pk:
                     raise exceptions.DataIntegrityError("duplicate indicator")
 
@@ -780,24 +831,31 @@ class IndicatorPostSerializer(NonNullModelSerializer):
                 for case in cases:
                     case_instance = models.Case.objects.get(id=case["id"])
                     if "deleted" in case:
-                        models.CaseIndicator.objects.filter(case=case_instance, indicator=instance).delete()
+                        models.CaseIndicator.objects.filter(
+                            case=case_instance, indicator=instance).delete()
                     if "added" in case:
-                        models.CaseIndicator.objects.create(case=case_instance, indicator=instance)
+                        models.CaseIndicator.objects.create(
+                            case=case_instance, indicator=instance)
 
                 if "annotation" in data:
-                    new_annotations = [x.strip() for x in data["annotation"].split(",")]
-                    prev_annotations = [annotation.annotation for annotation in instance.annotations.all()]
+                    new_annotations = [x.strip()
+                                       for x in data["annotation"].split(",")]
+                    prev_annotations = [
+                        annotation.annotation for annotation in instance.annotations.all()]
                     if new_annotations != prev_annotations:
                         instance.annotations.clear()
                         for annotation in new_annotations:
                             if len(annotation) == 0:
                                 continue
-                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            anno = models.Annotation.objects.filter(
+                                annotation=annotation)
                             if len(anno) > 0:
                                 anno = anno[0]
                             else:
-                                anno = models.Annotation.objects.create(annotation=annotation)
-                            models.IndicatorAnnotation.objects.create(indicator=instance, annotation=anno)
+                                anno = models.Annotation.objects.create(
+                                    annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(
+                                indicator=instance, annotation=anno)
 
                 instance = super().update(instance, data)
         except IntegrityError:
@@ -813,8 +871,10 @@ class IndicatorTRDBSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
     security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
-    vector = serializers.ListField(child=fields.EnumField(enum=models.IndicatorVector))
-    environment = serializers.ListField(child=fields.EnumField(enum=models.IndicatorEnvironment))
+    vector = serializers.ListField(
+        child=fields.EnumField(enum=models.IndicatorVector))
+    environment = serializers.ListField(
+        child=fields.EnumField(enum=models.IndicatorEnvironment))
 
     class Meta:
         model = models.Indicator
@@ -860,7 +920,8 @@ class ICOTRDBSerializer(NonNullModelSerializer):
 
 
 class ICOListSerializer(NonNullModelSerializer):
-    detail = fields.TruncatedCharField(truncate_len=api_settings.ICO_LIST_DETAIL_LEN)
+    detail = fields.TruncatedCharField(
+        truncate_len=api_settings.ICO_LIST_DETAIL_LEN)
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -911,15 +972,19 @@ class ICODetailSerializer(NonNullModelSerializer):
 
     def get_indicators(self, obj):
         try:
-            case_queryset = models.Case.objects.filter(Q(ico=obj.pk) & Q(status=models.CaseStatus.RELEASED))
+            case_queryset = models.Case.objects.filter(
+                Q(ico=obj.pk) & Q(status=models.CaseStatus.RELEASED))
             if len(case_queryset) > 0:
                 blacklist = []
                 whitelist = []
                 graylist = []
                 for case in case_queryset:
-                    blacklist.extend(case.indicators.filter(security_category=models.IndicatorSecurityCategory.BLACKLIST))
-                    whitelist.extend(case.indicators.filter(security_category=models.IndicatorSecurityCategory.WHITELIST))
-                    graylist.extend(case.indicators.filter(security_category=models.IndicatorSecurityCategory.GRAYLIST))
+                    blacklist.extend(case.indicators.filter(
+                        security_category=models.IndicatorSecurityCategory.BLACKLIST))
+                    whitelist.extend(case.indicators.filter(
+                        security_category=models.IndicatorSecurityCategory.WHITELIST))
+                    graylist.extend(case.indicators.filter(
+                        security_category=models.IndicatorSecurityCategory.GRAYLIST))
 
                 white_se = IndicatorListSerializer(whitelist, many=True)
                 black_se = IndicatorListSerializer(blacklist, many=True)
@@ -973,8 +1038,10 @@ class CaseListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by", "indicators")
-        read_only_fields = ("id", "uid", "title", "created", "status", "reporter", "owned_by", "indicators")
+        fields = ("id", "uid", "title", "created", "status",
+                  "reporter", "owned_by", "indicators")
+        read_only_fields = ("id", "uid", "title", "created",
+                            "status", "reporter", "owned_by", "indicators")
 
     def get_created(self, obj):
         if obj.created is None:
@@ -1068,22 +1135,28 @@ class CaseHistoryListSerializer(serializers.ModelSerializer):
         else:
             return ""
 
+
 class FileItemSerializer(serializers.Serializer):
     uid = serializers.UUIDField()
     deleted = serializers.BooleanField(required=False)
 
 
 class CasePostSerializer(serializers.ModelSerializer):
-    title = serializers.CharField(required=True, max_length=api_settings.CASE_TITLE_MAX_LEN)
-    detail = serializers.CharField(required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
-    reporter_info = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
-    ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
+    title = serializers.CharField(
+        required=True, max_length=api_settings.CASE_TITLE_MAX_LEN)
+    detail = serializers.CharField(
+        required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    reporter_info = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
+    ico = serializers.PrimaryKeyRelatedField(
+        queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
 
     class Meta:
         model = models.Case
-        fields = ("title", "detail", "reporter_info", "ico", "indicators", "files")
+        fields = ("title", "detail", "reporter_info",
+                  "ico", "indicators", "files")
         read_only_fields = ("id", "uid", "created")
 
     def validate_files(self, data):
@@ -1096,11 +1169,13 @@ class CasePostSerializer(serializers.ModelSerializer):
         s3 = boto3.resource('s3')
         bucket_name = api_settings.ATTACHED_FILE_S3_BUCKET_NAME
         for obj in files:
-            full_path = os.path.join(api_settings.ATTACHED_FILE_SAVE_PATH, str(obj.uid))
+            full_path = os.path.join(
+                api_settings.ATTACHED_FILE_SAVE_PATH, str(obj.uid))
             key_name = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + str(obj.uid)
             try:
                 f = open(full_path, "rb")
-                s3.Bucket(bucket_name).put_object(ACL='private', Key=key_name, Body=f)
+                s3.Bucket(bucket_name).put_object(
+                    ACL='private', Key=key_name, Body=f)
             except IOError as err:
                 raise err
             else:
@@ -1117,45 +1192,56 @@ class CasePostSerializer(serializers.ModelSerializer):
                 new_indicators = []
                 for indi in indicators_data:
                     if "uid" in indi:
-                        indicator = models.Indicator.objects.get(uid=indi["uid"])
+                        indicator = models.Indicator.objects.get(
+                            uid=indi["uid"])
                         indicator_bulk.append(indicator)
                     else:
                         if not hasattr(self.context["request"].user, "is_anonymous"):
                             indi["user"] = self.context["request"].user
-                        reporter_info = validated_data.get("reporter_info", None)
+                        reporter_info = validated_data.get(
+                            "reporter_info", None)
                         if not reporter_info:
                             indi["reporter_info"] = reporter_info
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
-                            indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(indi["pattern"].lower().rstrip('/'))
+                            indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(
+                                indi["pattern"].lower().rstrip('/'))
                         indicator = models.Indicator(**indi)
                         new_indicators.append(indicator)
 
-                indicator_bulk = indicator_bulk + models.Indicator.objects.bulk_create(new_indicators)
+                indicator_bulk = indicator_bulk + \
+                    models.Indicator.objects.bulk_create(new_indicators)
                 # annotation
                 for indicator in indicator_bulk:
                     if indicator.annotation:
                         for annotation in [x.strip() for x in indicator.annotation.split(",")]:
                             if len(annotation) == 0:
                                 continue
-                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            anno = models.Annotation.objects.filter(
+                                annotation=annotation)
                             if len(anno) > 0:
                                 anno = anno[0]
                             else:
-                                anno = models.Annotation.objects.create(annotation=annotation)
-                            models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                                anno = models.Annotation.objects.create(
+                                    annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(
+                                indicator=indicator, annotation=anno)
                     # case
-                    m2m_bulk.append(models.CaseIndicator(case=case, indicator=indicator))
+                    m2m_bulk.append(models.CaseIndicator(
+                        case=case, indicator=indicator))
 
                 models.CaseIndicator.objects.bulk_create(m2m_bulk)
 
                 if len(files_data) > api_settings.CASE_ATTACHED_FILE_MAX_LIMIT:
-                    raise exceptions.ValidationError({"files": "one case cannot have more than 20 files."})
+                    raise exceptions.ValidationError(
+                        {"files": "one case cannot have more than 20 files."})
 
                 # save file.
                 for file_item in files_data:
-                    file_obj = models.AttachedFile.objects.using('default').get(uid=file_item["uid"])
+                    file_obj = models.AttachedFile.objects.using(
+                        'default').get(uid=file_item["uid"])
                     if file_obj.case is not None:
-                        raise exceptions.DataIntegrityError("file already included in other cases.")
+                        raise exceptions.DataIntegrityError(
+                            "file already included in other cases.")
                     file_obj.case = case
                     file_obj.save()
             post_save.send(case.__class__, instance=case, created=False)
@@ -1192,42 +1278,54 @@ class CasePostSerializer(serializers.ModelSerializer):
                 # indicators
                 for indi_item in indicators_data:
                     if "uid" in indi_item:
-                        indicator = models.Indicator.objects.get(uid=indi_item["uid"])
+                        indicator = models.Indicator.objects.get(
+                            uid=indi_item["uid"])
                         if "deleted" in indi_item and indi_item["deleted"] is True:
-                            models.CaseIndicator.objects.filter(case=instance, indicator=indicator).delete()
+                            models.CaseIndicator.objects.filter(
+                                case=instance, indicator=indicator).delete()
                             history_log['indicatorRemoved'] = True
                     else:
                         indi_item["case"] = instance
-                        indicator = models.Indicator.objects.create(**indi_item)
-                        models.CaseIndicator.objects.create(case=instance, indicator=indicator)
+                        indicator = models.Indicator.objects.create(
+                            **indi_item)
+                        models.CaseIndicator.objects.create(
+                            case=instance, indicator=indicator)
                         history_log['indicatorAdded'] = True
                         for annotation in [x.strip() for x in indicator.annotation.split(",")]:
                             if len(annotation) == 0:
                                 continue
-                            anno = models.Annotation.objects.filter(annotation=annotation)
+                            anno = models.Annotation.objects.filter(
+                                annotation=annotation)
                             if len(anno) > 0:
                                 anno = anno[0]
                             else:
-                                anno = models.Annotation.objects.create(annotation=annotation)
-                            models.IndicatorAnnotation.objects.create(indicator=indicator, annotation=anno)
+                                anno = models.Annotation.objects.create(
+                                    annotation=annotation)
+                            models.IndicatorAnnotation.objects.create(
+                                indicator=indicator, annotation=anno)
 
                 # files
                 for file_item in files_data:
                     if "uid" not in file_item:  # ignored. file item always has uid.
                         continue
-                    if "deleted" in file_item and file_item["deleted"] is True:  # deleted
+                    # deleted
+                    if "deleted" in file_item and file_item["deleted"] is True:
                         try:
-                            file_obj = models.AttachedFile.objects.get(uid=file_item["uid"])
+                            file_obj = models.AttachedFile.objects.get(
+                                uid=file_item["uid"])
                             file_obj.delete()
                         except models.AttachedFile.DoesNotExist:
                             pass
                         history_log['fileRemoved'] = True
                         continue
-                    file_obj = models.AttachedFile.objects.using('default').get(uid=file_item["uid"])
+                    file_obj = models.AttachedFile.objects.using(
+                        'default').get(uid=file_item["uid"])
                     if not file_obj:
                         continue
-                    if file_obj.case is not None and file_obj.case != instance:  # raise exception when file is for other case.
-                        raise exceptions.DataIntegrityError("file already included in other cases.")
+                    # raise exception when file is for other case.
+                    if file_obj.case is not None and file_obj.case != instance:
+                        raise exceptions.DataIntegrityError(
+                            "file already included in other cases.")
                     if file_obj.case == instance:
                         continue
                     history_log["fileAdded"] = True
@@ -1235,7 +1333,8 @@ class CasePostSerializer(serializers.ModelSerializer):
                     file_obj.save()
                 # case items
                 instance = super().update(instance, validated_data)
-            post_save.send(instance.__class__, instance=instance, created=False)
+            post_save.send(instance.__class__,
+                           instance=instance, created=False)
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
@@ -1287,7 +1386,8 @@ class CaseDetailSerializer(NonNullModelSerializer):
 
     def get_histories(self, obj):
         try:
-            queryset = models.CaseHistory.objects.filter(case=obj.pk).order_by("-created")
+            queryset = models.CaseHistory.objects.filter(
+                case=obj.pk).order_by("-created")
             history_serializer = CaseHistoryListSerializer(queryset, many=True)
             return history_serializer.data
         except models.CaseHistory.DoesNotExist:
@@ -1305,14 +1405,17 @@ class CaseDetailSerializer(NonNullModelSerializer):
 
     def get_files(self, obj):
         files = []
-        file_objs = models.AttachedFile.objects.filter(case=obj.pk).order_by("pk")
+        file_objs = models.AttachedFile.objects.filter(
+            case=obj.pk).order_by("pk")
         if len(file_objs) > 0:
-            file_serializer = AttachedFileSerializer(file_objs, many=True, context=self.context)
+            file_serializer = AttachedFileSerializer(
+                file_objs, many=True, context=self.context)
             files = file_serializer.data
         return files
 
     def get_trdb(self, obj):
-        trdb_objs = models.TRDBCaseTransaction.objects.filter(case_uid=obj.uid).order_by('-pk')
+        trdb_objs = models.TRDBCaseTransaction.objects.filter(
+            case_uid=obj.uid).order_by('-pk')
         if len(trdb_objs) == 0:
             return None
 
@@ -1350,7 +1453,6 @@ class CaseDetailSerializer(NonNullModelSerializer):
                 "uid": cached.uid
             }
 
-
         if obj.reporter:
             return {
                 "nickname": obj.reporter.nickname,
@@ -1380,7 +1482,8 @@ class CaseDetailSerializer(NonNullModelSerializer):
         return None
 
     def get_related_cases(self, obj):
-        indicators = models.CaseIndicator.objects.filter(case=obj).values('indicator')
+        indicators = models.CaseIndicator.objects.filter(
+            case=obj).values('indicator')
         related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk').\
             order_by('-pk')
         rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
@@ -1423,9 +1526,11 @@ class CaseTRDBSerializer(NonNullModelSerializer):
 
     def get_files(self, obj):
         files = []
-        file_objs = models.AttachedFile.objects.filter(case=obj.pk).order_by("pk")
+        file_objs = models.AttachedFile.objects.filter(
+            case=obj.pk).order_by("pk")
         if len(file_objs) > 0:
-            file_serializer = AttachedFileTRDBSerializer(file_objs, many=True, context=self.context)
+            file_serializer = AttachedFileTRDBSerializer(
+                file_objs, many=True, context=self.context)
             files = file_serializer.data
         return files
 
@@ -1449,10 +1554,11 @@ class CaseTRDBSerializer(NonNullModelSerializer):
 
 class CasePatchSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus, required=True)
+    reporter = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
-        fields = ("status",)
+        fields = ("status", "reporter")
         read_only_fields = ("id", "uid", "created")
 
     def validate_status(self, status):
@@ -1462,19 +1568,45 @@ class CasePatchSerializer(NonNullModelSerializer):
         is_owner = True if request.user == self.instance.owner else False
 
         utils.CASE_STATUS_FSM.check_access(status, request.user.role.id)
-        utils.CASE_STATUS_FSM.validate(self.instance.status, status, is_super, is_owner)
+        utils.CASE_STATUS_FSM.validate(
+            self.instance.status, status, is_super, is_owner)
         return status
+
+    def validate_reporter(self, reporter):
+        return reporter
+
+    def get_reporter(self, obj):
+        try:
+            queryset = obj.reporter
+            reporter_serializer = UserDetailSerializer(queryset)
+            print("reporter-ser=", reporter_serializer.data)
+            return reporter_serializer.data
+        except models.User.DoesNotExist:
+            pass
+        return None
 
     def update(self, instance, validated_data):
         if validated_data["status"] == models.CaseStatus.NEW:
             instance.owner = None
         elif validated_data["status"] == models.CaseStatus.PROGRESS:
             instance.owner = self.context["request"].user
-        elif validated_data["status"] == models.CaseStatus.CONFIRMED:  # confirmed status should contain at least one indicator.
+        # confirmed status should contain at least one indicator.
+        elif validated_data["status"] == models.CaseStatus.CONFIRMED:
             if not instance.indicators:
-                raise exceptions.ValidationError("at least one indicator should be contained.")
+                raise exceptions.ValidationError(
+                    "at least one indicator should be contained.")
         elif validated_data["status"] == models.CaseStatus.RELEASED:
             instance.verifier = self.context["request"].user
+            i = 0
+            # indicators = IndicatorListSerializer(instance.indicators.all)
+            for ind in instance.indicators.all():
+                ind_list = models.Indicator.objects.exclude(
+                    pattern_type='filehash').filter(pattern=ind.pattern)
+                if ind_list.all().count() == 1:
+                    i = i + 1
+            instance.reporter.points = instance.reporter.points + (10 * i)
+            UserPointsSerializer().update(instance.reporter, {
+                "points": instance.reporter.points})
         elif validated_data["status"] == models.CaseStatus.REJECTED:
             instance.verifier = self.context["request"].user
 
@@ -1501,7 +1633,7 @@ class CasePatchSerializer(NonNullModelSerializer):
                     utils.TRDB_CLIENT.push_case("deactivateCase", data)
 
                 if validated_data["status"] == models.CaseStatus.RELEASED or \
-                    (instance.status == models.CaseStatus.RELEASED and \
+                    (instance.status == models.CaseStatus.RELEASED and
                      validated_data["status"] == models.CaseStatus.REJECTED):
                     c = UppwardCache()
                     indicators = instance.indicators.all()
@@ -1509,15 +1641,27 @@ class CasePatchSerializer(NonNullModelSerializer):
                         c.invalidate_cache(indicator.pattern)
 
                 ch_serializer.save()
-                updated_instance = super(CasePatchSerializer, self).update(instance, validated_data)
-            post_save.send(updated_instance.__class__, instance=updated_instance, created=False)
+                updated_instance = super(CasePatchSerializer, self).update(
+                    instance, validated_data)
+            post_save.send(updated_instance.__class__,
+                           instance=updated_instance, created=False)
             return updated_instance
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")
         except Exception as e:
-            print (e)
+            print(e)
             raise exceptions.DataIntegrityError('exception error')
         return {}
+
+
+class UserPointsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.User
+        fields = ("points",)
+
+    def update(self, instance, validated_data):
+        print("rep-data=", validated_data)
+        return super(UserPointsSerializer, self).update(instance, validated_data)
 
 
 class AutoCompleteSerializer(serializers.Serializer):
@@ -1533,7 +1677,7 @@ class AutoCompleteSerializer(serializers.Serializer):
         return api_settings.AUTO_COMPLETE_LIMIT
 
     def _validate_type(self, auto_type):
-        if auto_type.lower() not in  ["ico", "indicator", "indicator_tag", "case", "user"]:
+        if auto_type.lower() not in ["ico", "indicator", "indicator_tag", "case", "user"]:
             raise exceptions.ValidationError("not supported type")
 
     def validate(self, data):
@@ -1549,7 +1693,8 @@ class AutoCompleteSerializer(serializers.Serializer):
             if len(query) > 1:
                 filter_queries |= Q(name__icontains=query)
 
-            ico_objs = models.ICO.objects.filter(filter_queries)[:self.result_limit]
+            ico_objs = models.ICO.objects.filter(
+                filter_queries)[:self.result_limit]
 
             if ico_objs:
                 ico_serializer = ICOListSerializer(ico_objs, many=True)
@@ -1568,25 +1713,28 @@ class AutoCompleteSerializer(serializers.Serializer):
                 except ValueError:
                     continue
 
-
             if query.startswith('0x') and len(query) < 4:
                 return {"indicators": indicators}
             elif len(query) < 3:
                 return {"indicators": indicators}
 
-            indicator_objs = models.Indicator.objects.filter(pattern__istartswith=query)
+            indicator_objs = models.Indicator.objects.filter(
+                pattern__istartswith=query)
             if indicator_objs:
-                indicator_serializer = IndicatorListSerializer(indicator_objs, many=True)
+                indicator_serializer = IndicatorListSerializer(
+                    indicator_objs, many=True)
                 indicators = indicator_serializer.data
             return {"indicators": indicators}
 
         elif auto_type == "indicator_tag":
-            indicator_objs = models.Indicator.objects.filter(security_tags__arrayilike=query)
+            indicator_objs = models.Indicator.objects.filter(
+                security_tags__arrayilike=query)
             if indicator_objs:
                 __tags = []
                 indicator_tags = []
                 for o in indicator_objs:
-                    __tags.extend(t for t in o.security_tags if t not in __tags)
+                    __tags.extend(
+                        t for t in o.security_tags if t not in __tags)
                 for tag in __tags:
                     if tag[:len(query)].lower() == query.lower():
                         indicator_tags.append({
@@ -1600,7 +1748,8 @@ class AutoCompleteSerializer(serializers.Serializer):
             if re.match(r"[^@]+@[^@]+\.[^@]+", query):
                 users_objs = models.User.objects.filter(email=query)
             else:
-                users_objs = models.User.objects.filter(nickname__istartswith=query)
+                users_objs = models.User.objects.filter(
+                    nickname__istartswith=query)
             if users_objs:
                 user_serializer = UserDetailSerializer(users_objs, many=True)
                 users = user_serializer.data
@@ -1608,14 +1757,16 @@ class AutoCompleteSerializer(serializers.Serializer):
 
         elif auto_type == 'case':
             cases = []
-            filter_queries = Q(status__in = filter)
+            filter_queries = Q(status__in=filter)
             if query.isdigit():
                 filter_queries &= Q(id=int(query))
             elif len(query) > 1:
                 filter_queries &= Q(title__icontains=query)
-            case_objs = models.Case.objects .filter(filter_queries).order_by('-created')
+            case_objs = models.Case.objects .filter(
+                filter_queries).order_by('-created')
             if case_objs:
-                case_serializer = CaseSimpleListSerializer(case_objs, many=True)
+                case_serializer = CaseSimpleListSerializer(
+                    case_objs, many=True)
                 cases = case_serializer.data
             return {
                 "cases": cases
@@ -1653,7 +1804,8 @@ class CommentSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Comment
-        fields = ("id", "uid", "writer", "body", "created", "deleted", "editable")
+        fields = ("id", "uid", "writer", "body",
+                  "created", "deleted", "editable")
         read_only_fields = ("id", "uid", "created", "editable", "writer")
 
     def get_body(self, obj):
@@ -1682,20 +1834,25 @@ class CommentSerializer(NonNullModelSerializer):
 
 
 class CommentPostSerializer(NonNullModelSerializer):
-    case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), required=False)
-    indicator = serializers.PrimaryKeyRelatedField(queryset=models.Indicator.objects.all(), required=False)
-    ico = serializers.PrimaryKeyRelatedField(queryset=models.ICO.objects.all(), required=False)
+    case = serializers.PrimaryKeyRelatedField(
+        queryset=models.Case.objects.all(), required=False)
+    indicator = serializers.PrimaryKeyRelatedField(
+        queryset=models.Indicator.objects.all(), required=False)
+    ico = serializers.PrimaryKeyRelatedField(
+        queryset=models.ICO.objects.all(), required=False)
 
     class Meta:
         model = models.Comment
-        fields = ("id", "uid", "case", "indicator", "ico", "writer", "body", "created", "deleted")
+        fields = ("id", "uid", "case", "indicator", "ico",
+                  "writer", "body", "created", "deleted")
         read_only_fields = ("id", "uid", "created")
 
     def validate(self, data):
         request = self.context["request"]
         body = data.get("body", "")
         if len(body) > api_settings.COMMENT_BODY_MAX_LEN:
-            raise exceptions.ValidationError("the maximum length for the comment body exceeds")
+            raise exceptions.ValidationError(
+                "the maximum length for the comment body exceeds")
         if len(body) == 0:
             raise exceptions.ValidationError("empty body")
         data["writer"] = request.user
@@ -1719,7 +1876,8 @@ class NotificationSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Notification
-        fields = ("uid", "user", "initiator", "target", "read", "created", "type")
+        fields = ("uid", "user", "initiator",
+                  "target", "read", "created", "type")
 
     def get_user(self, obj):
         if not obj.user:
@@ -1748,17 +1906,24 @@ class RewardSettingSerializer(NonNullModelSerializer):
     token_abi = serializers.JSONField(required=True)
     token_address = serializers.CharField(required=True)
     id = serializers.IntegerField(required=True)
+    sentinel_point_reward = serializers.IntegerField(required=True)
+    upp_reward = serializers.IntegerField(required=True)
+    sp_required = serializers.IntegerField(required=True)
 
     class Meta:
         model = models.RewardSetting
-        fields = ("id", "min_token", "token_abi", "token_address")
+        fields = ("id", "min_token", "token_abi", "token_address",
+                  "sentinel_point_reward", "upp_reward", "sp_required")
 
 
 class CATVSerializer(serializers.Serializer):
     wallet_address = serializers.CharField(required=True)
-    source_depth = serializers.IntegerField(required=False, min_value=1, max_value=10)
-    distribution_depth = serializers.IntegerField(required=False, min_value=1, max_value=10)
-    transaction_limit = serializers.IntegerField(required=True, min_value=100, max_value=100000)
+    source_depth = serializers.IntegerField(
+        required=False, min_value=1, max_value=10)
+    distribution_depth = serializers.IntegerField(
+        required=False, min_value=1, max_value=10)
+    transaction_limit = serializers.IntegerField(
+        required=True, min_value=100, max_value=100000)
     from_date = serializers.CharField(required=True)
     to_date = serializers.CharField(required=True)
     token_address = serializers.CharField(required=False)
@@ -1768,12 +1933,14 @@ class CATVSerializer(serializers.Serializer):
         if 'source_depth' in data or 'distribution_depth' in data:
             return data
         else:
-            raise serializers.ValidationError("Either of source_depth or distribution_depth is needed.")
+            raise serializers.ValidationError(
+                "Either of source_depth or distribution_depth is needed.")
 
     def validate_wallet_address(self, value):
         pattern = re.compile("^0x[a-fA-F0-9]{40}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Token address is not a valid ethereum address.")
+            raise serializers.ValidationError(
+                "Token address is not a valid ethereum address.")
         return value
 
     def validate_from_date(self, value):
@@ -1781,28 +1948,32 @@ class CATVSerializer(serializers.Serializer):
             utils.validate_dateformat(value, '%Y-%m-%d')
             return value
         except ValueError:
-            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+            raise serializers.ValidationError(
+                "Incorrect date format, should be YYYY-MM-DD.")
 
     def validate_to_date(self, value):
         try:
             utils.validate_dateformat(value, '%Y-%m-%d')
             return value
         except ValueError:
-            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+            raise serializers.ValidationError(
+                "Incorrect date format, should be YYYY-MM-DD.")
 
     def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
         tracking_results = TrackingResults(**self.data)
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
-            tracking_results.set_annotations_from_db(token_type=models.CatvTokens.ETH.value)
+            tracking_results.set_annotations_from_db(
+                token_type=models.CatvTokens.ETH.value)
             return {
                 "graph": tracking_results.make_graph_dict(),
                 "api_calls": tracking_results.ext_api_calls,
                 "messages": tracking_results.error_messages
             }
         except socket.timeout:
-            raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
+            raise exceptions.RequestTimeoutError(
+                "Bloxy source transactions API timeout (exceeded 30 seconds).")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:
@@ -1818,13 +1989,15 @@ class CATVBTCSerializer(CATVSerializer):
     def validate_wallet_address(self, value):
         pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
+            raise serializers.ValidationError(
+                "Wallet address is an invalid Bitcoin address")
         return value
 
     def valid_tx_hash(self, value):
         pattern = re.compile("^[a-fA-F0-9]{64}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Transaction hash is an invalid Bitcoin transaction hash")
+            raise serializers.ValidationError(
+                "Transaction hash is an invalid Bitcoin transaction hash")
         return value
 
     def get_tracking_results(self, tx_limit=10, limit=10, save_to_db=True):
@@ -1832,15 +2005,18 @@ class CATVBTCSerializer(CATVSerializer):
         tracking_results = BTCTrackingResults(**serializer_data)
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
-            tracking_results.create_graph_data(serializer_data["wallet_address"])
-            tracking_results.set_annotations_from_db(token_type=models.CatvTokens.BTC.value)
+            tracking_results.create_graph_data(
+                serializer_data["wallet_address"])
+            tracking_results.set_annotations_from_db(
+                token_type=models.CatvTokens.BTC.value)
             return {
                 "graph": tracking_results.make_graph_dict(),
                 "api_calls": tracking_results.ext_api_calls,
                 "messages": tracking_results.error_messages
             }
         except socket.timeout:
-            raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")
+            raise exceptions.RequestTimeoutError(
+                "External API timeout (exceeded 30 seconds).")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:
@@ -1858,7 +2034,8 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
     def validate_wallet_address(self, value):
         pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
+            raise serializers.ValidationError(
+                "Wallet address is an invalid Bitcoin address")
         return value
 
     def validate_from_date(self, value):
@@ -1866,19 +2043,22 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
             utils.validate_dateformat(value, '%Y-%m-%d')
             return value
         except ValueError:
-            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+            raise serializers.ValidationError(
+                "Incorrect date format, should be YYYY-MM-DD.")
 
     def validate_to_date(self, value):
         try:
             utils.validate_dateformat(value, '%Y-%m-%d')
             return value
         except ValueError:
-            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+            raise serializers.ValidationError(
+                "Incorrect date format, should be YYYY-MM-DD.")
 
     def get_btc_txlist(self):
         txlist_client = LyzeAPIInterface(api_settings.LYZE_API_KEY)
         data = self.data
-        resp = txlist_client.get_txlist(data['wallet_address'], data['from_date'], data['to_date'])
+        resp = txlist_client.get_txlist(
+            data['wallet_address'], data['from_date'], data['to_date'])
         txlist = []
         seen_txid = []
         for tx in resp:
@@ -1896,7 +2076,8 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
     def validate_wallet_address(self, value):
         pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address is an invalid Bitcoin address")
+            raise serializers.ValidationError(
+                "Wallet address is an invalid Bitcoin address")
         return value
 
     def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
@@ -1905,14 +2086,16 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data()
-            tracking_results.set_annotations_from_db(token_type=models.CatvTokens.BTC.value)
+            tracking_results.set_annotations_from_db(
+                token_type=models.CatvTokens.BTC.value)
             return {
                 "graph": tracking_results.make_graph_dict(),
                 "api_calls": tracking_results.ext_api_calls,
                 "messages": tracking_results.error_messages
             }
         except socket.timeout:
-            raise exceptions.RequestTimeoutError("External API timeout (exceeded 30 seconds).")
+            raise exceptions.RequestTimeoutError(
+                "External API timeout (exceeded 30 seconds).")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:
@@ -1924,8 +2107,10 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
 
 class OrganizationUserPostSerializer(serializers.ModelSerializer):
     user = UserRelatedField(queryset=models.User.objects.all())
-    organization = OrganizationRelatedField(queryset=models.Organization.objects.all())
-    status = fields.EnumField(required=True, enum=models.OrganizationUserStatus)
+    organization = OrganizationRelatedField(
+        queryset=models.Organization.objects.all())
+    status = fields.EnumField(
+        required=True, enum=models.OrganizationUserStatus)
 
     class Meta:
         model = models.OrganizationUser
@@ -1945,10 +2130,13 @@ class OrganizationUserPostSerializer(serializers.ModelSerializer):
         user = validated_data["user"]
         organization = validated_data["organization"]
         status = validated_data["status"]
-        org_user_count = models.OrganizationUser.objects.filter(user=user).exclude(organization=organization).count()
-        org_admin_count = models.Organization.objects.filter(administrator=user).count()
+        org_user_count = models.OrganizationUser.objects.filter(
+            user=user).exclude(organization=organization).count()
+        org_admin_count = models.Organization.objects.filter(
+            administrator=user).count()
         if org_user_count > 0 or org_admin_count > 0:
-            raise exceptions.DataIntegrityError("User %s is already part of another organization".format(user.nickname))
+            raise exceptions.DataIntegrityError(
+                "User %s is already part of another organization".format(user.nickname))
         org_user = models.OrganizationUser.objects.update_or_create(user=user, organization=organization,
                                                                     defaults={'status': status})
         return org_user
@@ -1961,16 +2149,20 @@ class OrganizationUserPostSerializer(serializers.ModelSerializer):
 class OrganizationSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Organization
-        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'domains', 'pending_invites')
-        read_only_fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'pending_invites')
+        fields = ('uid', 'name', 'image', 'administrator', 'users',
+                  'invites_left', 'domains', 'pending_invites')
+        read_only_fields = ('uid', 'name', 'image', 'administrator',
+                            'users', 'invites_left', 'pending_invites')
 
     uid = serializers.UUIDField(required=True)
     name = serializers.CharField(max_length=100, required=False)
     image = serializers.SerializerMethodField()
     administrator = UserRelatedField(queryset=models.User.objects.all())
-    users = OrganizationUserPostSerializer(read_only=True, many=True, source='organizationuser_set')
+    users = OrganizationUserPostSerializer(
+        read_only=True, many=True, source='organizationuser_set')
     invites_left = serializers.SerializerMethodField()
-    domains = serializers.ListField(child=serializers.CharField(), read_only=True, max_length=2)
+    domains = serializers.ListField(
+        child=serializers.CharField(), read_only=True, max_length=2)
     pending_invites = serializers.ReadOnlyField(required=False)
 
     def get_image(self, obj):
@@ -1980,7 +2172,8 @@ class OrganizationSimpleSerializer(serializers.ModelSerializer):
             return obj.image.url
 
     def get_invites_left(self, obj):
-        invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
+        invite_limit = obj.administrator.role.usage_role.values_list(
+            'org_invite_limit', flat=True)
         invite_limit = invite_limit[0] if invite_limit else 20
         members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
             exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
@@ -1991,19 +2184,24 @@ class OrganizationSimpleSerializer(serializers.ModelSerializer):
 class OrganizationPostSerializer(serializers.ModelSerializer):
     uid = serializers.UUIDField(required=False, read_only=True)
     name = serializers.CharField(max_length=100, required=True)
-    image = serializers.ImageField(required=False, max_length=10000000, allow_empty_file=True, use_url=False)
+    image = serializers.ImageField(
+        required=False, max_length=10000000, allow_empty_file=True, use_url=False)
     administrator = UserRelatedField(queryset=models.User.objects.all())
-    users = OrganizationUserPostSerializer(read_only=True, required=False, many=True, source='organizationuser_set')
+    users = OrganizationUserPostSerializer(
+        read_only=True, required=False, many=True, source='organizationuser_set')
     invites_left = serializers.SerializerMethodField()
-    domains = serializers.ListField(child=serializers.CharField(), required=False, max_length=2)
+    domains = serializers.ListField(
+        child=serializers.CharField(), required=False, max_length=2)
     pending_invites = serializers.ReadOnlyField(required=False)
 
     class Meta:
         model = models.Organization
-        fields = ('uid', 'name', 'image', 'administrator', 'users', 'invites_left', 'domains', 'pending_invites')
+        fields = ('uid', 'name', 'image', 'administrator', 'users',
+                  'invites_left', 'domains', 'pending_invites')
 
     def get_invites_left(self, obj):
-        invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
+        invite_limit = obj.administrator.role.usage_role.values_list(
+            'org_invite_limit', flat=True)
         invite_limit = invite_limit[0] if invite_limit else 20
         members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
             exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
@@ -2014,7 +2212,8 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
         if data:
             domain_list = data
             if len(domain_list) > 1 and domain_list[0] == domain_list[1]:
-                raise exceptions.ValidationError("Both the domains cannot be the same")
+                raise exceptions.ValidationError(
+                    "Both the domains cannot be the same")
             for domain in domain_list:
                 if not re.match(r"(?!-)[A-Z\d.-]{1,63}(?<!-)$", domain, re.IGNORECASE):
                     raise exceptions.ValidationError("Invalid domain name")
@@ -2031,7 +2230,8 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
 
         if request.method == "PUT":
             if self.instance.administrator != request.user:
-                raise exceptions.OwnerRequiredError("You are not the owner of this organization")
+                raise exceptions.OwnerRequiredError(
+                    "You are not the owner of this organization")
             data["uid"] = request.data.get('uid', None)
             data["name"] = request.data.get('name', None)
             image = request.data.get("image", None)
@@ -2060,13 +2260,15 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
             organization = models.Organization.objects.create(**validated_data)
             return organization
         except models.RoleUsageLimit.DoesNotExist:
-            raise exceptions.ValidationError("Invalid user (no role detected).")
+            raise exceptions.ValidationError(
+                "Invalid user (no role detected).")
 
     def update(self, instance, validated_data):
         try:
             instance_domain_set = set(instance.domains)
             updated_domain_set = set(validated_data['domains'])
-            changed_domain = list(updated_domain_set.symmetric_difference(instance_domain_set))
+            changed_domain = list(
+                updated_domain_set.symmetric_difference(instance_domain_set))
             changed_domain = changed_domain[0] if changed_domain else None
             if changed_domain:
                 models.OrganizationUser.objects.filter(organization=instance,
@@ -2083,7 +2285,8 @@ class InvitationSerializer(serializers.Serializer):
     type = fields.EnumField(enum=models.InviteType, required=False, default=models.InviteType.EMAIL)
 
     def get_invites_left(self, obj):
-        invite_limit = obj.administrator.role.usage_role.values_list('org_invite_limit', flat=True)
+        invite_limit = obj.administrator.role.usage_role.values_list(
+            'org_invite_limit', flat=True)
         invite_limit = invite_limit[0] if invite_limit else 20
         members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
             exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
@@ -2110,10 +2313,12 @@ class InvitationSerializer(serializers.Serializer):
                 raise exceptions.ValidationError("You have already sent an invitation to this email. Please wait for "
                                                  "72 hours before retrying")
 
-            user_count = models.User.objects.filter(email=data['email']).count()
+            user_count = models.User.objects.filter(
+                email=data['email']).count()
             invites_left = self.get_invites_left(org)
             if invites_left == 0:
-                raise exceptions.ValidationError("Out of invites, cannot invite more.")
+                raise exceptions.ValidationError(
+                    "Out of invites, cannot invite more.")
             if invited_domain not in org.domains:
                 raise exceptions.ValidationError("You can only invite people based on your domain list.")
             if user_count > 0 and data['type'] == models.InviteType.EMAIL.value:
@@ -2121,14 +2326,17 @@ class InvitationSerializer(serializers.Serializer):
                                                  "Use the 'Add a member' option instead.")
             return data
         except models.Organization.DoesNotExist:
-            raise exceptions.ValidationError("Organization does not exist or you do not have invitation rights.")
+            raise exceptions.ValidationError(
+                "Organization does not exist or you do not have invitation rights.")
 
     def save(self, data):
-        raise NotImplementedError("save is not implemented yet for this serializer")
+        raise NotImplementedError(
+            "save is not implemented yet for this serializer")
 
 
 class SocialSerializer(serializers.Serializer):
-    access_token = serializers.CharField(allow_blank=False, trim_whitespace=True, required=True)
+    access_token = serializers.CharField(
+        allow_blank=False, trim_whitespace=True, required=True)
 
 
 class CATVHistorySerializer(serializers.Serializer):
@@ -2144,10 +2352,14 @@ class CATVHistorySerializer(serializers.Serializer):
 class CATVEthPathSerializer(serializers.Serializer):
     address_from = serializers.CharField(required=True)
     address_to = serializers.CharField(required=True)
-    token_address = serializers.CharField(required=False, default='0x0000000000000000000000000000000000000000')
-    depth = serializers.IntegerField(required=False, min_value=1, max_value=30, default=5)
-    from_date = serializers.CharField(required=False, default=timezone.datetime(2015, 1, 1).strftime('%Y-%m-%d'))
-    to_date = serializers.CharField(required=False, default=timezone.now().strftime('%Y-%m-%d'))
+    token_address = serializers.CharField(
+        required=False, default='0x0000000000000000000000000000000000000000')
+    depth = serializers.IntegerField(
+        required=False, min_value=1, max_value=30, default=5)
+    from_date = serializers.CharField(
+        required=False, default=timezone.datetime(2015, 1, 1).strftime('%Y-%m-%d'))
+    to_date = serializers.CharField(
+        required=False, default=timezone.now().strftime('%Y-%m-%d'))
     min_tx_amount = serializers.FloatField(required=False, default=0.0)
     limit_address_tx = serializers.IntegerField(required=False, default=100000)
     force_lookup = serializers.BooleanField(required=False, default=False)
@@ -2160,13 +2372,15 @@ class CATVEthPathSerializer(serializers.Serializer):
     def validate_address_from(self, value):
         pattern = re.compile("^0x[a-fA-F0-9]{40}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address 'address_form' is not a valid ethereum address.")
+            raise serializers.ValidationError(
+                "Wallet address 'address_form' is not a valid ethereum address.")
         return value
 
     def validate_address_to(self, value):
         pattern = re.compile("^0x[a-fA-F0-9]{40}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address 'address_to' is not a valid ethereum address.")
+            raise serializers.ValidationError(
+                "Wallet address 'address_to' is not a valid ethereum address.")
         return value
 
     def validate_from_date(self, value):
@@ -2174,14 +2388,16 @@ class CATVEthPathSerializer(serializers.Serializer):
             utils.validate_dateformat(value, '%Y-%m-%d')
             return value
         except ValueError:
-            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+            raise serializers.ValidationError(
+                "Incorrect date format, should be YYYY-MM-DD.")
 
     def validate_to_date(self, value):
         try:
             utils.validate_dateformat(value, '%Y-%m-%d')
             return value
         except ValueError:
-            raise serializers.ValidationError("Incorrect date format, should be YYYY-MM-DD.")
+            raise serializers.ValidationError(
+                "Incorrect date format, should be YYYY-MM-DD.")
 
     def validate(self, data):
         if data['address_from'].lower() == data['address_to'].lower():
@@ -2194,14 +2410,16 @@ class CATVEthPathSerializer(serializers.Serializer):
         try:
             tracking_instance.get_tracking_data()
             tracking_instance.create_graph_data()
-            tracking_instance.set_annotations_from_db(token_type=self._token_type)
+            tracking_instance.set_annotations_from_db(
+                token_type=self._token_type)
             return {
                 "graph": tracking_instance.make_graph_dict(),
                 "api_calls": tracking_instance.ext_api_calls,
                 "messages": tracking_instance.error_messages
             }
         except socket.timeout:
-            raise exceptions.RequestTimeoutError("Bloxy source transactions API timeout (exceeded 30 seconds).")
+            raise exceptions.RequestTimeoutError(
+                "Bloxy source transactions API timeout (exceeded 30 seconds).")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_instance.error:
@@ -2220,11 +2438,13 @@ class CatvBtcPathSerializer(CATVEthPathSerializer):
     def validate_address_from(self, value):
         pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address 'address_form' is not a valid bitcoin address.")
+            raise serializers.ValidationError(
+                "Wallet address 'address_form' is not a valid bitcoin address.")
         return value
 
     def validate_address_to(self, value):
         pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
         if not pattern.match(value):
-            raise serializers.ValidationError("Wallet address 'address_to' is not a valid bitcoin address.")
+            raise serializers.ValidationError(
+                "Wallet address 'address_to' is not a valid bitcoin address.")
         return value
