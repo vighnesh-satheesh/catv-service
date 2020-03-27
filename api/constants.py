@@ -123,7 +123,7 @@ class Constants:
                                  "next_renewal_on from api_usage ausage inner join api_user auser on "
                                  "ausage.user_id=auser.id inner join api_role_usage_limit arul on "
                                  "auser.role_id=arul.role_id where ausage.user_id={1};",
-        "DELETE_ORG_INVITES": "DELETE from api_organizationinvites where (DATE_PART('day', "
+        "DELETE_ORG_INVITES": "UPDATE api_organizationinvites set status='Expired' where (DATE_PART('day', "
                               "now()::timestamp - sent::timestamp) * 24 + DATE_PART('hour', "
                               "now()::timestamp - sent::timestamp)) >= 72;",
         "SELECT_LEFT_PANEL_VALUES_CASE_ALL": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("

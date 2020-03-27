@@ -334,10 +334,11 @@ API_SETTINGS = {
     "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
     "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', False),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
-	"ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
+    "LYZE_API_KEY": env.str('API_LYZE_KEY'),
+    "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
     "ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
     "ELASTICSEARCH_INDICATOR_IDX": env.str("API_ELASTIC_INDICATOR_IDX", 'dev_indicator'),
-    "LYZE_API_KEY": env.str('API_LYZE_KEY'),}
+}
 
 # Add AWS Private IP to ALLOWED_HOSTS.
 ALLOWED_HOSTS += env.str("ECS_PRIVATE_IP", "").split(",") if len(env.str("ECS_PRIVATE_IP", '')) > 0 else []
