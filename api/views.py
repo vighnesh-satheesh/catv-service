@@ -1423,7 +1423,7 @@ class UserDetailView(APIView):
         token_abi = json.loads(reward_setting[0].get('token_abi'))
         token = w3.eth.contract(address_c, abi=token_abi)
         user_waddress = user['address']
-        bal = token.call().balanceOf(user_waddress) if user_waddress else 0
+        bal = token.call().balanceOf(w3.toChecksumAddress(user_waddress)) if user_waddress else 0
         user["balance"] = bal
         user["status"] = obj.status.value
         user["image"] = obj.image.url if bool(obj.image) else api_settings.S3_USER_IMAGE_DEFAULT
@@ -1891,8 +1891,9 @@ class ValidateAddress(APIView):
         token_address = data[0].get('token_address')
         abi = data[0].get('token_abi')
         token_abi = json.loads(abi)
-        token = w3.eth.contract(token_address, abi=token_abi)
-        bal = token.call().balanceOf(self.request.GET.get('address'))
+        token = w3.eth.contract(w3.toChecksumAddress(token_address), abi=token_abi)
+        address = w3.toChecksumAddress(self.request.GET.get('address'))
+        bal = token.call().balanceOf(address)
         if (bal >= (data[0].get('min_token') * 1000000000000000000)):
             return APIResponse({
                 "data": "success"
