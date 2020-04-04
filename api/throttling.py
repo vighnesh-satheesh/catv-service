@@ -123,4 +123,5 @@ class CaraPostThrottle(UserRateThrottle):
 
 
 class CATVInternalPostThrottle(AnonRateThrottle):
-    scope = "catvInternalPost"
+    def parse_rate(self, rate):
+        return (10, 1800)
