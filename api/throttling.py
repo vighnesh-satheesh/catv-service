@@ -122,5 +122,5 @@ class CaraPostThrottle(UserRateThrottle):
     scope = "caraPost"
 
 
-class CATVInternalPostThrottle(UserRateThrottle):
+class CATVInternalPostThrottle(AnonRateThrottle):
     scope = "catvInternalPost"
