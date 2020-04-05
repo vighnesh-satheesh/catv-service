@@ -89,7 +89,7 @@ class AppInit:
                 print(">>> failed to get ecs ip: ", err)
 
         if os.environ.get("CONTAINER_TYPE") == "portal_admin":
-            allowed_host.append('prdadmin.sentinelportal.com')
+            allowed_host.append('admin.prdsentinelportal.com')
             allowed_host.append('admin.stgsentinelportal.com')
             allowed_host.append('stgadmin.stgsentinelportal.com')
             allowed_host.append('prdadmin.prdsentinelportal.com')
