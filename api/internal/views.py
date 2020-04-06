@@ -1,3 +1,6 @@
+import gzip
+import json
+
 from rest_framework import exceptions
 from ..exceptions import AuthenticationValidationError
 from rest_framework.views import APIView
@@ -27,10 +30,13 @@ from ..constants import Constants
 from .. import utils
 from .. import permissions
 from ..cache import DefaultCache
+from ..cache.catv import TrackingCache
 from ..response import APIResponse
+from ..throttling import CATVInternalPostThrottle
+
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-import json
+
 
 class CaseIntervalView(APIView):
     authentication_classes = ()
@@ -181,11 +187,22 @@ class CATVInternalView(APIView):
     authentication_classes = ()
     permission_classes = (permissions.InternalOnly,)
 
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CATVInternalPostThrottle(), ]
+
     def post(self, request):
         serializer = CATVSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         addr_limit = serializer.data.get("transaction_limit", 100000)
-        results = serializer.get_tracking_results(tx_limit=addr_limit, limit=addr_limit, save_to_db=False)
+        tracking_cache = TrackingCache()
+        cache_key = utils.create_tracking_cache_pattern(serializer.data)
+        cached_entry = tracking_cache.get_cache_entry(cache_key)
+        if cached_entry:
+            results = json.loads(gzip.decompress(cached_entry).decode())
+        else:
+            results = serializer.get_tracking_results(tx_limit=addr_limit, limit=addr_limit, save_to_db=False)
+            tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 3600)
         return APIResponse({
             "data": {**results["graph"]}
         })

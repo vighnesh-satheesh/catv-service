@@ -121,3 +121,6 @@ class CaraUsageExceededThrottle(BaseThrottle):
 class CaraPostThrottle(UserRateThrottle):
     scope = "caraPost"
 
+
+class CATVInternalPostThrottle(AnonRateThrottle):
+    scope = "catvInternalPost"

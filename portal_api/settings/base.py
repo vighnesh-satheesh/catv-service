@@ -202,7 +202,8 @@ REST_FRAMEWORK = {
         'indicatorPost': '20/min',
         'caraPost': '3/min',
         'catvPost': '5/min',
-        'guestSearchGet': '20/min'
+        'guestSearchGet': '20/min',
+        'catvInternalPost': '1/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
