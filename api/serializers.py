@@ -380,6 +380,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             address = request.data.get("address", None)
             if address != "":
                 data["address"] = address
+            if address == "empty":
+                data["address"] = ""
             points = request.data.get("points", None)
             if points != "":
                 data["points"] = points
