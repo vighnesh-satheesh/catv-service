@@ -15,6 +15,7 @@ from ..models import (
 
 from django.db.models import Q
 from django.db.models.functions import Lower
+from kafka import KafkaProducer
 
 from .serializers import (
     CasePostSerializer,
@@ -30,6 +31,7 @@ from .. import utils
 from .. import permissions
 from ..cache import DefaultCache
 from ..response import APIResponse
+from ..settings import api_settings
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -64,6 +66,19 @@ class CaseIntervalView(APIView):
         c = DefaultCache()
         c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
         c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+
+        producer = KafkaProducer(
+            bootstrap_servers=[
+                api_settings.KAFKA_BROKER_1,
+                api_settings.KAFKA_BROKER_2,
+                api_settings.KAFKA_BROKER_3
+            ],
+            value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+            retries=3
+        )
+        producer.send(api_settings.KAFKA_CASE_TOPIC, request.data)
+        producer.flush()
+        producer.close()
 
         return APIResponse({
             "data": {
