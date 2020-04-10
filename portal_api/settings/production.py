@@ -24,8 +24,6 @@ ELASTIC_APM = {
 }
 
 ELASTICSEARCH_INDEX_NAMES = {
-    'search_indexes.documents.role': env.str('API_ELASTIC_ROLE_IDX', 'role'),
-    'search_indexes.documents.user': env.str('API_ELASTIC_USER_IDX', 'user'),
     'search_indexes.documents.case': env.str('API_ELASTIC_CASE_IDX', 'case'),
     'search_indexes.documents.indicator': env.str('API_ELASTIC_INDICATOR_IDX', 'indicator'),
 }
