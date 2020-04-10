@@ -27,8 +27,6 @@ INSTALLED_APPS += [
 MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
 
 ELASTICSEARCH_INDEX_NAMES = {
-    'search_indexes.documents.role': env.str('API_ELASTIC_ROLE_IDX', 'dev_role'),
-    'search_indexes.documents.user': env.str('API_ELASTIC_USER_IDX', 'dev_user'),
     'search_indexes.documents.case': env.str('API_ELASTIC_CASE_IDX', 'dev_case'),
     'search_indexes.documents.indicator': env.str('API_ELASTIC_INDICATOR_IDX', 'dev_indicator'),
 }
