@@ -57,10 +57,10 @@ social-auth-app-django==3.1.0
 social-auth-app-django-mongoengine==1.0.0
 social-auth-core==3.2.0
 social-auth-storage-mongoengine==1.0.1
-elastic-apm==5.3.1
+elastic-apm==5.5.2
 django-nine==0.2.2
-django-elasticsearch-dsl==7.1.0
-django-elasticsearch-dsl-drf==0.20.3
-elasticsearch==7.1.0
+django-elasticsearch-dsl==7.1.1
+django-elasticsearch-dsl-drf==0.20.8
+elasticsearch==7.6.0
 elasticsearch-dsl==7.1.0
 python3-logstash==0.4.80

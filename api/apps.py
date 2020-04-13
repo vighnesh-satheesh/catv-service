@@ -48,5 +48,5 @@ class ApiConfig(AppConfig):
         from api.scheduler import kafkascheduler
         kafkascheduler.start()
         import api.signals
-        import search_indexes.signals
+        # import search_indexes.signals
 

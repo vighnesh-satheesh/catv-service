@@ -62,18 +62,19 @@ class CaseIntervalView(APIView):
         c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
         c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
-        producer = KafkaProducer(
-            bootstrap_servers=[
-                api_settings.KAFKA_BROKER_1,
-                api_settings.KAFKA_BROKER_2,
-                api_settings.KAFKA_BROKER_3
-            ],
-            value_serializer=lambda m: json.dumps(m).encode('utf-8'),
-            retries=3
-        )
-        producer.send(api_settings.KAFKA_CASE_TOPIC, request.data)
-        producer.flush()
-        producer.close()
+        # Currently facing issues with ES
+        # producer = KafkaProducer(
+        #     bootstrap_servers=[
+        #         api_settings.KAFKA_BROKER_1,
+        #         api_settings.KAFKA_BROKER_2,
+        #         api_settings.KAFKA_BROKER_3
+        #     ],
+        #     value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+        #     retries=3
+        # )
+        # producer.send(api_settings.KAFKA_CASE_TOPIC, request.data)
+        # producer.flush()
+        # producer.close()
 
         return APIResponse({
             "data": {
