@@ -1417,7 +1417,7 @@ class UserDetailView(APIView):
         serializer = UserPostSerializer(obj, data=request.data, context={"request": request})
         if serializer.address:
             try:
-                serializer.address = w3.toChecksumAddress(serializer.address)
+                serializer.data['address'] = w3.toChecksumAddress(serializer.data['address'])
             except ValueError:
                 raise exceptions.InvalidEthereumAddress()
         serializer.is_valid(raise_exception=True)
