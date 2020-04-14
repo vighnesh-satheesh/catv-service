@@ -1414,12 +1414,12 @@ class UserDetailView(APIView):
 
     def put(self, request, pk=None):
         obj = self.get_object(pk)
-        serializer = UserPostSerializer(obj, data=request.data, context={"request": request})
-        if serializer.data['address']:
+        if 'address' in request.data:
             try:
-                serializer.data['address'] = w3.toChecksumAddress(serializer.data['address'])
+                request.data['address']=w3.toChecksumAddress(request.data['address'])
             except ValueError:
                 raise exceptions.InvalidEthereumAddress()
+        serializer = UserPostSerializer(obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         user = serializer.data
