@@ -60,6 +60,9 @@ class ICFAlreadyExist(ValidationError):
 class PasswordResetCodeNotValid(ValidationError):
     default_detail = _('password reset code is not valid')
 
+class InvalidEthereumAddress(ValidationError):
+    default_detail = _('Invalid eth checksum address')
+
 #####
 # 401
 #####
