@@ -1415,7 +1415,7 @@ class UserDetailView(APIView):
     def put(self, request, pk=None):
         obj = self.get_object(pk)
         serializer = UserPostSerializer(obj, data=request.data, context={"request": request})
-        if serializer.address:
+        if serializer.data['address']:
             try:
                 serializer.data['address'] = w3.toChecksumAddress(serializer.data['address'])
             except ValueError:
