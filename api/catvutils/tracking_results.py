@@ -280,10 +280,11 @@ class BTCCoinpathTrackingResults(TrackingResults):
     def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
         external_api_client = BloxyBTCAPIInterface(settings.BLOXY_API_KEY)
         depth_limit = self.source_depth if for_source else self.distribution_depth
+        from_time = self.from_date
         till_date_extend = self.to_date + "T23:59:59"
         transaction_data = external_api_client.get_transactions(self.wallet_address, tx_limit, limit,
                                                                 depth_limit, till_time=till_date_extend,
-                                                                source=for_source)
+                                                                source=for_source, from_time=from_time)
         self.ext_api_calls += 1
         if not transaction_data:
             error_key = "source" if for_source else "distribution"
