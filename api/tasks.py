@@ -1,9 +1,11 @@
-import requests
+from urllib.parse import urlparse
 
 from celery.task import Task
 from celery.registry import tasks
 from django.db import connections
 from django.utils.timezone import now
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import streaming_bulk
 
 from .cache import DefaultCache
 from .constants import Constants
@@ -99,23 +101,25 @@ class CheckDeleteInvitesTask(Task):
         return True
 
 
-class IndicatorESDocumentTask(Task):
-    def run(self, *args, **kwargs):
-        case_instance = kwargs['case']
-        if case_instance:
-            try:
-                related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
-            except Case.DoesNotExist:
-                related_indicators = []
+class IndicatorESDocumentTask:
+    def __init__(self, action=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action = action if Constants.INDEX_ACTIONS.get(action, None) else Constants.INDEX_ACTIONS["INDEX"]
+        self.related_indicators = []
+        if api_settings.ELASTICSEARCH_CREDENTIALS:
+            host_netloc = urlparse(api_settings.ELASTICSEARCH_HOST).netloc
+            es_host = f'http://{api_settings.ELASTICSEARCH_CREDENTIALS}@{host_netloc}'
+        else:
+            es_host = api_settings.ELASTICSEARCH_HOST
+        self.es_client = Elasticsearch([es_host])
 
-            session = requests.Session()
-            if api_settings.ELASTICSEARCH_CREDENTIALS:
-                user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
-                session.auth = (user, pwd)
-            session.headers.update({'Content-Type': 'application/json'})
-
-            for indicator in related_indicators:
-                payload = {
+    def generate_indicator_data(self):
+        for indicator in self.related_indicators:
+            yield {
+                "_op_type": self.action,
+                "_type": "_doc",
+                "_id": indicator.id,
+                "_source": {
                     'id': indicator.id,
                     'uid': {
                         'hex': indicator.uid.hex
@@ -135,10 +139,26 @@ class IndicatorESDocumentTask(Task):
                         'hex': getattr(indicator.latest_case_indexing, 'hex', '')
                     }
                 }
-                resp = session.post(
-                    f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/_doc/{indicator.id}',
-                    json=payload)
-            session.close()
+            }
+
+    def run(self, *args, **kwargs):
+        case_instance = kwargs['case']
+        if case_instance:
+            try:
+                self.related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
+            except Case.DoesNotExist:
+                self.related_indicators = []
+            successes = 0
+            for ok, action in streaming_bulk(
+                    client=self.es_client,
+                    index=api_settings.ELASTICSEARCH_INDICATOR_IDX,
+                    actions=self.generate_indicator_data(),
+                    chunk_size=100,
+                    max_retries=3
+            ):
+                successes += ok
+            print(f"Indexed {successes} documents")
+
         return True
 
 
@@ -167,5 +187,4 @@ tasks.register(CheckUpdateUsageQuotaTask)
 tasks.register(CacheNumberOfIndicatorsCases)
 tasks.register(CaraHistoryTask)
 tasks.register(CheckDeleteInvitesTask)
-tasks.register(IndicatorESDocumentTask)
 tasks.register(CatvPathHistoryTask)

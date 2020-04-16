@@ -10,9 +10,10 @@ import os
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = "ApiConfig"
-    app = Celery('tasks')
-    app.config_from_object('django.conf:settings')
-    app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
+    if os.environ.get("CONTAINER_TYPE", None) == "portal-api":
+        app = Celery('tasks')
+        app.config_from_object('django.conf:settings')
+        app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
 
     @classmethod
     def init_cache(cls, user_model):
@@ -43,10 +44,11 @@ class ApiConfig(AppConfig):
         )
 
     def ready(self):
-        self.init_cache(self.get_model('User'))
-        self.send_slack_webhook()
-        from api.scheduler import kafkascheduler
-        kafkascheduler.start()
-        import api.signals
-        # import search_indexes.signals
+        if os.environ.get("CONTAINER_TYPE", None) == "portal-api":
+            self.init_cache(self.get_model('User'))
+            self.send_slack_webhook()
+            from api.scheduler import kafkascheduler
+            kafkascheduler.start()
+            import api.signals
+            # import search_indexes.signals
 
