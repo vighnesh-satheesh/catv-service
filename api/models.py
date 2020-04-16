@@ -1102,3 +1102,16 @@ class CatvPathHistory(models.Model):
         indexes = [
             models.Index(fields=['user', 'token_type', ]),
         ]
+
+
+class ConsumerErrorLogs(models.Model):
+    topic = models.CharField(max_length=100)
+    message = JSONField(default={})
+    error_trace = models.TextField()
+    logged_time = models.DateTimeField(default=now)
+
+    class Meta:
+        db_table = 'api_consumer_error_logs'
+        indexes = [
+            models.Index(fields=['topic'])
+        ]

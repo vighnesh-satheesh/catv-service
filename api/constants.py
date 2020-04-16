@@ -167,3 +167,14 @@ class Constants:
         "METRICS_CASE": "metrics_cases_{0}_{1}",
         "METRICS_LATEST_INDICATORS": "metrics_latest_indicators_{0}"
     }
+    INDEX_ACTIONS = {
+        "INDEX": "index",
+        "CREATE": "create",
+        "UPDATE": "update",
+        "DELETE": "delete"
+    }
+    CASE_ACTIONS = {
+        "CREATE": "create",
+        "UPDATE": "update",
+        "DELETE": "delete"
+    }
