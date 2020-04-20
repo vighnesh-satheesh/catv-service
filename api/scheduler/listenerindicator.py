@@ -100,7 +100,7 @@ class Listener_Indicator:
            return new_indicators, new_indicator_info
 
         # Query last row of trdb to see the latest indicator added
-        query = "select id, updated from api_indicator order by updated desc limit 1"
+        query = Constants.QUERIES["SELECT_LATEST_INDICATOR"]
         try:
             last_indicator_info = self.__trdb_api.get_query(query)
         except Exception as e:
