@@ -2020,17 +2020,23 @@ class CARA(APIView):
         address = self.request.GET.get('address')
         user = self.request.GET.get('user')
         force = self.request.GET.get('force')
+        blockchain = self.request.GET.get('token')
         if force :
             cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(address.lower(), user)
             with connection.cursor() as cursor:
                 cursor.execute(cara_history_delete_query)
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
         time = datetime.datetime.now(datetime.timezone.utc)
-        data = (user, address.lower(), time)
+        if blockchain == 'eth':
+            data = (user, address.lower(), time)
+        else:
+            data = (user, address, time)
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
         data = {'address': address,
-                'time': time.strftime("%Y-%m-%d %H:%M:%S")}
+                'time': time.strftime("%Y-%m-%d %H:%M:%S"),
+                'blockchain': blockchain
+                }
         print(producer.send(settings.KAFKA_USER_TOPIC, data))
         producer.flush()
         producer.close()
