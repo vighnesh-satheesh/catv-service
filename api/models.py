@@ -711,7 +711,7 @@ class Indicator(models.Model):
     @property
     def cases_indexing(self):
         status_list = []
-        if self.cases:
+        if self.cases.count():
             enum_status_list = self.cases.all().values_list('status', flat=True)
             for enum_status in enum_status_list:
                 status_list.append(enum_status.value)
@@ -723,7 +723,7 @@ class Indicator(models.Model):
 
     @property
     def latest_case_indexing(self):
-        if self.cases:
+        if self.cases.count():
             latest_case = self.cases.latest('id')
             return latest_case.uid
         return ""

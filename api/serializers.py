@@ -36,6 +36,7 @@ from .catvutils.tracking_results import (
     BtcPathResults
 )
 from .catvutils.vendor_api import LyzeAPIInterface
+from .tasks import CaseMessageTask
 
 
 class NonNullModelSerializer(serializers.ModelSerializer):
@@ -1246,6 +1247,9 @@ class CasePostSerializer(serializers.ModelSerializer):
                             "file already included in other cases.")
                     file_obj.case = case
                     file_obj.save()
+            case_task = CaseMessageTask(api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["CREATE"])
+            case_task.related_ids = case.id
+            case_task.run()
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
@@ -1334,6 +1338,9 @@ class CasePostSerializer(serializers.ModelSerializer):
                     file_obj.save()
                 # case items
                 instance = super().update(instance, validated_data)
+            case_task = CaseMessageTask(api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["UPDATE"])
+            case_task.related_ids = instance.id
+            case_task.run()
         except IntegrityError:
             raise exceptions.DataIntegrityError()
         except exceptions.DataIntegrityError as err:
@@ -1641,6 +1648,9 @@ class CasePatchSerializer(NonNullModelSerializer):
 
                 ch_serializer.save()
                 updated_instance = super(CasePatchSerializer, self).update(instance, validated_data)
+            case_task = CaseMessageTask(api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["UPDATE"])
+            case_task.related_ids = updated_instance.id
+            case_task.run()
             return updated_instance
         except IntegrityError:
             raise exceptions.DataIntegrityError("data integrity error")

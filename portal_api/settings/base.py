@@ -346,7 +346,8 @@ API_SETTINGS = {
     "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
     "ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
     "ELASTICSEARCH_INDICATOR_IDX": env.str("API_ELASTIC_INDICATOR_IDX", 'dev_indicator'),
-    "KAFKA_CASE_TOPIC": env.str("API_KAFKA_CASE_TOPIC", "new-cases-crawler"),
+    "KAFKA_CRAWLED_CASE_TOPIC": env.str("API_KAFKA_CRAWLED_CASE_TOPIC", "crawled-cases"),
+    "KAFKA_PORTAL_CASE_TOPIC": env.str("API_KAFKA_PORTAL_CASE_TOPIC", "portal-cases"),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.

@@ -1,12 +1,10 @@
 import json
 
-from .. import utils
 from ..cache import DefaultCache
 from ..constants import Constants
 from ..models import CaseStatus, CaseHistory
 from api.internal.serializers import CasePostSerializer
-from ..serializers import CaseTRDBSerializer
-from api.models import ConsumerErrorLogs, User
+from api.models import ConsumerErrorLogs
 from api.tasks import IndicatorESDocumentTask
 
 
@@ -18,7 +16,6 @@ def process_crawled_cases(message):
     print("Processing message:\n")
     print(request_body)
     try:
-        # crawler_user = User.objects.get(nickname='crawler')
         serializer = CasePostSerializer(data=request_body)
         serializer.is_valid(raise_exception=True)
         case = serializer.save()
