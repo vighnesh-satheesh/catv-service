@@ -32,6 +32,7 @@ from .. import permissions
 from ..cache import DefaultCache
 from ..response import APIResponse
 from ..settings import api_settings
+from ..tasks import CaseMessageTask
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -67,18 +68,9 @@ class CaseIntervalView(APIView):
         c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
         c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
 
-        producer = KafkaProducer(
-            bootstrap_servers=[
-                api_settings.KAFKA_BROKER_1,
-                api_settings.KAFKA_BROKER_2,
-                api_settings.KAFKA_BROKER_3
-            ],
-            value_serializer=lambda m: json.dumps(m).encode('utf-8'),
-            retries=3
-        )
-        producer.send(api_settings.KAFKA_CASE_TOPIC, request.data)
-        producer.flush()
-        producer.close()
+        case_task = CaseMessageTask(api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["CREATE"])
+        case_task.related_ids = case.id
+        case_task.run()
 
         return APIResponse({
             "data": {

@@ -1,3 +1,4 @@
+import json
 from urllib.parse import urlparse
 
 from celery.task import Task
@@ -6,6 +7,7 @@ from django.db import connections
 from django.utils.timezone import now
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import streaming_bulk
+from kafka import KafkaProducer
 
 from .cache import DefaultCache
 from .constants import Constants
@@ -142,22 +144,26 @@ class IndicatorESDocumentTask:
             }
 
     def run(self, *args, **kwargs):
-        case_instance = kwargs['case']
+        case_instance = kwargs.get('case', None)
+        indicators = kwargs.get('indicators', None)
         if case_instance:
             try:
                 self.related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
             except Case.DoesNotExist:
                 self.related_indicators = []
-            successes = 0
-            for ok, action in streaming_bulk(
-                    client=self.es_client,
-                    index=api_settings.ELASTICSEARCH_INDICATOR_IDX,
-                    actions=self.generate_indicator_data(),
-                    chunk_size=100,
-                    max_retries=3
-            ):
-                successes += ok
-            print(f"Indexed {successes} documents")
+        elif indicators:
+            self.related_indicators = indicators
+
+        successes = 0
+        for ok, action in streaming_bulk(
+                client=self.es_client,
+                index=api_settings.ELASTICSEARCH_INDICATOR_IDX,
+                actions=self.generate_indicator_data(),
+                chunk_size=50,
+                max_retries=3
+        ):
+            successes += ok
+        print(f"Indexed {successes} documents")
 
         return True
 
@@ -179,6 +185,33 @@ class CatvPathHistoryTask(Task):
             else:
                 cursor.execute(query_list[0], query_data[0])
         return True
+
+
+class CaseMessageTask:
+    def __init__(self, topic, action=None):
+        self.topic = topic
+        self.related_ids = None
+        print(f"Param action is: {action}")
+        self.action = action if action else Constants.CASE_ACTIONS["CREATE"]
+        print(self.action)
+
+    def run(self):
+        message_body = {
+            "action_type": self.action,
+            "related_ids": self.related_ids
+        }
+        producer = KafkaProducer(
+            bootstrap_servers=[
+                api_settings.KAFKA_BROKER_1,
+                api_settings.KAFKA_BROKER_2,
+                api_settings.KAFKA_BROKER_3
+            ],
+            value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+            retries=3
+        )
+        producer.send(self.topic, message_body)
+        producer.flush()
+        producer.close()
 
 
 tasks.register(CacheLeftPanelValuesTask)

@@ -28,36 +28,36 @@ class Migration(migrations.Migration):
                 'db_table': 'api_consumer_error_logs',
             },
         ),
-        migrations.CreateModel(
-            name='ExchangeToken',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sp_amount', models.IntegerField(blank=True, null=True)),
-                ('status', enumfields.fields.EnumField(default='PENDING_APPROVAL', enum=api.models.ExchangeStatus, max_length=10)),
-                ('req_time', models.CharField(blank=True, max_length=1024, null=True)),
-                ('app_time', models.CharField(blank=True, max_length=1024, null=True)),
-                ('upp', models.IntegerField(blank=True, null=True)),
-                ('user_id', models.CharField(blank=True, max_length=1024, null=True)),
-            ],
-            options={
-                'db_table': 'api_exchange_token',
-            },
-        ),
-        migrations.AddField(
-            model_name='rewardsetting',
-            name='sentinel_point_reward',
-            field=models.BigIntegerField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='rewardsetting',
-            name='sp_required',
-            field=models.BigIntegerField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='rewardsetting',
-            name='upp_reward',
-            field=models.BigIntegerField(blank=True, null=True),
-        ),
+        # migrations.CreateModel(
+        #     name='ExchangeToken',
+        #     fields=[
+        #         ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+        #         ('sp_amount', models.IntegerField(blank=True, null=True)),
+        #         ('status', enumfields.fields.EnumField(default='PENDING_APPROVAL', enum=api.models.ExchangeStatus, max_length=10)),
+        #         ('req_time', models.CharField(blank=True, max_length=1024, null=True)),
+        #         ('app_time', models.CharField(blank=True, max_length=1024, null=True)),
+        #         ('upp', models.IntegerField(blank=True, null=True)),
+        #         ('user_id', models.CharField(blank=True, max_length=1024, null=True)),
+        #     ],
+        #     options={
+        #         'db_table': 'api_exchange_token',
+        #     },
+        # ),
+        # migrations.AddField(
+        #     model_name='rewardsetting',
+        #     name='sentinel_point_reward',
+        #     field=models.BigIntegerField(blank=True, null=True),
+        # ),
+        # migrations.AddField(
+        #     model_name='rewardsetting',
+        #     name='sp_required',
+        #     field=models.BigIntegerField(blank=True, null=True),
+        # ),
+        # migrations.AddField(
+        #     model_name='rewardsetting',
+        #     name='upp_reward',
+        #     field=models.BigIntegerField(blank=True, null=True),
+        # ),
         migrations.AddIndex(
             model_name='consumererrorlogs',
             index=models.Index(fields=['topic'], name='api_consume_topic_ed9e7c_idx'),
