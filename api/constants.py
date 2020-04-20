@@ -152,6 +152,13 @@ class Constants:
                                  "WHEN token_address='' THEN null ELSE token_address END) as token_address, "
                                  "depth, from_date, to_date from vw_catv_path_history "
                                  "where row_num = 1 and user_id={0} and token_type='{1}' limit 10;",
+        "SELECT_LATEST_INDICATOR": "select id, updated from api_indicator where id in "
+                                   "(select aci.indicator_id from api_m2m_case_indicator aci "
+                                   "where aci.case_id = ("
+                                   "select ac.id from api_case ac "
+                                   "where ac.status='released' "
+                                   "order by ac.updated desc limit 1)) "
+                                   "order by updated desc limit 1;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

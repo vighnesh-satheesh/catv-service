@@ -48,7 +48,7 @@ class Listener_Indicator:
             columns_of_portal_listener_parameters = ('last_indicator_id', 'last_indicator_time', 'last_execution_start_time', 'last_execution_end_time')
 
             # Get the first row of api_indicator
-            query = "select id, updated from api_indicator order by id asc limit 1"
+            query = Constants.QUERIES["SELECT_LATEST_INDICATOR"]
             trdb_first_row = self.__trdb_api.get_query(query)
 
             if len(trdb_first_row) == 1:

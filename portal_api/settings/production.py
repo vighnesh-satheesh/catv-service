@@ -23,10 +23,10 @@ ELASTIC_APM = {
     'SERVER_URL': env.str('API_ELASTIC_SERVER_URL', ''),
 }
 
-# ELASTICSEARCH_INDEX_NAMES = {
-#     'search_indexes.documents.case': env.str('API_ELASTIC_CASE_IDX', 'case'),
-#     'search_indexes.documents.indicator': env.str('API_ELASTIC_INDICATOR_IDX', 'indicator'),
-# }
+ELASTICSEARCH_INDEX_NAMES = {
+    'search_indexes.documents.case': env.str('API_ELASTIC_CASE_IDX', 'case'),
+    'search_indexes.documents.indicator': env.str('API_ELASTIC_INDICATOR_IDX', 'indicator'),
+}
 
 # Sentry
 # TODO: version file or tag?

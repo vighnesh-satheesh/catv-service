@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'social_django',
     'api',
+    'search_indexes',
 ]
 
 MIDDLEWARE = [
@@ -158,12 +159,12 @@ ELASTICSEARCH_DSL = {
     },
 }
 
-# ELASTICSEARCH_INDEX_NAMES = {
-#     'search_indexes.documents.role': 'role',
-#     'search_indexes.documents.user': 'user',
-#     'search_indexes.documents.case': 'case',
-#     'search_indexes.documents.indicator': 'indicator',
-# }
+ELASTICSEARCH_DSL_AUTOSYNC = False
+
+ELASTICSEARCH_INDEX_NAMES = {
+    'search_indexes.documents.case': 'case',
+    'search_indexes.documents.indicator': 'indicator',
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/

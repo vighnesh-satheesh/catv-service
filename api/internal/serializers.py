@@ -319,7 +319,6 @@ class CasePostSerializer(serializers.ModelSerializer):
                     case_serializer = CaseTRDBSerializer(case)
                     data = case_serializer.data
                     utils.TRDB_CLIENT.push_case("activateCase", data)
-            post_save.send(case.__class__, instance=case, created=False)
 
         except IntegrityError:
             raise exceptions.DataIntegrityError()
