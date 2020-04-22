@@ -11,6 +11,7 @@ class Command(BaseCommand):
     help = 'Starts Kafka Consumer and blocks indefinitely'
 
     def handle(self, *args, **options):
+        print("Connecting to Kafka brokers...")
         case_consumer = KafkaConsumer(
             api_settings.KAFKA_CRAWLED_CASE_TOPIC,
             api_settings.KAFKA_PORTAL_CASE_TOPIC,
