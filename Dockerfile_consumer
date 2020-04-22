@@ -2,19 +2,18 @@ FROM python:3.6.5-stretch
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
-ARG PM2_CONFIG_FILE=pm2.json
+ARG PM2_CONFIG_FILE=pm2_consumer.json
 ARG EXPOSE_GENERAL_API=false
 ARG EXPOSE_FILE_API=false
 ARG SLACK_URL
 ARG ALLOWED_HOSTS
 ARG CORS_ORIGIN_WHITELIST
-ARG PORTAL_API_ENV=development
+ARG PORTAL_API_ENV=production
 ARG PORTAL_API_VERSION
 ARG CONTAINER_TYPE=portal_consumer
-ARG PM2_CONFIG_FILE=pm2_consumer.json
 
-ENV EXPOSE_GENERAL_API=false
-ENV EXPOSE_FILE_API=false
+ENV EXPOSE_GENERAL_API=$EXPOSE_GENERAL_API
+ENV EXPOSE_FILE_API=$EXPOSE_FILE_API
 ENV ALLOWED_HOSTS=$ALLOWED_HOSTS
 ENV CORS_ORIGIN_WHITELIST=$CORS_ORIGIN_WHITELIST
 ENV PORTAL_API_ENV=$PORTAL_API_ENV
@@ -46,6 +45,18 @@ RUN groupadd -g 999 uppsala && \
     usermod -d /app uppsala
 USER uppsala
 
+# Install pm2-slack
+RUN pm2 install pm2-slack
+RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
+    pm2 set pm2-slack:log false && \
+    pm2 set pm2-slack:error false && \
+    pm2 set pm2-slack:kill true && \
+    pm2 set pm2-slack:exception false && \
+    pm2 set pm2-slack:restart false && \
+    pm2 set pm2-slack:delete true && \
+    pm2 set pm2-slack:stop true && \
+    pm2 set pm2-slack:'restart overlimit' true && \
+    pm2 set pm2-slack:buffer_seconds 5
 
 # Bundle APP files
 COPY . .

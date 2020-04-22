@@ -1,0 +1,109 @@
+pipeline {
+    agent any
+
+    environment {
+            // Slack env variables
+            SLACK_COLOR_DANGER  = '#E01563'
+            SLACK_COLOR_INFO    = '#6ECADC'
+            SLACK_COLOR_WARNING = '#FFC300'
+            SLACK_COLOR_GOOD    = '#3EB991'
+            // end
+            // Docker image env variables
+            AWS_DEFAULT_REGION = "ap-southeast-1"
+            AWS_ACCOUNT_ID = "821988754834"
+            IMAGE_REPO_NAME = "stg/portal-consumer"
+            SERVICE_NAME = "PortalConsumer"
+            SLACK_URL = "https://hooks.slack.com/services/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"
+            INDICATOR_TOKEN = "b06fdc52611d60ce262c5718e4b1352bca09d4c3"
+            IMAGE_REPO_NAME_F = "upp/portal-file-api"
+            SERVICE_NAME_F = "PortalFileAPI"
+            APM_SERVICE_NAME = "stgportal-api"
+            // end
+            // Docker deploy and ECS environment variables
+            ECR ="https://821988754834.dkr.ecr.ap-southeast-1.amazonaws.com"
+            TASK_FAMILY ="UPP-STG-PortalAPI"
+            ecsClusterName ="UPP-STG-APP-CLUSTER"
+            nameService = "UPP-STG-PortalConsumer-Service"
+            // end
+            }
+
+    stages {
+            stage ('Check Requirement') {
+                steps {
+                    // get user that has started the build
+                    wrap([$class: 'BuildUser']) { script { env.USER_ID = "${BUILD_USER}" } }
+                    // first of all, notify the team
+                    slackSend (color: "${env.SLACK_COLOR_INFO}",
+                    channel: '#jenkins_update',
+                    message: "*STARTED:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER} by ${env.USER_ID}:crossed_fingers::relaxed:\n More info at: ${env.BUILD_URL}")
+                    }
+            }
+            stage ('Clone Repositry') { 
+                steps {
+                    checkout scm
+                    }
+            }
+            stage('Clone sub repo for indicator lib') {
+                steps {
+                    sh('mkdir -p library')
+                    dir('library') {
+                        git url: "https://uppindicator:${env.INDICATOR_TOKEN}@github.com/upphub/indicator-lib.git"
+                    }
+                    sh('cd -')
+                }
+            }
+            stage ('Docker Image Build & Publish') {
+                steps {
+                    echo 'Starting to build docker image'
+                    script {
+                        def app = docker.build(env.IMAGE_REPO_NAME)
+                        docker.withRegistry(env.ECR, 'ecr:ap-southeast-1:aws-jenkins') {
+                        app.push("v_${env.BUILD_NUMBER}")
+                        app.push("latest")
+                        }
+                    }
+                }
+            }
+            stage('Docker Deploy') {
+                steps {
+                    sh label: '', script: '''sed -e "s;%BUILD_NUMBER%;${BUILD_NUMBER};g" prd-definitions.json > prd-definitions-v_${BUILD_NUMBER}.json
+                    aws ecs register-task-definition --family ${TASK_FAMILY} --cli-input-json file://${WORKSPACE}/prd-definitions-v_${BUILD_NUMBER}.json
+                    TASK_REVISION=`aws ecs describe-task-definition --task-definition  ${TASK_FAMILY} | egrep "revision" | tr "/" " " | awk \'{print $2}\' | sed \'s/"$//\'`
+                    DESIRED_COUNT=`aws ecs describe-services --cluster ${ecsClusterName} --services ${nameService} | egrep "desiredCount" | tr "/" " " | awk \'{print $2}\' | sed \'s/,$//\'`
+                    if [ ${DESIRED_COUNT} = "0" ]; then
+                        DESIRED_COUNT="1"
+                    fi
+                    aws ecs update-service --cluster ${ecsClusterName} --service ${nameService} --task-definition ${TASK_FAMILY}:${TASK_REVISION} --force-new-deployment
+                    '''
+                }
+            }
+            stage ('Cleanup') {
+                steps {
+                    sh label: '', script: 'docker images -a | grep "821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/prd/icfapi" | awk \'{print $3}\' | xargs docker rmi -f'
+                    deleteDir()
+                }
+            }
+        }
+    post {
+        aborted {
+                echo "Sending message to Slack"
+                slackSend (color: "${env.SLACK_COLOR_WARNING}",
+                channel: '#jenkins_update',
+                message: "*ABORTED:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER} by ${env.USER_ID}:face_with_hand_over_mouth::pray:\n More info at: ${env.BUILD_URL}")
+                } // aborted
+
+        failure {
+                echo "Sending message to Slack"
+                slackSend (color: "${env.SLACK_COLOR_DANGER}",
+                channel: '#jenkins_update',
+                message: "*FAILED:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER} by ${env.USER_ID} :cry::sob::disappointed_relieved:\n More info at: ${env.BUILD_URL}")
+                } // failure
+
+        success {
+                echo "Sending message to Slack"
+                slackSend (color: "${env.SLACK_COLOR_GOOD}",
+                channel: '#jenkins_update',
+                message: "*SUCCESS:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER} by ${env.USER_ID} :sunglasses::face_with_cowboy_hat:\n More info at: ${env.BUILD_URL}")
+                } // success
+    } //post
+} //pipeline
