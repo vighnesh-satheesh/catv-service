@@ -46,11 +46,11 @@ pipeline {
             }
             stage('Clone sub repo for indicator lib') {
                 steps {
-                    sh('mkdir -p library')
-                    dir('library') {
+                    sh('mkdir -p library/indicator-lib')
+                    dir('library/indicator-lib') {
                         git url: "https://uppindicator:${env.INDICATOR_TOKEN}@github.com/upphub/indicator-lib.git"
                     }
-                    sh('cd -')
+                    sh('cd ../..')
                 }
             }
             stage ('Docker Image Build & Publish') {
@@ -59,7 +59,7 @@ pipeline {
                         script {
                                 docker.withRegistry(env.ECR, 'ecr:ap-southeast-1:aws-jenkins') {
                                     def dockerfile = 'Dockerfile_consumer'
-                                    def customImage = docker.build("${env.IMAGE_REPO_NAME}:${env.BUILD_ID}", "--build-arg SLACK_URL=${env.SLACK_URL}", "--build-arg PM2_CONFIG_FILE=${env.PM2_CONFIG_FILE}", "--build-arg PORTAL_API_VERSION=${env.IMAGE_VERSION}", "-f ${dockerfile}")
+                                    def customImage = docker.build("${env.IMAGE_REPO_NAME}:${env.BUILD_ID}", "-f ${dockerfile} .")
                                     customImage.push()
                                     customImage.push("latest")
                         }
@@ -68,8 +68,7 @@ pipeline {
             }
             stage('Docker Deploy') {
                 steps {
-                    sh label: '', script: '''sed -e "s;%BUILD_NUMBER%;${BUILD_NUMBER};g" prd-definitions.json > prd-definitions-v_${BUILD_NUMBER}.json
-                    aws ecs register-task-definition --family ${TASK_FAMILY} --cli-input-json file://${WORKSPACE}/prd-definitions-v_${BUILD_NUMBER}.json
+                    sh label: '', script: '''sed -e "s;%BUILD_NUMBER%;${BUILD_NUMBER};g"
                     TASK_REVISION=`aws ecs describe-task-definition --task-definition  ${TASK_FAMILY} | egrep "revision" | tr "/" " " | awk \'{print $2}\' | sed \'s/"$//\'`
                     DESIRED_COUNT=`aws ecs describe-services --cluster ${ecsClusterName} --services ${nameService} | egrep "desiredCount" | tr "/" " " | awk \'{print $2}\' | sed \'s/,$//\'`
                     if [ ${DESIRED_COUNT} = "0" ]; then
@@ -81,7 +80,7 @@ pipeline {
             }
             stage ('Cleanup') {
                 steps {
-                    sh label: '', script: 'docker images -a | grep "821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/prd/icfapi" | awk \'{print $3}\' | xargs docker rmi -f'
+                    sh label: '', script: 'docker images -a | grep "821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/stg/portal-consumer" | awk \'{print $3}\' | xargs docker rmi -f'
                     deleteDir()
                 }
             }
