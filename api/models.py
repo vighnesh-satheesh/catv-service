@@ -711,7 +711,7 @@ class Indicator(models.Model):
     @property
     def cases_indexing(self):
         status_list = []
-        if self.cases:
+        if self.cases.count():
             enum_status_list = self.cases.all().values_list('status', flat=True)
             for enum_status in enum_status_list:
                 status_list.append(enum_status.value)
@@ -723,7 +723,7 @@ class Indicator(models.Model):
 
     @property
     def latest_case_indexing(self):
-        if self.cases:
+        if self.cases.count():
             latest_case = self.cases.latest('id')
             return latest_case.uid
         return ""
@@ -1101,4 +1101,17 @@ class CatvPathHistory(models.Model):
         db_table = 'api_catv_path_history'
         indexes = [
             models.Index(fields=['user', 'token_type', ]),
+        ]
+
+
+class ConsumerErrorLogs(models.Model):
+    topic = models.CharField(max_length=100)
+    message = JSONField(default={})
+    error_trace = models.TextField()
+    logged_time = models.DateTimeField(default=now)
+
+    class Meta:
+        db_table = 'api_consumer_error_logs'
+        indexes = [
+            models.Index(fields=['topic'])
         ]

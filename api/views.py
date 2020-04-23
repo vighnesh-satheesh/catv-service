@@ -75,7 +75,7 @@ from .email.tasks import SendEmail
 from .constants import Constants
 from .tasks import (
     CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
-    CatvPathHistoryTask
+    CatvPathHistoryTask, CaseMessageTask
 )
 
 
@@ -638,6 +638,7 @@ class CaseDetailView(APIView):
         }})
 
     def delete(self, request, pk=None):
+        case_task = CaseMessageTask(api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["DELETE"])
         try:
             with transaction.atomic():
                 obj = self.get_object(pk, request)
@@ -649,8 +650,10 @@ class CaseDetailView(APIView):
                         (obj.status == CaseStatus.NEW and obj.reporter != request.user or \
                          (obj.status in [CaseStatus.PROGRESS, CaseStatus.REJECTED] and obj.owner != request.user)):
                     raise exceptions.OwnerRequiredError()
-
-                CaseIndicator.objects.filter(case=obj).delete()
+                case_m2m_queryset = CaseIndicator.objects.filter(case=obj)
+                indicator_ids = [case_m2m.indicator_id for case_m2m in case_m2m_queryset]
+                case_task.related_ids = indicator_ids
+                case_m2m_queryset.delete()
 
         except Case.DoesNotExist:
             raise exceptions.ValidationError("case does not exist")
@@ -678,6 +681,7 @@ class CaseDetailView(APIView):
                               sender=e.EMAIL_SENDER["NO-REPLY"],
                               recipient=[obj.reporter.email])
         obj.delete()
+        case_task.run()
 
         c = DefaultCache()
         c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
