@@ -56,13 +56,12 @@ pipeline {
             stage ('Docker Image Build & Publish') {
                 steps {
                     echo 'Starting to build docker image'
-                    script {
-                            docker.withRegistry(env.ECR, 'ecr:ap-southeast-1:aws-jenkins') {
-                                def dockerfile = 'Dockerfile_consumer'
-                                def customImage = docker.build("${env.IMAGE_REPO_NAME}:${env.BUILD_ID}", "--build-arg SLACK_URL=${env.SLACK_URL}", "--build-arg PM2_CONFIG_FILE=${env.PM2_CONFIG_FILE}", "--build-arg PORTAL_API_VERSION=${env.IMAGE_VERSION}", "-f ${dockerfile}")
-                                customImage.push()
-                                customImage.push("latest")
-                            }
+                        script {
+                                docker.withRegistry(env.ECR, 'ecr:ap-southeast-1:aws-jenkins') {
+                                    def dockerfile = 'Dockerfile_consumer'
+                                    def customImage = docker.build("${env.IMAGE_REPO_NAME}:${env.BUILD_ID}", "--build-arg SLACK_URL=${env.SLACK_URL}", "--build-arg PM2_CONFIG_FILE=${env.PM2_CONFIG_FILE}", "--build-arg PORTAL_API_VERSION=${env.IMAGE_VERSION}", "-f ${dockerfile}")
+                                    customImage.push()
+                                    customImage.push("latest")
                         }
                     }
                 }
