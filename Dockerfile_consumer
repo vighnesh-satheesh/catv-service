@@ -45,19 +45,6 @@ RUN groupadd -g 999 uppsala && \
     usermod -d /app uppsala
 USER uppsala
 
-# Install pm2-slack
-RUN pm2 install pm2-slack
-RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
-    pm2 set pm2-slack:log false && \
-    pm2 set pm2-slack:error false && \
-    pm2 set pm2-slack:kill true && \
-    pm2 set pm2-slack:exception false && \
-    pm2 set pm2-slack:restart false && \
-    pm2 set pm2-slack:delete true && \
-    pm2 set pm2-slack:stop true && \
-    pm2 set pm2-slack:'restart overlimit' true && \
-    pm2 set pm2-slack:buffer_seconds 5
-
 # Bundle APP files
 COPY . .
 COPY ./deploy ./deploy

@@ -18,11 +18,12 @@ pipeline {
             IMAGE_REPO_NAME_F = "upp/portal-file-api"
             SERVICE_NAME_F = "PortalFileAPI"
             APM_SERVICE_NAME = "stgportal-api"
+            IMAGE_VERSION = "1.0"
             // end
             // Docker deploy and ECS environment variables
             ECR ="https://821988754834.dkr.ecr.ap-southeast-1.amazonaws.com"
             TASK_FAMILY ="UPP-STG-PortalAPI"
-            ecsClusterName ="UPP-STG-APP-CLUSTER"
+            ecsClusterName ="UPP-STG-APPLICATION-CLUSTER"
             nameService = "UPP-STG-PortalConsumer-Service"
             // end
             }
@@ -56,10 +57,12 @@ pipeline {
                 steps {
                     echo 'Starting to build docker image'
                     script {
-                        def app = docker.build(env.IMAGE_REPO_NAME)
-                        docker.withRegistry(env.ECR, 'ecr:ap-southeast-1:aws-jenkins') {
-                        app.push("v_${env.BUILD_NUMBER}")
-                        app.push("latest")
+                            docker.withRegistry(env.ECR, 'ecr:ap-southeast-1:aws-jenkins') {
+                                def dockerfile = 'Dockerfile_consumer'
+                                def customImage = docker.build("${env.IMAGE_REPO_NAME}:${env.BUILD_ID}", "--build-arg SLACK_URL=${env.SLACK_URL}", "--build-arg PM2_CONFIG_FILE=${env.PM2_CONFIG_FILE}", "--build-arg PORTAL_API_VERSION=${env.IMAGE_VERSION}", "-f ${dockerfile}")
+                                customImage.push()
+                                customImage.push("latest")
+                            }
                         }
                     }
                 }
