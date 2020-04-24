@@ -1,6 +1,7 @@
 import json
 
 from rest_framework import exceptions
+from ..exceptions import AuthenticationValidationError
 from rest_framework.views import APIView
 from ..models import (
     Case,
@@ -8,7 +9,8 @@ from ..models import (
     CaseHistory,
     Indicator,
     IndicatorPatternType,
-    IndicatorPatternSubtype
+    IndicatorPatternSubtype,
+    Key
 )
 
 from django.db.models import Q
@@ -20,10 +22,10 @@ from .serializers import (
     IndicatorPostSerializer,
     IndicatorSimpleListSerializer,
     IndicatorDetailSerializer,
-    CaseHistoryPostSerializer,
+    CaseHistoryPostSerializer
 )
 
-from ..serializers import CaseTRDBSerializer, CATVSerializer
+from ..serializers import CaseTRDBSerializer, CATVSerializer, LoginSerializer
 from ..constants import Constants
 from .. import utils
 from .. import permissions
@@ -201,4 +203,19 @@ class CATVInternalView(APIView):
         results = serializer.get_tracking_results(tx_limit=addr_limit, limit=addr_limit, save_to_db=False)
         return APIResponse({
             "data": {**results["graph"]}
+        })
+        
+class ProxyAuthentication(APIView):
+    authentication_classes = ()
+    permission_classes = (permissions.InternalOnly,)
+    def post(self, request):
+        req_body = json.loads(request.body)
+        print(req_body)
+        user = Key.objects.get(api_key=req_body['api_key']).user
+        if not user:
+            return APIResponse({"data":{"token":None}})
+        login_serializer = LoginSerializer(data={'email': user.email, 'password':user.password})
+        token = login_serializer.generate_proxy_login_response(user)
+        return APIResponse({
+            "data":{"token":token}
         })

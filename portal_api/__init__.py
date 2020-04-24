@@ -98,5 +98,4 @@ class AppInit:
         allowed_host.append('stgportal.sentinelportal.com')
         allowed_host.append('prdportal.sentinelportal.com')
         allowed_host.append('prdportal.prdsentinelportal.com')
-
         os.environ["ECS_PRIVATE_IP"] = ",".join(allowed_host)
