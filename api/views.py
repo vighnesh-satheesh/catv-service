@@ -751,16 +751,7 @@ class IndicatorView(generics.ListCreateAPIView):
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
-        payload = utils.QueryDictList()
-        for predicate in query_list:
-            if type(predicate) == Q:
-                # this will only happen for keyword search
-                for nested_predicate in predicate.children:
-                    payload[nested_predicate[0]] = [nested_predicate[1]]
-            else:
-                payload[predicate[0]] = predicate[1]
-        query_string_drf = payload.build_query_drf()
-        query_string_raw = payload.build_query_raw()
+        query_string_drf, query_string_raw = utils.build_query_string_filter(query_list)
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
@@ -956,15 +947,32 @@ class GuestSearchView(generics.ListAPIView):
         if len(query) < 3:
             raise exceptions.ValidationError("Search query should contain at least 3 characters.")
 
-        serializer_cls = IndicatorListSerializer
-        queryset = self.get_queryset()
-        serializer = serializer_cls(queryset, many=True)
+        if api_settings.SWITCH_ES_SEARCH:
+            search_results = self.get_indicator_queryset_es(query)
+            return APIResponse({
+                "data": {
+                    "items": search_results.get("results", [])
+                }
+            })
+        else:
+            serializer_cls = IndicatorListSerializer
+            queryset = self.get_queryset()
+            serializer = serializer_cls(queryset, many=True)
 
-        return APIResponse({
-            "data": {
-                "items": serializer.data
-            }
-        })
+            return APIResponse({
+                "data": {
+                    "items": serializer.data
+                }
+            })
+
+    def get_indicator_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+        filter_queries &= Q(security_category__in=[IndicatorSecurityCategory.BLACKLIST.value,
+                                                   IndicatorSecurityCategory.WHITELIST.value])
+        filter_queries &= Q(cases__in=[CaseStatus.CONFIRMED.value, CaseStatus.RELEASED.value])
+
+        query_string_drf, query_string_raw = utils.build_query_string_filter(filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key)
 
     def get_indicator_queryset(self, query):
         filter_queries = Q(pattern__ilike=query)
@@ -994,6 +1002,16 @@ class SearchView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         search_type = self.request.query_params.get("type", "ico")
         query = self.request.query_params.get("q", None)
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        page = self.request.GET.get('page', 1)
+        order_by = order_by.split('_')
+        key = ''
+        if order_by[1] == 'desc':
+            key = '-'
+        key = key + order_by[0]
+        page = int(page)
+        page_size = 25
+
         if query is None:
             raise exceptions.ValidationError("q is required.")
 
@@ -1009,14 +1027,26 @@ class SearchView(generics.ListAPIView):
         else:
             serializer_cls = ICOListSerializer
 
-        queryset = self.filter_queryset(self.get_queryset())
-
-        page = self.paginate_queryset(queryset)
-        if request.auth and search_type == "indicator":
-            serializer = serializer_cls(page, many=True, is_authenticated=True)
+        if search_type == 'indicator' and api_settings.SWITCH_ES_SEARCH:
+            search_results = self.get_indicator_queryset_es(query, page=page, order_key=key)
+            return APIResponse({
+                "data": {
+                    "items": search_results.get("results", []),
+                    "totalItems": search_results.get("totalItems", 0),
+                    "totalPages": search_results.get("totalPages", 0),
+                    "pageIndex": search_results.get("pageIndex", 0),
+                    "itemsPerPage": page_size
+                }
+            })
         else:
-            serializer = serializer_cls(page, many=True)
-        return self.get_paginated_response(serializer.data)
+            queryset = self.filter_queryset(self.get_queryset())
+
+            page = self.paginate_queryset(queryset)
+            if request.auth and search_type == "indicator":
+                serializer = serializer_cls(page, many=True, is_authenticated=True)
+            else:
+                serializer = serializer_cls(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
     def get_ico_queryset(self, query):
         filter_queries = Q(symbol__istartswith=query)
@@ -1024,6 +1054,17 @@ class SearchView(generics.ListAPIView):
             filter_queries |= Q(name__icontains=query)
         objs = ICO.objects.filter(filter_queries).distinct('id').order_by('-pk')
         return objs
+
+    def get_indicator_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+
+        if not self.request.auth:
+            filter_queries &= Q(cases__in=CaseStatus.RELEASED.value)
+        elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
+            filter_queries &= Q(cases__in=[CaseStatus.CONFIRMED.value, CaseStatus.RELEASED.value])
+
+        query_string_drf, query_string_raw = utils.build_query_string_filter(filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key)
 
     def get_indicator_queryset(self, query):
         objs = []
@@ -1095,7 +1136,6 @@ class SearchView(generics.ListAPIView):
     def get_queryset(self):
         query = self.request.query_params.get("q", None)
         search_type = self.request.query_params.get("type", "ico")
-
         if search_type not in ["case", "ico", "indicator"]:
             search_type = "ico"
 

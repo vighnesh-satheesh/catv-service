@@ -5,10 +5,12 @@ import requests
 import requests.exceptions as re_exceptions
 from datetime import datetime
 import random
+import socket
 import string
 from multiprocessing.pool import ThreadPool
 from json import loads
 
+from django.db.models import Q
 from django.utils import six
 from django.utils.encoding import force_text
 
@@ -321,3 +323,31 @@ class AsyncAPICaller:
             resp_dict = {**resp_dict, **resp}
         return resp_dict
 
+
+def build_query_string_filter(query_obj):
+    payload = QueryDictList()
+    for predicate in query_obj:
+        if type(predicate) == Q:
+            # this will only happen for keyword search
+            for nested_predicate in predicate.children:
+                payload[nested_predicate[0]] = [nested_predicate[1]]
+        else:
+            payload[predicate[0]] = predicate[1]
+    query_string_drf = payload.build_query_drf()
+    query_string_raw = payload.build_query_raw()
+    return query_string_drf, query_string_raw
+
+
+def es_serialized_search(query_string, page, order_key):
+    headers = {
+        'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
+    }
+
+    es_serializer_req = requests.get(
+        url=f'{api_settings.BASE_API_URL}ecsearch/indicators/?{query_string}'
+        f'&ordering={order_key}&page={page}',
+        headers=headers
+    )
+    if es_serializer_req.status_code != 200:
+        return {}
+    return loads(es_serializer_req.text)

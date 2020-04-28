@@ -36,9 +36,10 @@ class IndicatorDocumentView(BaseDocumentViewSet):
         CustomSearchBackend,
     ]
     search_fields = {
-        'pattern': {'boost': 4},
-        'detail': {'boost': 2},
-        'annotations': {'boost': 1}
+        'pattern'
+        # 'pattern': {'boost': 4},
+        # 'detail': {'boost': 2},
+        # 'annotations': {'boost': 1}
     }
     filter_fields = {
         'security_category': {
