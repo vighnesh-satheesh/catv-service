@@ -191,7 +191,7 @@ class Listener_Indicator:
                                      "0", "0",
                                      "0", "0", "0", "",
                                      "", "", datetime.datetime.now(datetime.timezone.utc), error,
-                                     "")
+                                     "", "")
                         error_user_query = Constants.QUERIES['CARA_ERROR_USER'].format(dict_item["address"])
                         error_users = self.__trdb_api.get_query(error_user_query)
                         if error_users is not None:
