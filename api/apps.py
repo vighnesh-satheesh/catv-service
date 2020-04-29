@@ -44,6 +44,8 @@ class ApiConfig(AppConfig):
         )
 
     def ready(self):
+        #Comment this if condition to run scheduler in local
+        #Make sure you are not connected to prod if running this scheduler
         if os.environ.get("CONTAINER_TYPE", None) == "portal-api":
             self.init_cache(self.get_model('User'))
             self.send_slack_webhook()
