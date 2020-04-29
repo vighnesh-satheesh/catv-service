@@ -44,12 +44,12 @@ class ApiConfig(AppConfig):
         )
 
     def ready(self):
-        if os.environ.get("CONTAINER_TYPE", None) == "portal-api":
-            self.init_cache(self.get_model('User'))
-            self.send_slack_webhook()
-            from api.scheduler import kafkascheduler
-            kafkascheduler.start()
-            import api.signals
-            # import search_indexes.signals
+        self.init_cache(self.get_model('User'))
+        self.send_slack_webhook()
+        from api.scheduler import kafkascheduler
+        kafkascheduler.start()
+        import api.signals
+        # import search_indexes.signals
+            
 
             
