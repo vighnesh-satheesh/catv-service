@@ -2175,17 +2175,18 @@ class CARA(APIView):
         user = self.request.GET.get('user')
         force = self.request.GET.get('force')
         blockchain = self.request.GET.get('token')
+        time = datetime.datetime.now(datetime.timezone.utc)
+        if blockchain == 'eth':
+            address = address.lower()
+            data = (user, address, time)
+        else:
+            data = (user, address, time)
         if force:
             cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(
-                address.lower(), user)
+                address, user)
             with connection.cursor() as cursor:
                 cursor.execute(cara_history_delete_query)
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
-        time = datetime.datetime.now(datetime.timezone.utc)
-        if blockchain == 'eth':
-			address = address.lower()
-            data = (user, address, time)        else:
-            data = (user, address, time)
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
         data = {'address': address,
