@@ -759,6 +759,8 @@ class IndicatorView(generics.ListCreateAPIView):
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
         pattern_type = self.request.GET.getlist("pattern_type") or []
         keyword = self.request.GET.getlist("keyword") or []
+        user_case = self.request.GET.get(
+            "user_case")
 
         if len(security_category) > 0:
             ftr &= Q(security_category__in=security_category)
@@ -778,10 +780,27 @@ class IndicatorView(generics.ListCreateAPIView):
                         keyword_filter |= Q(id=k)
             ftr &= keyword_filter
 
-        if len(status) > 0:
+        # if len(status) > 0:
+        if status:
             ftr &= Q(cases__in=status) if api_settings.SWITCH_ES_SEARCH else Q(
                 cases__status__in=status)
 
+        elif user_case:
+            # Fix for portal-frontend user view
+            user, status = user_case.split("_")
+            print(f"user: {user} | status: {status}")
+            # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!s
+            es_flag = api_settings.SWITCH_ES_SEARCH
+            # DO NOT COMMENT OUT UNLESS ES HAS BEEN HANDLED
+            es_flag = False
+            if es_flag:
+                ftr &= Q(cases__in=status)
+            else:
+                # Get user id
+                user_id = User.objects.get(uid=user).id
+                if status == 'released':
+                    ftr &= Q(cases__status=status)
+                ftr &= Q(user_id=user_id)
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
@@ -2157,19 +2176,17 @@ class CARA(APIView):
         user = self.request.GET.get('user')
         force = self.request.GET.get('force')
         blockchain = self.request.GET.get('token')
-        time = datetime.datetime.now(datetime.timezone.utc)
-        if blockchain == 'eth':
-            data = (user, address.lower(), time)
-            address = address.lower
-        else:
-            data = (user, address, time)
         if force:
             cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(
-                address, user)
+                address.lower(), user)
             with connection.cursor() as cursor:
                 cursor.execute(cara_history_delete_query)
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
-
+        time = datetime.datetime.now(datetime.timezone.utc)
+        if blockchain == 'eth':
+            data = (user, address.lower(), time)
+        else:
+            data = (user, address, time)
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
         data = {'address': address,
