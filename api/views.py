@@ -755,8 +755,7 @@ class IndicatorView(generics.ListCreateAPIView):
         elif user_case:
             # Fix for portal-frontend user view
             user, status = user_case.split("_")
-            print(f"user: {user} | status: {status}")
-            # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!s
+            # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!
             es_flag = api_settings.SWITCH_ES_SEARCH
             # DO NOT COMMENT OUT UNLESS ES HAS BEEN HANDLED
             es_flag = False
