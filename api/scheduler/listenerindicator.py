@@ -90,7 +90,7 @@ class Listener_Indicator:
         current_end_time = current_start_time + time_interval
 
         # Query trdb for new indicators
-        query = "select id, pattern, updated from api_indicator where pattern_subtype = 'ETH' and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 5"
+        query = "select id, pattern, updated from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC') and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 5"
         try:
            new_indicators = self.__trdb_api.get_query(query)
         except Exception as e:
@@ -179,6 +179,7 @@ class Listener_Indicator:
                     pat = ""
                     links = ""
                     act = ""
+                    fun = ""
                     error = ""
                     qtime = []
                     users = []
@@ -190,7 +191,7 @@ class Listener_Indicator:
                                      "0", "0",
                                      "0", "0", "0", "",
                                      "", "", datetime.datetime.now(datetime.timezone.utc), error,
-                                     "")
+                                     "", "")
                         error_user_query = Constants.QUERIES['CARA_ERROR_USER'].format(dict_item["address"])
                         error_users = self.__trdb_api.get_query(error_user_query)
                         if error_users is not None:
@@ -206,8 +207,11 @@ class Listener_Indicator:
                         for activity in dict_item["illegit_activity_links"]:
                             if activity != '{' and activity != '}' and activity != "'" and activity != ':' and activity != '1' and activity != '0':
                                 act = act+activity
+                        for funds in dict_item["tx_interfere_with_funds"]:
+                            if funds != '{' and funds != '}' and funds != "'" and funds != ':' and funds != '1' and funds != '0':
+                                fun = fun + funds
                         print(pat)
-                        data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],dict_item["num_blacklisted_addr_contacted"],pat,links,act,datetime.datetime.now(datetime.timezone.utc),error,dict_item["ground_truth_label"])
+                        data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],dict_item["num_blacklisted_addr_contacted"],pat,links,act,datetime.datetime.now(datetime.timezone.utc),error,dict_item["ground_truth_label"],fun)
                     for time2, user in zip(qtime, users):
                         TimeDiff = (ntime - time2).total_seconds()
                         print(TimeDiff / 60)
@@ -274,9 +278,16 @@ class Listener_Indicator:
                                              value_serializer=lambda x:
                                              dumps(x).encode('utf-8'))
                     #indicator[2] = indicator[2].strftime("%Y-%m-%d %H:%M:%S")
+                    blockchain = ""
+                    if str(indicator[1]).startswith('0x'):
+                        blockchain = 'eth'
+                    else:
+                        blockchain = 'btc'
                     data = {'id': indicator[0],
                             'address': indicator[1],
-                            'updated_time': indicator[2].strftime("%Y-%m-%d %H:%M:%S")}
+                            'updated_time': indicator[2].strftime("%Y-%m-%d %H:%M:%S"),
+                            'blockchain': blockchain
+                            }
                     print(data)
                     producer.send(settings.KAFKA_BATCH_TOPIC, data)
                     producer.flush()
