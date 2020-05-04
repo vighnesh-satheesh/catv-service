@@ -83,13 +83,13 @@ class Constants:
         "CARA_USER_ID": "SELECT id from api_user where uid = '{0}'",
         "INSERT_CARA_REPORT": "INSERT INTO cara_report(address,risk_score,analysis_start_time,analysis_end_time,"
                               "total_amt,estimated_mal_amt,total_tx,estimated_mal_tx,num_blacklisted_addr_contacted,"
-                              "distinct_transaction_patterns,direct_links_to_malicious_activities,illegit_activity_links,report_generated_time,error,ground_truth_label)"
-                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s)",
+                              "distinct_transaction_patterns,direct_links_to_malicious_activities,illegit_activity_links,report_generated_time,error,ground_truth_label,tx_interfere_with_funds)"
+                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s)",
         "KAFKA_LISTENER_PARAMS": "SELECT kafka_offset from kafka_listener_parameters where id=1",
         "KAFKA_OFFSET_UPDATE": "UPDATE kafka_listener_parameters set kafka_offset={0} where id=1",
         "CARA_REPORT_ADDRESS_GENERATED": "SELECT address, error from cara_report where address='{0}' and report_generated_time > '{1}'",
         "CARA_REPORT_QUERY": "SELECT id, address, risk_score, analysis_end_time, total_amt, estimated_mal_amt, estimated_mal_tx, distinct_transaction_patterns,"
-                             "direct_links_to_malicious_activities, illegit_activity_links, error, ground_truth_label, num_blacklisted_addr_contacted from cara_report"
+                             "direct_links_to_malicious_activities, illegit_activity_links, error, ground_truth_label, num_blacklisted_addr_contacted, tx_interfere_with_funds from cara_report"
                              " where address='{0}'",
         "CARA_REPORT_DELETE_QUERY": "DELETE from cara_report where address='{0}'",
         "SELECT_USER_CATV_HISTORY": "select 0 as id, wallet_address, token_address, source_depth, distribution_depth, "
