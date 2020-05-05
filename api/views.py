@@ -11,7 +11,7 @@ from django.db.models import Q, When, Value, Case as CaseFunc, IntegerField
 from django.db import transaction, IntegrityError
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
-from django.db import connection
+from django.db import connection, connections
 from django.utils import timezone
 
 from rest_framework.views import APIView
@@ -227,9 +227,8 @@ class DashboardView(APIView):
                 "children": org_cases
             })
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
+        with connections['readonly'].cursor() as cursor:
+            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
             all_cases = cursor.fetchall()
             cursor.execute(
                 Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id))
@@ -254,7 +253,7 @@ class DashboardView(APIView):
         elif user.permission is UserPermission.USER:
             cases = [cases[1]]
 
-        with connection.cursor() as cursor:
+        with connections['readonly'].cursor() as cursor:
             if lpv:
                 if user.permission is UserPermission.SUPERSENTINEL or \
                         user.permission is UserPermission.SENTINEL:
@@ -1978,7 +1977,7 @@ class Metrics(APIView):
             indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(tz, aware_startdate.strftime(
                 '%Y-%m-%d'))
 
-            with connection.cursor() as cursor:
+            with connections['readonly'].cursor() as cursor:
                 cursor.execute(case_row_query)
                 cases = cursor.fetchall()
                 cursor.execute(indicator_row_query)
