@@ -1,4 +1,5 @@
 import sys
+from time import sleep
 
 from django.core.management.base import BaseCommand
 from kafka import KafkaConsumer
@@ -33,6 +34,7 @@ class Command(BaseCommand):
                     process_crawled_cases(message)
                 elif message.topic == api_settings.KAFKA_PORTAL_CASE_TOPIC:
                     process_portal_cases(message)
+                sleep(5)
         except KeyboardInterrupt:
             case_consumer.close()
             self.stdout.write(self.style.ERROR("Encountered a keyboard interrupt, exiting..."))
