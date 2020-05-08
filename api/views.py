@@ -7,7 +7,7 @@ import socket
 
 from django.conf import settings
 from django_filters import rest_framework as filters
-from django.db.models import Q, When, Value, Case as CaseFunc, IntegerField
+from django.db.models import F, Q, When, Value, Case as CaseFunc, IntegerField
 from django.db import transaction, IntegrityError
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
@@ -225,7 +225,8 @@ class DashboardView(APIView):
             })
 
         with connections['readonly'].cursor() as cursor:
-            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
+            cursor.execute(
+                Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
             all_cases = cursor.fetchall()
             cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id))
             my_cases = cursor.fetchall()
@@ -726,7 +727,13 @@ class IndicatorView(generics.ListCreateAPIView):
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
         pattern_type = self.request.GET.getlist("pattern_type") or []
         keyword = self.request.GET.getlist("keyword") or []
+        user_case = self.request.GET.get(
+            "user_case", "")
+        case_status = self.request.GET.get("indicator", "all")
+        if case_status != "all":
+            case_status = case_status.split("_")[1]
 
+        # TODO: Lots of conditional statements going on here, need to refactor later
         if len(security_category) > 0:
             ftr &= Q(security_category__in=security_category)
         if len(pattern_type) > 0:
@@ -745,9 +752,26 @@ class IndicatorView(generics.ListCreateAPIView):
                         keyword_filter |= Q(id=k)
             ftr &= keyword_filter
 
-        if len(status) > 0:
-            ftr &= Q(cases__in=status) if api_settings.SWITCH_ES_SEARCH else Q(cases__status__in=status)
+        # if len(status) > 0:
+        if status:
+            ftr &= Q(cases__in=status) if api_settings.SWITCH_ES_SEARCH else Q(
+                cases__status__in=status)
 
+        elif user_case:
+            # Fix for portal-frontend user view
+            user = user_case.split("_")[0]
+            # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!
+            es_flag = api_settings.SWITCH_ES_SEARCH
+            # DO NOT COMMENT OUT UNLESS ES HAS BEEN HANDLED
+            es_flag = False
+            if es_flag:
+                ftr &= Q(cases__in=case_status)
+            else:
+                # Get user id
+                user_id = User.objects.get(uid=user).id
+                if case_status != 'all':
+                    ftr &= Q(cases__status=case_status)
+                ftr &= Q(user_id=user_id)
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
@@ -786,7 +810,9 @@ class IndicatorView(generics.ListCreateAPIView):
         page = int(page)
         page_size = 25
         core_ftr = self.get_filter()
-        if api_settings.SWITCH_ES_SEARCH and core_ftr.children:
+        user_case = self.request.GET.get("user_case", None)
+        # TODO: Lots of conditional statements going on here, need to refactor later
+        if not user_case and api_settings.SWITCH_ES_SEARCH and core_ftr.children:
             ftr = self.add_case_permission_filters(core_ftr)
             indicators = self.get_es_results(ftr.children, key, page)
             return APIResponse({
@@ -799,11 +825,41 @@ class IndicatorView(generics.ListCreateAPIView):
                 }
             })
         else:
-            ftr = self.add_case_permission_filters(core_ftr)
-            indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
-                         page_size * (page - 1):page_size * page]
-            serializer = IndicatorListSerializer(indicators, many=True)
-
+            ftr = self.add_case_permission_filters(
+                core_ftr) if not user_case else core_ftr
+            if user_case:
+                user, case = user_case.split("_")
+                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key).values('id', 'uid', 'user_id', 'security_category', 'security_tags', 'vector', 'environment', 'pattern', 'pattern_type', 'pattern_subtype', 'pattern_tree', 'detail', 'annotation', 'reporter_info', 'created', 'updated', 'case__status')[
+                    page_size * (page - 1):page_size * page]
+                unique = []
+                if case and case == "released":
+                    for i in reversed(indicators):
+                        i["security_category"] = i["security_category"].value
+                        i["pattern_type"] = i["pattern_type"].value
+                        i["pattern_subtype"] = i["pattern_subtype"].value
+                        i["case__status"] = i["case__status"].value
+                        if i["pattern_type"] != "filehash" and i["pattern"] not in unique:
+                            i["points"] = 10
+                            unique.append(i["pattern"])
+                        else:
+                            i["points"] = 0
+                elif case and case != "released":
+                    for i in reversed(indicators):
+                        i["security_category"] = i["security_category"].value
+                        i["pattern_type"] = i["pattern_type"].value
+                        i["pattern_subtype"] = i["pattern_subtype"].value
+                        i["case__status"] = i["case__status"].value
+                        if i["case__status"] == "released" and i["pattern_type"] != "filehash" and i["pattern"] not in unique:
+                            i["points"] = 10
+                            unique.append(i["pattern"])
+                        else:
+                            i["points"] = 0
+                data = indicators
+            else:
+                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
+                    page_size * (page - 1):page_size * page]
+                serializer = IndicatorListSerializer(indicators, many=True)
+                data = serializer.data
             if len(ftr) == 0 and total_items == 0:
                 c = DefaultCache()
                 d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
@@ -819,7 +875,7 @@ class IndicatorView(generics.ListCreateAPIView):
 
             return APIResponse({
                 "data": {
-                    "indicators": serializer.data,
+                    "indicators": data,
                     "totalItems": total_items,
                     "totalPages": math.ceil(total_items / page_size),
                     "pageIndex": page
