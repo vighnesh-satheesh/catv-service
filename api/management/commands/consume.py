@@ -1,5 +1,4 @@
 import sys
-from time import sleep
 
 from django.core.management.base import BaseCommand
 from kafka import KafkaConsumer
@@ -33,8 +32,6 @@ class Command(BaseCommand):
                 print(message)
                 if message.topic in [api_settings.KAFKA_CRAWLED_CASE_TOPIC, api_settings.KAFKA_DELAYED_CASE_TOPIC]:
                     process_crawled_cases(message)
-                    if message.topic == api_settings.KAFKA_DELAYED_CASE_TOPIC:
-                        sleep(5)
                 elif message.topic == api_settings.KAFKA_PORTAL_CASE_TOPIC:
                     process_portal_cases(message)
         except KeyboardInterrupt:
