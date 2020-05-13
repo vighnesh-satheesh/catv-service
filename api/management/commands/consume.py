@@ -13,8 +13,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Connecting to Kafka brokers...")
         case_consumer = KafkaConsumer(
-            api_settings.KAFKA_CRAWLED_CASE_TOPIC,
-            api_settings.KAFKA_PORTAL_CASE_TOPIC,
             api_settings.KAFKA_DELAYED_CASE_TOPIC,
             bootstrap_servers=[
                 api_settings.KAFKA_BROKER_1,
