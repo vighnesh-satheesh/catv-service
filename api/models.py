@@ -572,6 +572,7 @@ class Case(models.Model):
     # user generated info
     title = models.CharField(max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
     detail = models.TextField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    rich_text_detail = models.CharField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     # auto generated info

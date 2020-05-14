@@ -1149,6 +1149,8 @@ class CasePostSerializer(serializers.ModelSerializer):
         required=True, max_length=api_settings.CASE_TITLE_MAX_LEN)
     detail = serializers.CharField(
         required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    rich_text_detail = serializers.CharField(
+        required=False, max_length=api_settings.CASE_DETAIL_MAX_LEN)
     reporter_info = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
     ico = serializers.PrimaryKeyRelatedField(
@@ -1158,7 +1160,7 @@ class CasePostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Case
-        fields = ("title", "detail", "reporter_info",
+        fields = ("title", "detail", "rich_text_detail", "reporter_info",
                   "ico", "indicators", "files")
         read_only_fields = ("id", "uid", "created")
 
@@ -1378,7 +1380,7 @@ class CaseDetailSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "detail", "created", "status", "reported_by",
+        fields = ("id", "uid", "title", "detail", "rich_text_detail", "created", "status", "reported_by",
                   "owned_by", "verified_by", "trdb", "histories", "indicators", "files", "related_cases")
 
     def get_queryset(self):
