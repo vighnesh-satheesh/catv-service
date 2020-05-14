@@ -1121,3 +1121,13 @@ class ConsumerErrorLogs(models.Model):
         indexes = [
             models.Index(fields=['topic'])
         ]
+
+
+class IndicatorPoint(models.Model):
+    user_id = models.IntegerField(null=False)
+    indicator_id = models.IntegerField(null=False)
+    points = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'api_indicator_point'

@@ -1612,6 +1612,10 @@ class CasePatchSerializer(NonNullModelSerializer):
                 ind_list = models.Indicator.objects.exclude(
                     pattern_type='filehash').filter(pattern=ind.pattern)
                 if ind_list.all().count() == 1:
+                    indicator_points = IndicatorPointsSerializer(
+                        data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
+                    indicator_points.is_valid(raise_exception=True)
+                    indicator_points.save()
                     i = i + 1
             if instance.reporter:
                 instance.reporter.points = instance.reporter.points + (10 * i)
@@ -1671,6 +1675,15 @@ class UserPointsSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         print("rep-data=", validated_data)
         return super(UserPointsSerializer, self).update(instance, validated_data)
+
+
+class IndicatorPointsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.IndicatorPoint
+        fields = ["user_id", "indicator_id", "points"]
+    user_id = serializers.IntegerField()
+    indicator_id = serializers.IntegerField()
+    points = serializers.BooleanField()
 
 
 class AutoCompleteSerializer(serializers.Serializer):
