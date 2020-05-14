@@ -894,6 +894,14 @@ class IndicatorView(generics.ListCreateAPIView):
                     page_size * (page - 1):page_size * page]
                 serializer = IndicatorListSerializer(indicators, many=True)
                 data = serializer.data
+                
+            if api_settings.SWITCH_ES_SEARCH and len(ftr) == 0:
+                if permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
+                    query_string = 'cases:(released) OR (confirmed)'
+                else:
+                    query_string = None
+                resp = utils.es_raw_search('_count', query_string)
+                total_items = resp['count']
             if len(ftr) == 0 and total_items == 0:
                 c = DefaultCache()
                 d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])

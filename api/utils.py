@@ -351,3 +351,22 @@ def es_serialized_search(query_string, page, order_key):
     if es_serializer_req.status_code != 200:
         return {}
     return loads(es_serializer_req.text)
+
+
+def es_raw_search(es_func, query_string, **kwargs):
+    if api_settings.ELASTICSEARCH_CREDENTIALS:
+        user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
+        cred = (user, pwd)
+    else:
+        cred = None
+    if query_string:
+        url = f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/{es_func}?q={query_string}'
+    else:
+        url = f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/{es_func}'
+    
+    es_raw_req = requests.get(url=url, auth=cred)
+    if es_raw_req.status_code != 200:
+        return {
+            'count': 0
+        }
+    return loads(es_raw_req.text)
