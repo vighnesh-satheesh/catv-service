@@ -830,7 +830,7 @@ class IndicatorView(generics.ListCreateAPIView):
                 core_ftr) if not user_case else core_ftr
             if user_case:
                 user, case = user_case.split("_")
-                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key).values('id', 'uid', 'user_id', 'security_category', 'security_tags', 'vector', 'environment', 'pattern', 'pattern_type', 'pattern_subtype', 'pattern_tree', 'detail', 'annotation', 'reporter_info', 'created', 'updated', 'case__status')[
+                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key).values('id', 'uid', 'user_id', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'reporter_info', 'created', 'updated', 'case__status')[
                     page_size * (page - 1):page_size * page]
                 unique = []
                 if case and case == "released":
