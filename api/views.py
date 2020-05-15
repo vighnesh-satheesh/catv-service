@@ -837,7 +837,10 @@ class IndicatorView(generics.ListCreateAPIView):
                         i["security_category"] = i["security_category"].value
                         i["pattern_type"] = i["pattern_type"].value
                         i["pattern_subtype"] = i["pattern_subtype"].value
-                        i["case__status"] = i["case__status"].value
+                        if i["case__status"].value:
+                            i["case__status"] = i["case__status"].value
+                        else:
+                            i["case__status"]=="None"
                         if i["pattern_type"] != "filehash" and i["pattern"] not in unique:
                             i["points"] = 10
                             unique.append(i["pattern"])
@@ -848,7 +851,10 @@ class IndicatorView(generics.ListCreateAPIView):
                         i["security_category"] = i["security_category"].value
                         i["pattern_type"] = i["pattern_type"].value
                         i["pattern_subtype"] = i["pattern_subtype"].value
-                        i["case__status"] = i["case__status"].value
+                        if i["case_status"].value:
+                            i["case__status"] = i["case__status"].value
+                        else:
+                            i["case__status"]=="-"
                         if i["case__status"] == "released" and i["pattern_type"] != "filehash" and i["pattern"] not in unique:
                             i["points"] = 10
                             unique.append(i["pattern"])
