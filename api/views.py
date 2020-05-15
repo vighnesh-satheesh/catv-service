@@ -2,6 +2,7 @@ import gzip
 import datetime
 import json
 import math
+from operator import gt, lt
 import pytz
 import socket
 
@@ -77,6 +78,7 @@ from .tasks import (
     CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
     CatvPathHistoryTask, CaseMessageTask, CatvRequestTask
 )
+from .catvutils.metrics import CatvMetrics
 
 
 class HealthCheckView(APIView):
@@ -1778,7 +1780,6 @@ class CATVView(APIView):
             history.update({'user_id': request.user.id, 'token_type': CatvTokens.ETH.value})
             if not serializer.data.get('force_lookup', False) and cached_entry:
                 results = json.loads(gzip.decompress(cached_entry).decode())
-                print(results)
                 CatvHistoryTask().delay(history=history, from_history=True)
             else:
                 results = serializer.get_tracking_results()
@@ -1786,6 +1787,14 @@ class CATVView(APIView):
                 tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
                 CatvHistoryTask().delay(history=history, from_history=from_db)
 
+            catv_metrics = CatvMetrics(results["graph"])
+            if history.get("distribution_depth", 0) > 0:
+                dist_metrics = catv_metrics.generate_metrics(gt)
+                print(dist_metrics)
+            if history.get("source_depth", 0) > 0:
+                src_metrics = catv_metrics.generate_metrics(lt)
+                print(src_metrics)
+                
             if "graph" in results and "messages" in results:
                 return APIResponse({
                     "data": {**results["graph"]},
