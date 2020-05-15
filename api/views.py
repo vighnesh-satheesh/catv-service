@@ -75,7 +75,7 @@ from .email.tasks import SendEmail
 from .constants import Constants
 from .tasks import (
     CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
-    CatvPathHistoryTask, CaseMessageTask
+    CatvPathHistoryTask, CaseMessageTask, CatvRequestTask
 )
 
 
@@ -1808,30 +1808,48 @@ class CATVView(APIView):
         serializer = CATVSerializer(
             data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        tracking_cache = TrackingCache()
-        cache_key = utils.create_tracking_cache_pattern(serializer.data)
-        cached_entry = tracking_cache.get_cache_entry(cache_key)
         history = serializer.data
-        history.update({'user_id': request.user.id,
-                        'token_type': CatvTokens.ETH.value})
-        if not serializer.data.get('force_lookup', False) and cached_entry:
-            results = json.loads(gzip.decompress(cached_entry).decode())
-            CatvHistoryTask().delay(history=history, from_history=True)
+        if api_settings.SWITCH_CATV_KAFKA:
+            try:
+                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                                token_type=CatvTokens.ETH.value,
+                                                search_type=CatvSearchType.FLOW.value,
+                                                search_params=history,
+                                                user=request.user
+                                                )
+                catv_req_task.run()
+                catv_req_task.save()
+                return APIResponse({
+                    "data": {},
+                    "messages": {
+                        "source": "Address successfully submitted for report generation."
+                    }
+                })
+            except:
+                raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
         else:
-            results = serializer.get_tracking_results()
-            from_db = results["api_calls"] > 0
-            tracking_cache.set_cache_entry(
-                cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-            CatvHistoryTask().delay(history=history, from_history=from_db)
+            tracking_cache = TrackingCache()
+            cache_key = utils.create_tracking_cache_pattern(serializer.data)
+            cached_entry = tracking_cache.get_cache_entry(cache_key)
+            history.update({'user_id': request.user.id, 'token_type': CatvTokens.ETH.value})
+            if not serializer.data.get('force_lookup', False) and cached_entry:
+                results = json.loads(gzip.decompress(cached_entry).decode())
+                print(results)
+                CatvHistoryTask().delay(history=history, from_history=True)
+            else:
+                results = serializer.get_tracking_results()
+                from_db = results["api_calls"] > 0
+                tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+                CatvHistoryTask().delay(history=history, from_history=from_db)
 
-        if "graph" in results and "messages" in results:
+            if "graph" in results and "messages" in results:
+                return APIResponse({
+                    "data": {**results["graph"]},
+                    "messages": {**results["messages"]}
+                })
             return APIResponse({
-                "data": {**results["graph"]},
-                "messages": {**results["messages"]}
+                "data": results
             })
-        return APIResponse({
-            "data": results
-        })
 
 
 class CATVBTCView(APIView):
@@ -1847,18 +1865,37 @@ class CATVBTCView(APIView):
             data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         history = serializer.data
-        history.update({'user_id': request.user.id,
-                        'token_type': CatvTokens.BTC.value})
-        results = serializer.get_tracking_results()
-        CatvHistoryTask().delay(history=history, from_history=False)
-        if "graph" in results and "messages" in results:
+        if api_settings.SWITCH_CATV_KAFKA:
+            try:
+                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                                token_type=CatvTokens.BTC.value,
+                                                search_type=CatvSearchType.FLOW.value,
+                                                search_params=history,
+                                                user=request.user
+                                                )
+                catv_req_task.run()
+                catv_req_task.save()
+                return APIResponse({
+                    "data": {},
+                    "messages": {
+                        "source": "Address successfully submitted for report generation."
+                    }
+                })
+            except:
+                raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
+                                             f"Please try again later.")
+        else:
+            history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
+            results = serializer.get_tracking_results()
+            CatvHistoryTask().delay(history=history, from_history=False)
+            if "graph" in results and "messages" in results:
+                return APIResponse({
+                    "data": {**results["graph"]},
+                    "messages": {**results["messages"]}
+                })
             return APIResponse({
-                "data": {**results["graph"]},
-                "messages": {**results["messages"]}
+                "data": results
             })
-        return APIResponse({
-            "data": results
-        })
 
 
 class CATVBTCTxlistView(APIView):
@@ -1925,28 +1962,46 @@ class CATVBTCCoinpathView(APIView):
             data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         history = serializer.data
-        tracking_cache = TrackingCache()
-        cache_key = utils.create_tracking_cache_pattern(history)
-        cached_entry = tracking_cache.get_cache_entry(cache_key)
-        history.update({'user_id': request.user.id,
-                        'token_type': CatvTokens.BTC.value})
-
-        if not history.get('force_lookup', False) and cached_entry:
-            results = json.loads(gzip.decompress(cached_entry).decode())
+        if api_settings.SWITCH_CATV_KAFKA:
+            try:
+                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                                token_type=CatvTokens.BTC.value,
+                                                search_type=CatvSearchType.FLOW.value,
+                                                search_params=history,
+                                                user=request.user
+                                                )
+                catv_req_task.run()
+                catv_req_task.save()
+                return APIResponse({
+                    "data": {},
+                    "messages": {
+                        "source": "Address successfully submitted for report generation."
+                    }
+                })
+            except:
+                raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
+                                             f"Please try again later.")
         else:
-            results = serializer.get_tracking_results()
-            tracking_cache.set_cache_entry(
-                cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-        CatvHistoryTask().delay(history=history, from_history=False)
+            tracking_cache = TrackingCache()
+            cache_key = utils.create_tracking_cache_pattern(history)
+            cached_entry = tracking_cache.get_cache_entry(cache_key)
+            history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
 
-        if "graph" in results and "messages" in results:
+            if not history.get('force_lookup', False) and cached_entry:
+                results = json.loads(gzip.decompress(cached_entry).decode())
+            else:
+                results = serializer.get_tracking_results()
+                tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+            CatvHistoryTask().delay(history=history, from_history=False)
+
+            if "graph" in results and "messages" in results:
+                return APIResponse({
+                    "data": {**results["graph"]},
+                    "messages": {**results["messages"]}
+                })
             return APIResponse({
-                "data": {**results["graph"]},
-                "messages": {**results["messages"]}
+                "data": results
             })
-        return APIResponse({
-            "data": results
-        })
 
 
 class Metrics(APIView):
@@ -2568,25 +2623,43 @@ class CATVEthPathView(APIView):
             data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         history = serializer.data
-        tracking_cache = TrackingCache()
-        cache_key = utils.create_path_cache_pattern(history)
-        cached_entry = tracking_cache.get_cache_entry(cache_key)
-        history.update({'user_id': request.user.id, 'token_type': token_type})
-
-        if not history.get('force_lookup', False) and cached_entry:
-            results = json.loads(gzip.decompress(cached_entry).decode())
-            CatvPathHistoryTask().delay(history=history, from_history=True)
+        if api_settings.SWITCH_CATV_KAFKA:
+            try:
+                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                                token_type=token_type.upper(),
+                                                search_type=CatvSearchType.PATH.value,
+                                                search_params=history,
+                                                user=request.user
+                                                )
+                catv_req_task.run()
+                catv_req_task.save()
+                return APIResponse({
+                    "data": {},
+                    "messages": {
+                        "source": "Address successfully submitted for report generation."
+                    }
+                })
+            except:
+                raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
         else:
-            results = serializer.get_tracking_results()
-            tracking_cache.set_cache_entry(
-                cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-            CatvPathHistoryTask().delay(history=history, from_history=False)
+            tracking_cache = TrackingCache()
+            cache_key = utils.create_path_cache_pattern(history)
+            cached_entry = tracking_cache.get_cache_entry(cache_key)
+            history.update({'user_id': request.user.id, 'token_type': token_type})
 
-        if "graph" in results and "messages" in results:
+            if not history.get('force_lookup', False) and cached_entry:
+                results = json.loads(gzip.decompress(cached_entry).decode())
+                CatvPathHistoryTask().delay(history=history, from_history=True)
+            else:
+                results = serializer.get_tracking_results()
+                tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+                CatvPathHistoryTask().delay(history=history, from_history=False)
+
+            if "graph" in results and "messages" in results:
+                return APIResponse({
+                    "data": {**results["graph"]},
+                    "messages": {**results["messages"]}
+                })
             return APIResponse({
-                "data": {**results["graph"]},
-                "messages": {**results["messages"]}
+                "data": results
             })
-        return APIResponse({
-            "data": results
-        })

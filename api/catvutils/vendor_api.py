@@ -63,6 +63,8 @@ class BloxyBTCAPIInterface:
 
     def fetch_api_response(self, api_url, data, timeout=600):
         response = requests.get(api_url, params=data, timeout=timeout)
+        print(api_url)
+        print(data)
         if response.status_code != 200:
             print(response)
             return []
