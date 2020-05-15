@@ -35,7 +35,7 @@ from .models import (
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
-    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus
+    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus, IndicatorPoint
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -865,29 +865,21 @@ class IndicatorView(generics.ListCreateAPIView):
                 user, case = user_case.split("_")
                 indicators = self.model.objects.filter(ftr).distinct('id').order_by(key).values('id', 'uid', 'user_id', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'reporter_info', 'created', 'updated', 'case__status')[
                     page_size * (page - 1):page_size * page]
-                unique = []
-                if case and case == "released":
-                    for i in reversed(indicators):
-                        i["security_category"] = i["security_category"].value
-                        i["pattern_type"] = i["pattern_type"].value
-                        i["pattern_subtype"] = i["pattern_subtype"].value
+                # TODO integerate this query with ES search
+                points = IndicatorPoint.objects.filter(indicator_id__in=[
+                                                       i['id'] for i in indicators], user_id=indicators[0]['user_id'], points=True).values_list("indicator_id", flat=True)
+                for i in indicators:
+                    i["security_category"] = i["security_category"].value
+                    i["pattern_type"] = i["pattern_type"].value
+                    i["pattern_subtype"] = i["pattern_subtype"].value
+                    if i["case__status"]:
                         i["case__status"] = i["case__status"].value
-                        if i["pattern_type"] != "filehash" and i["pattern"] not in unique:
-                            i["points"] = 10
-                            unique.append(i["pattern"])
-                        else:
-                            i["points"] = 0
-                elif case and case != "released":
-                    for i in reversed(indicators):
-                        i["security_category"] = i["security_category"].value
-                        i["pattern_type"] = i["pattern_type"].value
-                        i["pattern_subtype"] = i["pattern_subtype"].value
-                        i["case__status"] = i["case__status"].value
-                        if i["case__status"] == "released" and i["pattern_type"] != "filehash" and i["pattern"] not in unique:
-                            i["points"] = 10
-                            unique.append(i["pattern"])
-                        else:
-                            i["points"] = 0
+                    else:
+                        i["case__status"] = "-"
+                    if i["id"] in points:
+                        i["points"] = 10
+                    else:
+                        i["points"] = 0
                 data = indicators
             else:
                 indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
