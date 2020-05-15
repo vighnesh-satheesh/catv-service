@@ -339,6 +339,17 @@ class CatvTokens(Enum):
     BTC = 'BTC'
 
 
+class CatvSearchType(Enum):
+    PATH = 'path'
+    FLOW = 'flow'
+
+
+class CatvTaskStatusType(Enum):
+    PROGRESS = 'progress'
+    RELEASED = 'released'
+    FAILED = 'failed'
+
+
 @unique
 class FileStatus(IntEnum):
     NEW = 0
@@ -1152,3 +1163,19 @@ class UserIndicator(models.Model):
 
     class Meta:
         managed = False
+
+class CatvRequestStatus(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    params = JSONField(default=dict)
+    result = JSONField(default=dict)
+    status = EnumField(enum=CatvTaskStatusType, default=CatvTaskStatusType.PROGRESS)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created = models.DateTimeField(default=now)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'api_catv_request_status'
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['user'],)
+        ]
