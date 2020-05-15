@@ -840,7 +840,7 @@ class IndicatorView(generics.ListCreateAPIView):
                         if i["case__status"].value:
                             i["case__status"] = i["case__status"].value
                         else:
-                            i["case__status"]=="None"
+                            i["case__status"]=="-"
                         if i["pattern_type"] != "filehash" and i["pattern"] not in unique:
                             i["points"] = 10
                             unique.append(i["pattern"])
