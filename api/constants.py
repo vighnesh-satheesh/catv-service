@@ -68,11 +68,10 @@ class Constants:
                                "FROM api_case "
                                "WHERE created at TIME ZONE '{0}' > '{1}' "
                                "GROUP BY d",
-        "SELECT_METRICS_INDICATOR": "SELECT count(id), date_trunc('day', created AT TIME ZONE '{0}') as d, " 
+        "SELECT_METRICS_INDICATOR": "SELECT indicator_count, date_created, "
                                     "pattern_type, pattern_subtype, security_tags "
-                                    "FROM matvw_indicator_month "
-                                    "WHERE created AT TIME ZONE '{0}' > '{1}' "
-                                    "GROUP BY d, pattern_type, pattern_subtype, security_tags",
+                                    "FROM matvw_indicator_monthly "
+                                    "WHERE date_created > '{0}';",
         "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history VALUES(%s,%s,%s);",
         "DELETE_ADDRESS_FROM_HISTORY": "DELETE from cara_search_history where address='{0}' and id='{1}'",
         "CARA_HISTORY_USER": "SELECT address, query_time from cara_search_history where id = '{0}'",
@@ -159,6 +158,10 @@ class Constants:
                                    "where ac.status='released' "
                                    "order by ac.updated desc limit 1)) "
                                    "order by updated desc limit 1;",
+        "FAKE_SELECT_LPV_CASE_ALL": "SELECT x.status, x.cntr from ("
+                                    "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
+                                    "('released', 0)) x(status, cntr);",
+        "FAKE_SELECT_INDICATOR_COUNT": "SELECT 0 as count from api_indicator limit 1;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",
