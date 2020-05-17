@@ -807,8 +807,8 @@ class IndicatorView(generics.ListCreateAPIView):
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
-        query_string_drf, query_string_raw = utils.build_query_string_filter(
-            query_list)
+        query_string_drf, query_string_raw = utils.build_query_string_filter(query_list)
+        search_query = next((query for query in query_list if query[0] == 'search'), None)
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
@@ -824,9 +824,10 @@ class IndicatorView(generics.ListCreateAPIView):
         es_raw_req = requests.Request('GET',
                                       f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/_count?q={query_string_raw}',
                                       auth=cred)
-
-        async_req_caller = utils.AsyncAPICaller(
-            [es_serializer_req, es_raw_req])
+        if search_query:
+            async_req_caller = utils.AsyncAPICaller([es_serializer_req, es_raw_req])
+        else:
+            async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
         result = async_req_caller.execute_request_pool()
 
         return result
