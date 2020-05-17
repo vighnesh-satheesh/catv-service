@@ -226,15 +226,15 @@ class DashboardView(APIView):
 
         with connections['readonly'].cursor() as cursor:
             cursor.execute(
-                Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
+                Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
             all_cases = cursor.fetchall()
-            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id))
+            cursor.execute(Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
             my_cases = cursor.fetchall()
             cases[0]["children"] = all_cases
             cases[1]["children"] = my_cases
             if org_cases:
                 users = tuple(user_list)
-                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ORG'].format(users))
+                cursor.execute(Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
                 org_cases = cursor.fetchall()
                 cases[2]["children"] = org_cases
 
@@ -258,9 +258,9 @@ class DashboardView(APIView):
                 sql = ''
                 if user.permission is UserPermission.SUPERSENTINEL or \
                         user.permission is UserPermission.SENTINEL:
-                    sql = Constants.QUERIES['SELECT_INDICATOR_COUNT']
+                    sql = Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT']
                 else:
-                    sql = Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'] % ("'released'", "'confirmed'",)
+                    sql = Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT']
 
                 cursor.execute(sql)
                 row = cursor.fetchone()
@@ -1937,7 +1937,7 @@ class Metrics(APIView):
 
         if not cached:
             case_row_query = Constants.QUERIES['SELECT_METRICS_CASE'].format(tz, aware_startdate.strftime('%Y-%m-%d'))
-            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(tz, aware_startdate.strftime(
+            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(aware_startdate.strftime(
                 '%Y-%m-%d'))
 
             with connections['readonly'].cursor() as cursor:
