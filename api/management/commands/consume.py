@@ -13,6 +13,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Connecting to Kafka brokers...")
         case_consumer = KafkaConsumer(
+            api_settings.KAFKA_CRAWLED_CASE_TOPIC,
+            api_settings.KAFKA_PORTAL_CASE_TOPIC,
             api_settings.KAFKA_DELAYED_CASE_TOPIC,
             bootstrap_servers=[
                 api_settings.KAFKA_BROKER_1,
@@ -28,10 +30,8 @@ class Command(BaseCommand):
         try:
             for message in case_consumer:
                 print(message)
-                if message.topic in [api_settings.KAFKA_CRAWLED_CASE_TOPIC, api_settings.KAFKA_DELAYED_CASE_TOPIC]:
+                if message.topic == api_settings.KAFKA_DELAYED_CASE_TOPIC:
                     process_crawled_cases(message)
-                elif message.topic == api_settings.KAFKA_PORTAL_CASE_TOPIC:
-                    process_portal_cases(message)
         except KeyboardInterrupt:
             case_consumer.close()
             self.stdout.write(self.style.ERROR("Encountered a keyboard interrupt, exiting..."))
