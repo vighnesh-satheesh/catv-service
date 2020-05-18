@@ -1179,3 +1179,18 @@ class CatvRequestStatus(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['user'],)
         ]
+
+
+class IndicatorExtraAnnotation(models.Model):
+    pattern = models.CharField(max_length=256)
+    annotation = models.CharField(max_length=256, blank=True, null=True)
+    created = models.DateTimeField(default=now)
+    updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'api_indicator_extra_annotation'
+        indexes = [
+            CustomGinIndex(fields=['pattern', ]),
+            models.Index(fields=['annotation', ]),
+            models.Index(fields=['pattern', ]),
+        ]

@@ -227,7 +227,7 @@ class CatvRequestTask:
         
     def run(self):
         message_body = {
-            "message_id": self.message_id,
+            "message_id": self.message_id.hex,
             "user_id": self.user.id,
             "token_type": self.token_type,
             "search_type": self.search_type,
@@ -247,11 +247,12 @@ class CatvRequestTask:
         producer.close()
     
     def save(self):
-        CatvRequestStatus.objects.create(
+        task_record = CatvRequestStatus.objects.create(
             uid=self.message_id,
             params=self.search_params,
             user=self.user
         )
+        return task_record.uid
 
 
 tasks.register(CacheLeftPanelValuesTask)

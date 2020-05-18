@@ -349,6 +349,8 @@ API_SETTINGS = {
     "KAFKA_CRAWLED_CASE_TOPIC": env.str("API_KAFKA_CRAWLED_CASE_TOPIC", "crawled-cases"),
     "KAFKA_PORTAL_CASE_TOPIC": env.str("API_KAFKA_PORTAL_CASE_TOPIC", "portal-cases"),
     "KAFKA_DELAYED_CASE_TOPIC": env.str("API_KAFKA_DELAYED_CASE_TOPIC", "crawled-delayed-cases"),
+    "KAFKA_CATV_TOPIC": env.str("API_KAFKA_CATV_TOPIC", "dev-catv-messages"),
+    "SWITCH_CATV_KAFKA": env.bool("API_SWITCH_CATV_KAFKA", True),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.

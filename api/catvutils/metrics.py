@@ -1,6 +1,8 @@
 from collections import defaultdict
 from itertools import groupby
 
+from api.models import IndicatorExtraAnnotation
+
 __all__ = ('CatvMetrics',)
 
 
@@ -64,3 +66,14 @@ class CatvMetrics:
             "max_sender": max_sender,
             "max_receiver": max_receiver
         }
+    
+    def save_annotations(self):
+        bulk_indicators = []
+        for node in self.node_list:
+            annotation = node["annotation"]
+            if annotation:
+               bulk_indicators.append(
+                   IndicatorExtraAnnotation(pattern=node["address"], annotation=annotation)
+               )
+        IndicatorExtraAnnotation.objects.bulk_create(bulk_indicators)
+

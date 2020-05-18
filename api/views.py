@@ -36,7 +36,8 @@ from .models import (
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
-    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus, IndicatorPoint, UserIndicator
+    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus,
+    IndicatorPoint, UserIndicator, CatvSearchType
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -1764,14 +1765,16 @@ class CATVView(APIView):
                                                 user=request.user
                                                 )
                 catv_req_task.run()
-                catv_req_task.save()
+                task_uid = catv_req_task.save()
                 return APIResponse({
                     "data": {},
                     "messages": {
-                        "source": "Address successfully submitted for report generation."
+                        "source": "Address successfully submitted for report generation.",
+                        "task_uid": task_uid
                     }
                 })
-            except:
+            except Exception as e:
+                print(str(e))
                 raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
         else:
             tracking_cache = TrackingCache()
