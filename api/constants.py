@@ -58,7 +58,7 @@ class Constants:
                                          "pattern_type, pattern_subtype FROM api_indicator where created > %s "
                                          "order by created desc;",
         "SELECT_CASE_BY_CREATED": "SELECT created from api_case where created > %s order by created desc;",
-        "SELECT_CASE_DETAILS": "SELECT status, reporter_id, owner_id FROM api_case;",
+        "SELECT_CASE_DETAILS": "SELECT status, reporter_id, owner_id FROM api_case limit 1;",
         "SELECT_INDICATOR_COUNT": "SELECT count(*) from api_indicator;",
         "SELECT_CASE_INDICATOR_COUNT": "SELECT COUNT(ci.indicator_id) FROM api_m2m_case_indicator AS ci "
                                        "JOIN api_case as c ON ci.case_id = c.id "
