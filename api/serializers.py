@@ -1293,6 +1293,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                             history_log['indicatorRemoved'] = True
                     else:
                         indi_item["case"] = instance
+                        indi_item["user"] = self.context["request"].user
                         indicator = models.Indicator.objects.create(
                             **indi_item)
                         models.CaseIndicator.objects.create(

@@ -569,7 +569,10 @@ class CaseDetailView(APIView):
 
         serializer = CasePostSerializer(obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        if request.auth is not None:
+            serializer.save(reporter=request.user)
+        else:
+            serializer.save()
         c = DefaultCache()
         c.delete_view_cache(request)
 
