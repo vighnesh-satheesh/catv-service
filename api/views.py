@@ -835,23 +835,27 @@ class IndicatorView(generics.ListCreateAPIView):
                 core_ftr) if not user_case else core_ftr
             if user_case:
                 user, case = user_case.split("_")
-                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key).values('id', 'uid', 'user_id', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'reporter_info', 'created', 'updated', 'case__status')[
+                indicators = self.model.objects.filter(ftr).order_by(key).values('id', 'uid', 'user_id', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'reporter_info', 'created', 'updated', 'case__status')[
                     page_size * (page - 1):page_size * page]
                 # TODO integerate this query with ES search
-                points = IndicatorPoint.objects.filter(indicator_id__in=[
+                if indicators:
+                    points = IndicatorPoint.objects.filter(indicator_id__in=[
                                                        i['id'] for i in indicators], user_id=indicators[0]['user_id'], points=True).values_list("indicator_id", flat=True)
-                for i in indicators:
-                    i["security_category"] = i["security_category"].value
-                    i["pattern_type"] = i["pattern_type"].value
-                    i["pattern_subtype"] = i["pattern_subtype"].value
-                    if i["case__status"]:
-                        i["case__status"] = i["case__status"].value
-                    else:
-                        i["case__status"] = "-"
-                    if i["id"] in points:
-                        i["points"] = 10
-                    else:
-                        i["points"] = 0
+                    for i in indicators:
+                        i["security_category"] = i["security_category"].value
+                        i["pattern_type"] = i["pattern_type"].value
+                        i["pattern_subtype"] = i["pattern_subtype"].value
+                        if i["case__status"]:
+                            i["case__status"] = i["case__status"].value
+                        else:
+                            i["case__status"] = "-"
+                        if points and i["id"] in points:
+                            i["points"] = 10
+                        else:
+                            i["points"] = 0
+                else:
+                    indicators = []
+                    points = []
                 data = indicators
             else:
                 indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
