@@ -340,7 +340,7 @@ API_SETTINGS = {
     "KAFKA_USER_TOPIC": env.str('KAFKA_USER_TOPIC', 'cara-address'),
     "KAFKA_BATCH_TOPIC": env.str('KAFKA_BATCH_TOPIC', 'cara-indicator'),
     "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
-    "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', False),
+    "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', True),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
     "LYZE_API_KEY": env.str('API_LYZE_KEY'),
     "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
