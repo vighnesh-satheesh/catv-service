@@ -765,15 +765,12 @@ class IndicatorView(generics.ListCreateAPIView):
             user = user_case.split("_")[0]
             # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!
             es_flag = api_settings.SWITCH_ES_SEARCH
-            # DO NOT COMMENT OUT UNLESS ES HAS BEEN HANDLED
-            es_flag = True
             if es_flag:
                 user_id = User.objects.get(uid=user).id
                 if case_status != 'all':
-                    ftr &= Q(cases='released')
+                    ftr &= Q(cases__in=case_status)
                 ftr &= Q(user_id=(str(user_id)))
 
-                # ftr &= Q(cases__in=case_status)
             else:
                 # Get user id
                 user_id = User.objects.get(uid=user).id
@@ -783,7 +780,6 @@ class IndicatorView(generics.ListCreateAPIView):
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
-        print(f"in get_es_results {query_list},{order_key},{page}")
         query_string_drf, query_string_raw = utils.build_query_string_filter(
             query_list)
         # query_string_drf = "&q=".join([":".join(q) for q in query_list])
