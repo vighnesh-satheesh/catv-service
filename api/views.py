@@ -856,13 +856,10 @@ class IndicatorView(generics.ListCreateAPIView):
                     cursor.execute(
                         f"SELECT COUNT(id) FROM fn_{sentinel_flag}user_points_status({ftr['user_id']}, '{ftr['case_status']}')")
                     total_items = cursor.fetchall()[0][0]
-                if total_items:
                     indicators = UserIndicator.objects.raw(f"SELECT * FROM fn_{sentinel_flag}user_points_status({ftr['user_id']}, '{ftr['case_status']}')")[
                         page_size * (page - 1):page_size * page]
                     serializer = UserIndicatorSerializer(indicators, many=True)
                     data = serializer.data
-                else:
-                    data = []
             else:
                 indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
                     page_size * (page - 1):page_size * page]
