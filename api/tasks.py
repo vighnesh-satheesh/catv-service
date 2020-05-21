@@ -252,7 +252,7 @@ class CatvRequestTask:
             params=self.search_params,
             user=self.user
         )
-        return task_record.uid
+        return task_record
 
 
 tasks.register(CacheLeftPanelValuesTask)

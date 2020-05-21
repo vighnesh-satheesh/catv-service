@@ -101,6 +101,9 @@ class ICFNotFound(exceptions.NotFound):
 class OrganizationNotFound(exceptions.NotFound):
     default_detail = _('organization not found')
 
+class CATVReportNotFound(exceptions.NotFound):
+    default_detail = _('CATV Report not found')
+
 #####
 # 403
 #####

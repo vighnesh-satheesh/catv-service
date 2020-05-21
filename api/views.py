@@ -1810,25 +1810,55 @@ class CATVView(APIView):
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
 
     def post(self, request):
-        serializer = CATVSerializer(
-            data=request.data, context={"request": request})
+        token_type = self.request.query_params.get('token_type', CatvTokens.ETH.value)
+        search_type = self.request.query_params.get('search_type', CatvSearchType.FLOW.value)
+        allowed_tokens = [token.value for token in CatvTokens]
+        allowed_search = [search.value for search in CatvSearchType]
+        if token_type not in allowed_tokens:
+            raise exceptions.ValidationError(f"Invalid token type. Supported: {(', ').join(allowed_tokens)}")
+        if search_type not in allowed_search:
+            raise exceptions.ValidationError(f"Invalid search type. Supported: {(', ').join(allowed_search)}")
+        serializer_map = {
+            CatvTokens.ETH.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.BTC.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
+            }
+        }
+        utils_map = {
+            CatvSearchType.FLOW.value: {
+                'pattern_creator': utils.create_tracking_cache_pattern,
+                'history_runner': CatvHistoryTask
+            },
+            CatvSearchType.PATH.value: {
+                'pattern_creator': utils.create_path_cache_pattern,
+                'history_runner': CatvPathHistoryTask
+            }
+        }
+        serializer_cls = serializer_map[token_type][search_type]
+        serializer = serializer_cls(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         history = serializer.data
         if api_settings.SWITCH_CATV_KAFKA:
             try:
                 catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
-                                                token_type=CatvTokens.ETH.value,
-                                                search_type=CatvSearchType.FLOW.value,
+                                                token_type=token_type,
+                                                search_type=search_type,
                                                 search_params=history,
                                                 user=request.user
                                                 )
                 catv_req_task.run()
-                task_uid = catv_req_task.save()
+                task = catv_req_task.save()
+                task_serializer = CATVRequestListSerializer(task)
                 return APIResponse({
-                    "data": {},
+                    "data": {
+                        **task_serializer.data
+                    },
                     "messages": {
-                        "source": "Address successfully submitted for report generation.",
-                        "task_uid": task_uid
+                        "source": "Address successfully submitted for report generation."
                     }
                 })
             except Exception as e:
@@ -1836,17 +1866,18 @@ class CATVView(APIView):
                 raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
         else:
             tracking_cache = TrackingCache()
-            cache_key = utils.create_tracking_cache_pattern(serializer.data)
+            cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
+            history_runner = utils_map[search_type]['history_runner']
             cached_entry = tracking_cache.get_cache_entry(cache_key)
-            history.update({'user_id': request.user.id, 'token_type': CatvTokens.ETH.value})
+            history.update({'user_id': request.user.id, 'token_type': token_type})
             if not serializer.data.get('force_lookup', False) and cached_entry:
                 results = json.loads(gzip.decompress(cached_entry).decode())
-                CatvHistoryTask().delay(history=history, from_history=True)
+                history_runner().run(history=history, from_history=True)
             else:
                 results = serializer.get_tracking_results()
                 from_db = results["api_calls"] > 0
                 tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-                CatvHistoryTask().delay(history=history, from_history=from_db)
+                history_runner().run(history=history, from_history=from_db)
 
             catv_metrics = CatvMetrics(results["graph"])
             if history.get("distribution_depth", 0) > 0:
@@ -1961,61 +1992,6 @@ class CATVHistoryView(APIView):
         return APIResponse({
             "data": history_list
         })
-
-
-class CATVBTCCoinpathView(APIView):
-    authentication_classes = (CachedTokenAuthentication, )
-    permission_classes = (IsAuthenticated, )
-
-    def get_throttles(self):
-        if self.request.method.lower() == 'post':
-            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
-
-    def post(self, request):
-        serializer = CATVBTCCoinpathSerializer(
-            data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        history = serializer.data
-        if api_settings.SWITCH_CATV_KAFKA:
-            try:
-                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
-                                                token_type=CatvTokens.BTC.value,
-                                                search_type=CatvSearchType.FLOW.value,
-                                                search_params=history,
-                                                user=request.user
-                                                )
-                catv_req_task.run()
-                catv_req_task.save()
-                return APIResponse({
-                    "data": {},
-                    "messages": {
-                        "source": "Address successfully submitted for report generation."
-                    }
-                })
-            except:
-                raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
-                                             f"Please try again later.")
-        else:
-            tracking_cache = TrackingCache()
-            cache_key = utils.create_tracking_cache_pattern(history)
-            cached_entry = tracking_cache.get_cache_entry(cache_key)
-            history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
-
-            if not history.get('force_lookup', False) and cached_entry:
-                results = json.loads(gzip.decompress(cached_entry).decode())
-            else:
-                results = serializer.get_tracking_results()
-                tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-            CatvHistoryTask().delay(history=history, from_history=False)
-
-            if "graph" in results and "messages" in results:
-                return APIResponse({
-                    "data": {**results["graph"]},
-                    "messages": {**results["messages"]}
-                })
-            return APIResponse({
-                "data": results
-            })
 
 
 class Metrics(APIView):
@@ -2614,71 +2590,6 @@ def exchange_oauth_api_token(request, backend):
         raise exceptions.AuthenticationValidationError()
 
 
-class CATVEthPathView(APIView):
-    authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
-
-    def get_throttles(self):
-        if self.request.method.lower() == 'post':
-            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
-
-    def post(self, request):
-        serializer_map = {
-            CatvTokens.ETH.value: CATVEthPathSerializer,
-            CatvTokens.BTC.value: CatvBtcPathSerializer
-        }
-        token_type = self.request.query_params.get(
-            'token_type', CatvTokens.ETH.value)
-        if token_type.upper() not in serializer_map.keys():
-            serializer_instance = serializer_map[CatvTokens.ETH.value]
-        else:
-            serializer_instance = serializer_map[token_type.upper()]
-        serializer = serializer_instance(
-            data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        history = serializer.data
-        if api_settings.SWITCH_CATV_KAFKA:
-            try:
-                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
-                                                token_type=token_type.upper(),
-                                                search_type=CatvSearchType.PATH.value,
-                                                search_params=history,
-                                                user=request.user
-                                                )
-                catv_req_task.run()
-                catv_req_task.save()
-                return APIResponse({
-                    "data": {},
-                    "messages": {
-                        "source": "Address successfully submitted for report generation."
-                    }
-                })
-            except:
-                raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
-        else:
-            tracking_cache = TrackingCache()
-            cache_key = utils.create_path_cache_pattern(history)
-            cached_entry = tracking_cache.get_cache_entry(cache_key)
-            history.update({'user_id': request.user.id, 'token_type': token_type})
-
-            if not history.get('force_lookup', False) and cached_entry:
-                results = json.loads(gzip.decompress(cached_entry).decode())
-                CatvPathHistoryTask().delay(history=history, from_history=True)
-            else:
-                results = serializer.get_tracking_results()
-                tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-                CatvPathHistoryTask().delay(history=history, from_history=False)
-
-            if "graph" in results and "messages" in results:
-                return APIResponse({
-                    "data": {**results["graph"]},
-                    "messages": {**results["messages"]}
-                })
-            return APIResponse({
-                "data": results
-            })
-
-
 class CATVRequestsView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -2709,3 +2620,46 @@ class CATVRequestsView(generics.ListAPIView):
     def get_paginated_response(self, data):
         assert self.paginator is not None
         return self.paginator.get_paginated_response(data, data_key="items")
+
+
+class CATVReportView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_throttles(self):
+        if self.request.method.lower() in ['put', 'post']:
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+    
+    def get_object(self, pk):
+        try:
+            return CatvRequestStatus.objects.get(uid__iexact=pk)
+        except CatvRequestStatus.DoesNotExist:
+            raise exceptions.CATVReportNotFound()
+    
+    def put(self, request, pk=None):
+        obj = self.get_object(pk)
+        reverse_token_map = {
+            "Ethereum": CatvTokens.ETH.value,
+            "Bitcoin": CatvTokens.BTC.value
+        }
+        token_type = utils.determine_wallet_type(obj.params.get("wallet_address", obj.params.get("address_from", "")))
+        has_from_address = obj.params.get("address_from", "")
+        token_type = reverse_token_map[token_type]
+        search_type = CatvSearchType.PATH.value if has_from_address else CatvSearchType.FLOW.value
+        catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                        token_type=token_type,
+                                        search_type=search_type,
+                                        search_params=obj.params,
+                                        user=request.user
+                                        )
+        catv_req_task.run()
+        task = catv_req_task.save()
+        task_serializer = CATVRequestListSerializer(task)
+        return APIResponse({
+            "data": {
+                **task_serializer.data
+            },
+            "messages": {
+                "source": "Address successfully re-submitted for report generation."
+            }
+        })
