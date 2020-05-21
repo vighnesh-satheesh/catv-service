@@ -745,9 +745,6 @@ class IndicatorView(generics.ListCreateAPIView):
                 status.extend([CaseStatus.CONFIRMED.value,
                                CaseStatus.RELEASED.value])
                 filter_obj &= Q(cases__in=status)
-            # else:
-                #     status.extend([CaseStatus.CONFIRMED, CaseStatus.RELEASED])
-                #     filter_obj &= Q(cases__status__in=status)
         return filter_obj
 
     def get_filter(self):
@@ -809,8 +806,6 @@ class IndicatorView(generics.ListCreateAPIView):
     def get_es_results(self, query_list, order_key, page):
         query_string_drf, query_string_raw = utils.build_query_string_filter(
             query_list)
-        # query_string_drf = "&q=".join([":".join(q) for q in query_list])
-        # page=f"size:{page}"
         search_query = next(
             (query for query in query_list if query[0] == 'search'), None)
         headers = {
