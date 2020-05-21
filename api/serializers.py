@@ -2470,3 +2470,15 @@ class CatvBtcPathSerializer(CATVEthPathSerializer):
             raise serializers.ValidationError(
                 "Wallet address 'address_to' is not a valid bitcoin address.")
         return value
+
+class UserIndicatorSerializer(NonNullModelSerializer):
+    security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
+    pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
+    pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
+
+    class Meta:
+        model = models.UserIndicator
+        fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
+                  "pattern_type", "security_tags", "created", "points", "status")
+        read_only_fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
+                  "pattern_type", "security_tags", "created", "points", "status")
