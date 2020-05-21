@@ -82,9 +82,6 @@ if settings.EXPOSE_GENERAL_API:
             views.CATVBTCView.as_view(), name='catv-btc-view'),
         url(r'^catv_btc_txlist/?$', views.CATVBTCTxlistView.as_view(),
             name='catv-btc-txlist-view'),
-        url(r'^catv_btc/?$', views.CATVBTCCoinpathView.as_view(),
-            name='catv-btc-coinpath'),
-        url(r'^catv:path/?$', views.CATVEthPathView.as_view(), name='catv-eth-path'),
         url(r'^catv_history/?$', views.CATVHistoryView.as_view(), name='catv-history'),
         url(r'^metrics/?$', views.Metrics.as_view(), name='metrics-view'),
         url(r'^guest_search/?$', views.GuestSearchView.as_view(), name='guest-search'),
@@ -98,6 +95,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^social/login/(?P<backend>[0-9a-z\-]+)/?$',
             views.exchange_oauth_api_token, name='oauth-api-login'),
         url(r'^catv_requests/?$', views.CATVRequestsView.as_view(), name='catv-requests'),
+        url(r'^catv_report/(?P<pk>[0-9a-z\-]+)/?$', views.CATVReportView.as_view(), name='catv-report'),
 
     ]
 

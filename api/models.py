@@ -1177,7 +1177,8 @@ class CatvRequestStatus(models.Model):
         db_table = 'api_catv_request_status'
         indexes = [
             models.Index(fields=['status']),
-            models.Index(fields=['user'],)
+            models.Index(fields=['user']),
+            models.Index(fields=['uid']),
         ]
 
 

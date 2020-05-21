@@ -2555,9 +2555,9 @@ class CATVRequestListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.CatvRequestStatus
-        fields = ("id", "uid", "params", "created", "status",
+        fields = ("id", "uid", "created", "status",
                   "wallet_address", "address_type", "date_range", "depth")
-        read_only_fields = ("id", "uid", "params", "created", "status",
+        read_only_fields = ("id", "uid", "created", "status",
                             "wallet_address", "address_type", "date_range", "depth")
         
     def get_wallet_address(self, obj):
@@ -2569,6 +2569,9 @@ class CATVRequestListSerializer(NonNullModelSerializer):
     
     def get_address_type(self, obj):
         if obj.params:
+            address_from = obj.params.get("address_from", "")
+            if address_from:
+                return utils.determine_wallet_type(address_from)
             return utils.determine_wallet_type(obj.params.get("wallet_address", ""))
         return "Ethereum"
     
