@@ -97,7 +97,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^invitation/?$', views.InvitationView.as_view(), name='org-invitation'),
         url(r'^social/login/(?P<backend>[0-9a-z\-]+)/?$',
             views.exchange_oauth_api_token, name='oauth-api-login'),
-
+        url(r'^catv_requests/?$', views.CATVRequestsView.as_view(), name='catv-requests'),
 
     ]
 

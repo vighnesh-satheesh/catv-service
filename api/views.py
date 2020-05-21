@@ -37,7 +37,8 @@ from .models import (
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
     CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus,
-    IndicatorPoint, UserIndicator, CatvSearchType
+    CatvSearchType, CatvRequestStatus, CatvTaskStatusType,
+    UserIndicator, IndicatorPoint
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -56,6 +57,7 @@ from .serializers import (
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
     CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
     CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer
+    CATVRequestListSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -64,7 +66,7 @@ from .throttling import (
     IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
     CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle)
 from .response import APIResponse, FileResponse, FileRenderer
-from .pagination import CustomPagination
+from .pagination import CustomPagination, CatvRequestPagination
 from . import exceptions
 from . import permissions
 from . import utils
@@ -2571,3 +2573,35 @@ class CATVEthPathView(APIView):
             return APIResponse({
                 "data": results
             })
+
+
+class CATVRequestsView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    pagination_class = CatvRequestPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+    
+    def list(self, request, *args, **kwargs):
+        status = self.request.query_params.get("status", None)
+        if status and status not in \
+            [CatvTaskStatusType.PROGRESS.value,
+             CatvTaskStatusType.RELEASED.value,
+             CatvTaskStatusType.FAILED.value]:
+            raise exceptions.ValidationError("Invalid status type parameter")
+        page = self.request.GET.get("page", 1)
+        page = int(page)
+        queryset = self.filter_queryset(self.get_queryset(request.user, status))
+        page = self.paginate_queryset(queryset)
+        serializer = CATVRequestListSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+    
+    def get_queryset(self, user, status):
+        filter_queries = Q(user=user)
+        if status:
+            filter_queries &= Q(status=status)
+        objs = CatvRequestStatus.objects.filter(filter_queries).order_by('-pk')
+        return objs
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")

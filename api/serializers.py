@@ -4,6 +4,7 @@ import re
 from collections import OrderedDict
 import socket
 
+from dateutil import parser
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import (check_password, make_password)
 from django.core.validators import validate_email
@@ -2543,3 +2544,52 @@ class UserIndicatorSerializer(NonNullModelSerializer):
                   "pattern_type", "security_tags", "created", "points", "status")
         read_only_fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
                   "pattern_type", "security_tags", "created", "points", "status")
+
+class CATVRequestListSerializer(NonNullModelSerializer):
+    wallet_address = serializers.SerializerMethodField()
+    address_type = serializers.SerializerMethodField()
+    date_range = serializers.SerializerMethodField()
+    depth = serializers.SerializerMethodField()
+    status = fields.EnumField(enum=models.CatvTaskStatusType)
+    created = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.CatvRequestStatus
+        fields = ("id", "uid", "params", "created", "status",
+                  "wallet_address", "address_type", "date_range", "depth")
+        read_only_fields = ("id", "uid", "params", "created", "status",
+                            "wallet_address", "address_type", "date_range", "depth")
+        
+    def get_wallet_address(self, obj):
+        if obj.params:
+            if obj.params.get("address_from", ""):
+                return obj.params["address_from"]
+            return obj.params.get("wallet_address", "")
+        return ""
+    
+    def get_address_type(self, obj):
+        if obj.params:
+            return utils.determine_wallet_type(obj.params.get("wallet_address", ""))
+        return "Ethereum"
+    
+    def get_date_range(self, obj):
+        if obj.params:
+            from_date = parser.parse(obj.params.get("from_date", "2015-01-01")).strftime("%d/%m/%Y")
+            to_date = parser.parse(obj.params.get("to_date", "2020-01-01")).strftime("%d/%m/%Y")
+            return f"{from_date} - {to_date}"
+        return ""
+    
+    def get_depth(self, obj):
+        if obj.params:
+            if obj.params.get("depth", 0) > 0:
+                return obj.params["depth"]
+            else:
+                source_depth = obj.params.get("source_depth", 0)
+                distribution_depth = obj.params.get("distribution_depth", 0)
+                return f"{source_depth} / {distribution_depth}"
+        return ""
+
+    def get_created(self, obj):
+        if obj.created is None:
+            return None
+        return time.mktime(obj.created.timetuple())
