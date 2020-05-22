@@ -1129,3 +1129,17 @@ class IndicatorPoint(models.Model):
     class Meta:
         managed = False
         db_table = 'api_indicator_point'
+
+class UserIndicator(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    security_category = EnumField(enum=IndicatorSecurityCategory)
+    pattern = models.CharField(max_length=256)
+    pattern_subtype = EnumField(enum=IndicatorPatternSubtype, blank=True, null=True)
+    pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False, max_length=32)
+    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
+    created = models.DateTimeField(default=now)
+    points = models.IntegerField(default=0)
+    status = models.CharField(max_length=10, null=True)
+
+    class Meta:
+        managed = False
