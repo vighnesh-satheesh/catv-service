@@ -64,7 +64,8 @@ from .throttling import (
     FileUploadThrottle, CasePostThrottle,
     EmailVerificationThrottle,
     IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
-    CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle)
+    CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle,
+    CatvNoThrottle)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination, CatvRequestPagination
 from . import exceptions
@@ -2629,12 +2630,29 @@ class CATVReportView(APIView):
     def get_throttles(self):
         if self.request.method.lower() in ['put', 'post']:
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+        return [CatvNoThrottle(), ]
     
     def get_object(self, pk):
         try:
             return CatvRequestStatus.objects.get(uid__iexact=pk)
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
+    
+    def get(self, request, pk=None):
+        obj = self.get_object(pk)
+        results = obj.result
+        if not obj.result:
+            return APIResponse({
+                "data": {},
+                "messages": {
+                    "source": "Results not generated yet. Please try again later."
+                }
+            })
+        serializer = CATVRequestListSerializer(obj)
+        return APIResponse({
+            **obj.result,
+            "request_params": serializer.data
+        })
     
     def put(self, request, pk=None):
         obj = self.get_object(pk)

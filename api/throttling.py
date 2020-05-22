@@ -49,6 +49,10 @@ class CatvUsageExceededThrottle(BaseThrottle):
                                 "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
 
 
+class CatvNoThrottle(BaseThrottle):
+    def allow_request(self, request, view):
+        return True
+
 class CatvPostThrottle(UserRateThrottle):
     scope = "catvPost"
 
