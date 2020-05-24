@@ -849,7 +849,7 @@ class IndicatorView(generics.ListCreateAPIView):
             ftr = self.add_case_permission_filters(core_ftr)
             indicators = self.get_es_results(ftr.children, key, page)
             indicator_res = indicators.get("results", [])
-            if indicator_res:
+            if indicator_res and user_case:
                 points = IndicatorPoint.objects.filter(indicator_id__in=[
                     i['id'] for i in indicator_res], user_id=User.objects.get(uid=user_case.split('_')[0]).id, points=True).values_list("indicator_id", flat=True)
                 for i in indicator_res:
