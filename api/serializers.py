@@ -102,7 +102,7 @@ class IndicatorSimpleListSerializer(NonNullModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
     password = serializers.CharField(required=False, write_only=True, style={
-                                     'input_type': 'password'})
+        'input_type': 'password'})
 
     def __create_success_response(self, user, token):
         role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(
@@ -116,7 +116,7 @@ class LoginSerializer(serializers.Serializer):
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = w3.eth.contract(address_c, abi=token_abi)
             bal = (token_upp.call().balanceOf(
-                user.address))/1000000000000000000
+                user.address)) / 1000000000000000000
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {
             "api_key": None, "expire_datetime": None}
@@ -148,7 +148,7 @@ class LoginSerializer(serializers.Serializer):
         org_admin = models.Organization.objects.filter(
             administrator=user).annotate(is_admin=Value(True, BooleanField()))[:1]
         org_user = models.OrganizationUser.objects.filter(user=user).select_related('organization'). \
-            annotate(is_admin=Value(False, BooleanField()))[:1]
+                       annotate(is_admin=Value(False, BooleanField()))[:1]
         org_user = list(org_user)
         if org_admin:
             organization_id = str(org_admin[0].uid)
@@ -422,7 +422,7 @@ class UserPostSerializer(serializers.ModelSerializer):
             validated_data["password"] = new_pw
             instance = models.User.objects.create(**validated_data)
             if organization:
-                models.OrganizationInvites.objects.filter(organization=organization, email=validated_data['email']).\
+                models.OrganizationInvites.objects.filter(organization=organization, email=validated_data['email']). \
                     update(status=models.OrganizationInviteStatus.PENDING_APPROVAL)
         except IntegrityError as e:
             if "nickname" in str(e):
@@ -540,7 +540,7 @@ class ICFPostSerializer(serializers.ModelSerializer):
 
     def update(self, obj, request, pk=None):
         prev_key = obj.api_key
-        while(True):
+        while (True):
             new_key = models.generate_api_key()
             if new_key != prev_key:
                 obj.api_key = new_key
@@ -1014,15 +1014,32 @@ class TRDBCaseTransactionSerializer(NonNullModelSerializer):
         read_only_fields = ("block_num", "transaction_id")
 
 
+class RelatedCaseSerializer(serializers.ModelSerializer):
+    related_id = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all())
+   # uid = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.RelatedCase
+        fields = ("id", "related_id")
+
+    def create(self, validated_data):
+        return models.RelatedCase.objects.create(**validated_data)
+
+   # def get_uid(self, obj):
+
+
+
+
 class CaseSimpleListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus)
     ico = ICOSerializer(read_only=True)
+    related = RelatedCaseSerializer(read_only=True)
     created = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "ico", "created", "status")
-        read_only_fields = ("id", "uid", "title", "ico", "created", "status")
+        fields = ("id", "uid", "title", "ico", "created", "status", "related")
+        read_only_fields = ("id", "uid", "title", "ico", "created", "status", "related")
 
     def get_created(self, obj):
         if obj.created is None:
@@ -1155,17 +1172,21 @@ class CasePostSerializer(serializers.ModelSerializer):
         queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
+    related_case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = models.Case
         fields = ("title", "detail", "rich_text_detail", "reporter_info",
-                  "ico", "indicators", "files")
+                  "ico", "indicators", "files", "related_case")
         read_only_fields = ("id", "uid", "created")
 
     def validate_files(self, data):
         return data
 
     def validate_inidcators(self, data):  # TODO: more specific error message.
+        return data
+
+    def validate_related_case(self, data):
         return data
 
     def __upload_files(self, files):
@@ -1187,8 +1208,13 @@ class CasePostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
+        related_data = validated_data.pop("related_case", [])
         try:
             with transaction.atomic():
+                if related_data:
+                    related_case = models.RelatedCase.objects.create(related=related_data)
+                    if related_case:
+                        validated_data["related_case"] = related_case
                 case = models.Case.objects.create(**validated_data)
                 m2m_bulk = []
                 indicator_bulk = []
@@ -1205,14 +1231,15 @@ class CasePostSerializer(serializers.ModelSerializer):
                             "reporter_info", None)
                         if not reporter_info:
                             indi["reporter_info"] = reporter_info
-                        if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR, models.IndicatorPatternType.SOCIALMEDIA]:
+                        if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR,
+                                                    models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(
                                 indi["pattern"].lower().rstrip('/'))
                         indicator = models.Indicator(**indi)
                         new_indicators.append(indicator)
 
                 indicator_bulk = indicator_bulk + \
-                    models.Indicator.objects.bulk_create(new_indicators)
+                                 models.Indicator.objects.bulk_create(new_indicators)
                 # annotation
                 for indicator in indicator_bulk:
                     if indicator.annotation:
@@ -1263,6 +1290,7 @@ class CasePostSerializer(serializers.ModelSerializer):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
         ico = validated_data.pop("ico", None)
+        related_data = validated_data.pop("related_case", None)
 
         history_log = Constants.HISTORY_LOG
         history_log["type"] = "content"
@@ -1274,6 +1302,23 @@ class CasePostSerializer(serializers.ModelSerializer):
         history_log["titleUpdated"] = instance.title != validated_data['title']
         history_log["detailUpdated"] = instance.detail != validated_data['detail']
         history_log["relatedProjectUpdated"] = instance.ico != ico
+        if related_data is not None and instance.related_case is not None:
+            history_log["relatedCaseUpdated"] = instance.related_case_id != related_data.id
+        if related_data is None and instance.related_case is not None:
+            history_log["relatedCaseDeleted"] = True
+        if related_data is not None and instance.related_case is None:
+            history_log["relatedCaseAdded"] = True
+        if history_log["relatedCaseUpdated"]:
+            related_case = models.RelatedCase.objects.filter(id=instance.related_case_id)
+            related_case.update(related=related_data)
+        if history_log["relatedCaseDeleted"]:
+            related_case = models.RelatedCase.objects.filter(id=instance.related_case_id)
+            related_case.delete()
+            validated_data["related_case"] = None
+        if history_log["relatedCaseAdded"]:
+            related_case = models.RelatedCase.objects.create(related=related_data)
+            if related_case:
+                validated_data["related_case"] = related_case
 
         if history_log["relatedProjectUpdated"]:
             validated_data["ico"] = ico
@@ -1375,12 +1420,13 @@ class CaseDetailSerializer(NonNullModelSerializer):
     files = serializers.SerializerMethodField()
     created = serializers.SerializerMethodField()
     trdb = serializers.SerializerMethodField()
-    related_cases = serializers.SerializerMethodField()
+    related_case = serializers.SerializerMethodField()
+    #case = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
         fields = ("id", "uid", "title", "detail", "rich_text_detail", "created", "status", "reported_by",
-                  "owned_by", "verified_by", "trdb", "histories", "indicators", "files", "related_cases")
+                  "owned_by", "verified_by", "trdb", "histories", "indicators", "files", "related_case")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -1488,13 +1534,30 @@ class CaseDetailSerializer(NonNullModelSerializer):
             }
         return None
 
-    def get_related_cases(self, obj):
-        indicators = models.CaseIndicator.objects.filter(
-            case=obj).values('indicator')
-        related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk').\
-            order_by('-pk')
-        rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
-        return rc_serialized.data
+   # def get_related_cases(self, obj):
+   #     indicators = models.CaseIndicator.objects.filter(
+   #         case=obj).values('indicator')
+   #     related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk'). \
+   #         order_by('-pk')
+   #     rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
+   #     return rc_serialized.data
+
+    def get_related_case(self, obj):
+        if obj.related_case_id:
+            related_case = obj.related_case
+            related_id = obj.related_case_id
+            ser = RelatedCaseSerializer(related_case)
+            case = models.Case.objects.filter(id=ser.data['related_id']).first()
+            if case:
+                ser.data['uid'] = case.uid
+                ser.data['title'] = case.title
+                new_dict = {'uid': case.uid, 'title': case.title, 'created': time.mktime(case.created.timetuple()), 'status': case.status.value}
+                new_dict.update(ser.data)
+                return new_dict
+        else:
+            return {}
+
+
 
 
 class CaseTRDBSerializer(NonNullModelSerializer):
@@ -1644,8 +1707,8 @@ class CasePatchSerializer(NonNullModelSerializer):
                     utils.TRDB_CLIENT.push_case("deactivateCase", data)
 
                 if validated_data["status"] == models.CaseStatus.RELEASED or \
-                    (instance.status == models.CaseStatus.RELEASED and
-                     validated_data["status"] == models.CaseStatus.REJECTED):
+                        (instance.status == models.CaseStatus.RELEASED and
+                         validated_data["status"] == models.CaseStatus.REJECTED):
                     c = UppwardCache()
                     indicators = instance.indicators.all()
                     for indicator in indicators:
@@ -1761,7 +1824,7 @@ class AutoCompleteSerializer(serializers.Serializer):
                             'tag': tag
                         })
                 indicator_tags = sorted(indicator_tags, key=lambda k: k["tag"])
-                return {"indicator_tags":  indicator_tags}
+                return {"indicator_tags": indicator_tags}
 
         elif auto_type == "user":
             users = []
@@ -1782,8 +1845,8 @@ class AutoCompleteSerializer(serializers.Serializer):
                 filter_queries &= Q(id=int(query))
             elif len(query) > 1:
                 filter_queries &= Q(title__icontains=query)
-            case_objs = models.Case.objects .filter(
-                filter_queries).order_by('-created')
+            case_objs = models.Case.objects.filter(
+                filter_queries).order_by('-created')[:self.result_limit]
             if case_objs:
                 case_serializer = CaseSimpleListSerializer(
                     case_objs, many=True)
@@ -1913,7 +1976,8 @@ class NotificationSerializer(NonNullModelSerializer):
             return {}
         return {
             "nickname": obj.initiator.nickname,
-            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(obj.initiator.image) is False else obj.initiator.image.url,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(
+                obj.initiator.image) is False else obj.initiator.image.url,
             "uid": obj.initiator.uid
         }
 
@@ -2195,7 +2259,7 @@ class OrganizationSimpleSerializer(serializers.ModelSerializer):
         invite_limit = obj.administrator.role.usage_role.values_list(
             'org_invite_limit', flat=True)
         invite_limit = invite_limit[0] if invite_limit else 20
-        members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
+        members_invited = models.OrganizationInvites.objects.filter(organization=obj). \
             exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
         existing_members = obj.organizationuser_set.count()
         return invite_limit - (members_invited + existing_members)
@@ -2223,7 +2287,7 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
         invite_limit = obj.administrator.role.usage_role.values_list(
             'org_invite_limit', flat=True)
         invite_limit = invite_limit[0] if invite_limit else 20
-        members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
+        members_invited = models.OrganizationInvites.objects.filter(organization=obj). \
             exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
         existing_members = obj.organizationuser_set.count()
         return invite_limit - (members_invited + existing_members)
@@ -2308,7 +2372,7 @@ class InvitationSerializer(serializers.Serializer):
         invite_limit = obj.administrator.role.usage_role.values_list(
             'org_invite_limit', flat=True)
         invite_limit = invite_limit[0] if invite_limit else 20
-        members_invited = models.OrganizationInvites.objects.filter(organization=obj).\
+        members_invited = models.OrganizationInvites.objects.filter(organization=obj). \
             exclude(status=models.OrganizationInviteStatus.APPROVED.value).count()
         existing_members = obj.organizationuser_set.count()
         return invite_limit - (members_invited + existing_members)
@@ -2326,7 +2390,7 @@ class InvitationSerializer(serializers.Serializer):
                 raise exceptions.AuthenticationCheckError()
 
             org = models.Organization.objects.get(uid=uid, administrator=user)
-            already_invited = models.OrganizationInvites.objects.\
+            already_invited = models.OrganizationInvites.objects. \
                 filter(email=data['email'], organization=org, status=models.OrganizationInviteStatus.EMAIL_SENT).count()
 
             if already_invited:

@@ -2133,7 +2133,6 @@ class ExchangeTokenView(APIView):
 
     def post(self, request):
         data = request.data
-        print("Data: ", request.data['user_id'])
         dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL',
                      datetime.datetime.now(datetime.timezone.utc), data['upp'])
         insert_swap_history_query = Constants.QUERIES['INSERT_SWAP_HISTORY_QUERY']
@@ -2182,9 +2181,6 @@ class SwapHistory(APIView):
             int(sd)/1000).strftime('%Y-%m-%d %H:%M:%S')
         ed = datetime.utcfromtimestamp(
             int(ed)/1000).strftime('%Y-%m-%d %H:%M:%S')
-        print("sd=", sd)
-        print("ed=", ed)
-
         history_query = Constants.QUERIES['SWAP_HISTORY_USER'].format(
             user, sd, ed)
         with connection.cursor() as cursor:

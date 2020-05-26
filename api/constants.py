@@ -9,7 +9,10 @@ class Constants:
                       "fileRemoved": False,
                       "titleUpdated": False,
                       "detailUpdated": False,
-                      "relatedProjectUpdated": False
+                      "relatedProjectUpdated": False,
+                      "relatedCaseUpdated": False,
+                      "relatedCaseDeleted": False,
+                      "relatedCaseAdded": False
     }
     EMAIL_TITLE = {
         "VERIFICATION": "[Sentinel Protocol] Confirm your email.",
