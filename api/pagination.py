@@ -27,3 +27,7 @@ class CustomPagination(pagination.PageNumberPagination):
                 data_key: data
             }
         })
+
+
+class CatvRequestPagination(CustomPagination):
+    page_size = 10

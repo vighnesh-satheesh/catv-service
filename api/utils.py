@@ -1,6 +1,7 @@
 import time
 import urllib.parse
 from functools import wraps
+import re
 import requests
 import requests.exceptions as re_exceptions
 from datetime import datetime
@@ -370,3 +371,11 @@ def es_raw_search(es_func, query_string, **kwargs):
             'count': 0
         }
     return loads(es_raw_req.text)
+
+
+def determine_wallet_type(address_str):
+    pattern_type = "Ethereum"
+    btc_pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
+    if btc_pattern.match(address_str):
+        pattern_type = "Bitcoin"
+    return pattern_type

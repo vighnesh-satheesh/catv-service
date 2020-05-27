@@ -3,10 +3,10 @@ version: "3"
 services:
   webapi:
     build:
-      context: .
-      dockerfile: Dockerfile_dev
+      context: ..
+      dockerfile: docker/Dockerfile_dev
     volumes:
-      - .:/app
+      - ..:/app
     environment:
       - PORTAL_API_ENV_PATH=/app/path.env
       - API_TOKEN_ENCRYPT_PRIVATE_KEY=/app/key.private

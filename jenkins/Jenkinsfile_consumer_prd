@@ -1,7 +1,7 @@
 @Library('jenkins-shared-library') _
 
 portalAPIPipeline(
-    DOCKERFILE_NAME: 'Dockerfile_consumer', AWS_DEFAULT_REGION: 'ap-southeast-1',
+    DOCKERFILE_NAME: 'docker/Dockerfile_consumer', AWS_DEFAULT_REGION: 'ap-southeast-1',
     AWS_ACCOUNT_ID: '821988754834', IMAGE_REPO_NAME: 'prd/portal-consumer',
     SERVICE_NAME: 'PortalConsumer', SLACK_URL: 'https://hooks.slack.com/services/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',
     INDICATOR_TOKEN: 'b06fdc52611d60ce262c5718e4b1352bca09d4c3', IMAGE_REPO_NAME_F: 'upp/portal-file-api',
