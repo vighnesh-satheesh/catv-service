@@ -56,7 +56,7 @@ from .serializers import (
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
     CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer
+    CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer,
     CATVRequestListSerializer
 )
 from .throttling import (
