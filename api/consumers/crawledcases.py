@@ -1,4 +1,5 @@
 import json
+import traceback
 
 from .. import utils
 from ..cache import DefaultCache
@@ -47,9 +48,10 @@ def process_crawled_cases(message):
         # Update Elasticsearch index
         IndicatorESDocumentTask(action=Constants.INDEX_ACTIONS["INDEX"]).run(case=case)
     except Exception as e:
-        print(str(e))
+        error_trace = traceback.format_exc()
+        print(error_trace)
         ConsumerErrorLogs.objects.create(
             topic=message.topic,
             message=request_body,
-            error_trace=str(e)
+            error_trace=error_trace
         )

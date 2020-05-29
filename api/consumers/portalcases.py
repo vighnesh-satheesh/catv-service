@@ -1,4 +1,5 @@
 import json
+import traceback
 
 from ..constants import Constants
 from ..models import Case, Indicator
@@ -25,9 +26,10 @@ def process_portal_cases(message):
             print(indicators)
             IndicatorESDocumentTask(action=Constants.INDEX_ACTIONS["UPDATE"]).run(indicators=indicators)
     except Exception as e:
-        print(str(e))
+        error_trace = traceback.format_exc()
+        print(error_trace)
         ConsumerErrorLogs.objects.create(
             topic=message.topic,
             message=request_body,
-            error_trace=str(e)
+            error_trace=error_trace
         )
