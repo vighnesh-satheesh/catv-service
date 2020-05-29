@@ -1612,7 +1612,7 @@ class CasePatchSerializer(NonNullModelSerializer):
                 ind_list = models.Indicator.objects.exclude(
                     pattern_type='filehash').filter(pattern=ind.pattern)
                 if ind_list.all().count() == 1:
-                    if instance.reporter.id:
+                    if instance.reporter:
                         indicator_points = IndicatorPointsSerializer(
                             data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
                         indicator_points.is_valid(raise_exception=True)
