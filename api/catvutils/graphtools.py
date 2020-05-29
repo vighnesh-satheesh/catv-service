@@ -1,3 +1,6 @@
+from collections import defaultdict
+from itertools import chain, islice
+
 MULTIPLIER = 0.4
 EDGE_WIDTH_MAX = 4
 EDGE_WIDTH_MIN = 1
@@ -81,6 +84,58 @@ class NodesCollection:
 
     def update_node(self, node_key, node_value):
         self.__nodes[node_key] = node_value
+        
+    def filter_update_nodes(self, filter_list):
+        self.__nodes = {k:v for k, v in self.__nodes.items() if k in filter_list}
+
+
+def take(n, iterable):
+    return list(islice(iterable, n))
+
+
+def group_by_depth(edge_dict: dict) -> dict:
+    grouped_by_depth: dict = defaultdict(dict)
+    for key, value in edge_dict.items():
+        grouped_by_depth[value["depth"]][key] = value
+    return grouped_by_depth
+
+
+def sort_per_depth(grouped_by_depth: dict) -> dict:
+    for key, value in grouped_by_depth.items():
+        grouped_by_depth[key] = {k: v for k, v in sorted(value.items(), key=lambda item: item[1]["sum"], reverse=True)}
+    return grouped_by_depth
+
+
+def limit_connected_edges(sorted_grouped_edges: dict, transaction_ratio: int) -> dict:
+    limited_edges = {}
+    for depth, edge_dict in sorted_grouped_edges.items():
+        if depth != 1:
+            receivers_prev = list(limited_edges.keys())
+            receivers_prev = set([key_pair[1] for key_pair in receivers_prev])
+            # receivers_prev = set(receivers_prev)
+            modified_edge_dict = take(transaction_ratio, filter(lambda item: item[0][0] in receivers_prev, edge_dict.items()))
+        else:
+            modified_edge_dict = take(transaction_ratio, edge_dict.items())
+        modified_edge_dict = {dict_tuple[0]: dict_tuple[1] for dict_tuple in modified_edge_dict}
+        limited_edges = {**limited_edges, **modified_edge_dict}
+    return limited_edges
+
+
+def make_lossy_graph(nc, edge_dict):
+    print("Grouping by depth...")
+    grouped_by_depth = group_by_depth(edge_dict)
+    print("Sorting by depth...")
+    sorted_per_depth = sort_per_depth(grouped_by_depth)
+    max_depth = max([int(depth) for depth in sorted_per_depth.keys()])
+    max_nodes = 500
+    tx_ratio = 50
+    print("Shedding edges...")
+    limited_conn_edges = limit_connected_edges(sorted_per_depth, tx_ratio)
+    edge_keys = set(chain.from_iterable(limited_conn_edges.keys()))
+    all_nodes = list(nc.get_nodes_as_dict().values())
+    limited_nodes = filter(lambda node: node["address"] in edge_keys, all_nodes)
+    nc.filter_update_nodes(edge_keys)
+    return limited_conn_edges, limited_nodes
 
 
 def uniqfy_generator(seq, addr_key, exclusions):
@@ -105,7 +160,8 @@ def create_edge(id, tx, node_enum):
             'tx_hash': tx['tx_hash'],
             'depth': tx['depth'],
             'tx_time': '{} {}'.format(tx['tx_time'].split("T")[0], tx['tx_time'].split("T")[1][:5])
-        }]
+        }],
+        'depth': tx['depth']
     }
     return edge
 
@@ -143,6 +199,8 @@ def assign_edges(result, mode, node_enum):
                 'tx_time': '{} {}'.format(item['tx_time'].split("T")[0], item['tx_time'].split("T")[1][:5])
             })
             edge_dict[(item['sender'], item['receiver'])]['sum'] += item['amount']
+            if 'depth' not in edge_dict[(item['sender'], item['receiver'])]:
+                edge_dict[(item['sender'], item['receiver'])]['depth'] = item['depth']
         except KeyError:
             edge_dict[(item['sender'], item['receiver'])] = create_edge('{}_{}'.format(counter, mode), item, node_enum)
             counter += 1
@@ -405,6 +463,13 @@ def generate_nodes_edges(result, mode):
     edge_dict = assign_edges(result, mode, nc.get_node_enum())
     if mode == -1:
         depth_shift_for_source(result)
+    tx_count = len(result)
+    if tx_count > 5000:
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        track_result = {'item_list': result, 'node_list': list(limited_nodes), 'keys': keys,
+                        'node_enum': nc.get_node_enum(), 'edge_list': list(limited_edges.values()),
+                        'volume_count_{}'.format(mode): volume_count}
+        return track_result, nc
 
     track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
@@ -431,6 +496,13 @@ def generate_nodes_edges_coinpath(result, mode):
     edge_dict = assign_edges(result, mode, nc.get_node_enum())
     if mode == -1:
         depth_shift_btc(result, mode)
+    tx_count = len(result)
+    if tx_count > 5000:
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        track_result = {'item_list': result, 'node_list': list(limited_nodes), 'keys': keys,
+                        'node_enum': nc.get_node_enum(), 'edge_list': list(limited_edges.values()),
+                        'volume_count_{}'.format(mode): volume_count}
+        return track_result, nc
 
     track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
@@ -455,6 +527,13 @@ def generate_nodes_edges_ethcoinpath(result, mode):
 
     if mode == -1:
         depth_shift_for_source(result)
+    tx_count = len(result)
+    if tx_count > 5000:
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        track_result = {'item_list': result, 'node_list': list(limited_nodes), 'keys': keys,
+                        'node_enum': nc.get_node_enum(), 'edge_list': list(limited_edges.values()),
+                        'volume_count_{}'.format(mode): volume_count}
+        return track_result, nc
 
     track_result = {'item_list': item_list, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
@@ -479,6 +558,13 @@ def generate_nodes_edges_btccoinpath(result, mode):
 
     if mode == -1:
         depth_shift_for_source(result)
+    tx_count = len(result)
+    if tx_count > 5000:
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        track_result = {'item_list': result, 'node_list': list(limited_nodes), 'keys': keys,
+                        'node_enum': nc.get_node_enum(), 'edge_list': list(limited_edges.values()),
+                        'volume_count_{}'.format(mode): volume_count}
+        return track_result, nc
 
     track_result = {'item_list': item_list, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
