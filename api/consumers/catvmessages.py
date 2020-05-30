@@ -3,6 +3,7 @@ from operator import gt, lt
 import traceback
 from uuid import UUID
 
+from django.db import transaction
 from django.utils.timezone import now
 
 from api.catvutils.metrics import CatvMetrics
@@ -10,7 +11,7 @@ from api.exceptions import FileNotFound
 from api.models import (
     CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType,
-    ConsumerErrorLogs
+    ConsumerErrorLogs, CatvResult
 )
 from api.serializers import (
     CATVSerializer, CATVBTCCoinpathSerializer,
@@ -111,5 +112,9 @@ def process_catv_messages(message):
         )
     finally:
         message = results or error_dict
-        CatvRequestStatus.objects.filter(uid=message_id, user_id=user_id).\
-            update(status=task_status, result=message, updated=now())
+        with transaction.atomic():
+            request_instance = CatvRequestStatus.objects.get(uid=message_id, user_id=user_id)
+            request_instance.status = task_status
+            request_instance.updated = now()
+            request_instance.save()
+            CatvResult.objects.filter(request=request_instance).update(result=message)

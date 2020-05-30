@@ -4,7 +4,7 @@ import uuid
 
 from celery.task import Task
 from celery.registry import tasks
-from django.db import connections
+from django.db import connections, transaction, IntegrityError
 from django.utils.timezone import now
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import streaming_bulk
@@ -12,7 +12,8 @@ from kafka import KafkaProducer
 
 from .cache import DefaultCache
 from .constants import Constants
-from .models import Case, CatvRequestStatus
+from .exceptions import DataIntegrityError
+from .models import Case, CatvRequestStatus, CatvResult
 from .settings import api_settings
 
 
@@ -247,12 +248,17 @@ class CatvRequestTask:
         producer.close()
     
     def save(self):
-        task_record = CatvRequestStatus.objects.create(
-            uid=self.message_id,
-            params=self.search_params,
-            user=self.user
-        )
-        return task_record
+        try:
+            with transaction.atomic():
+                task_record = CatvRequestStatus.objects.create(
+                    uid=self.message_id,
+                    params=self.search_params,
+                    user=self.user
+                )
+                CatvResult.objects.create(request=task_record)
+            return task_record
+        except IntegrityError:
+            raise DataIntegrityError("data integrity error")
 
 
 tasks.register(CacheLeftPanelValuesTask)

@@ -1167,7 +1167,6 @@ class UserIndicator(models.Model):
 class CatvRequestStatus(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     params = JSONField(default=dict)
-    result = JSONField(default=dict)
     status = EnumField(enum=CatvTaskStatusType, default=CatvTaskStatusType.PROGRESS)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created = models.DateTimeField(default=now)
@@ -1194,4 +1193,15 @@ class IndicatorExtraAnnotation(models.Model):
             CustomGinIndex(fields=['pattern', ]),
             models.Index(fields=['annotation', ]),
             models.Index(fields=['pattern', ]),
+        ]
+
+
+class CatvResult(models.Model):
+    result = JSONField(default=dict)
+    request = models.ForeignKey(CatvRequestStatus, null=False, blank=False, on_delete=models.CASCADE, related_name='request')
+    
+    class Meta:
+        db_table = 'api_catv_result'
+        indexes = [
+            models.Index(fields=['request'])
         ]
