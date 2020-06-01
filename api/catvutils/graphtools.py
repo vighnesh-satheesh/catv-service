@@ -125,15 +125,21 @@ def sort_per_depth(grouped_by_depth: dict) -> dict:
 
 def limit_connected_edges(sorted_grouped_edges: dict, scaling_factor: float) -> dict:
     limited_edges = {}
+    ratio_depth = [0.01, 0.03, 0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17, 0.19]
+    max_depth = max(sorted_grouped_edges.keys())
+    if max_depth != 10:
+        slice_depth = ratio_depth[0:max_depth]
+        slice_sum = sum(slice_depth)
+        ratio_depth = list(map(lambda x: x / slice_sum, slice_depth))
     for depth, edge_dict in sorted_grouped_edges.items():
-        transaction_ratio = ceil(scaling_factor * len(edge_dict.items()))
+        node_count = ceil(ratio_depth[depth - 1] * api_settings.CATV_MAX_SCALED_NODES)
+        print(f"Node count for depth {depth}: {node_count}")
         if depth != 1:
             receivers_prev = list(limited_edges.keys())
             receivers_prev = set([key_pair[1] for key_pair in receivers_prev])
-            # receivers_prev = set(receivers_prev)
-            modified_edge_dict = take(transaction_ratio, filter(lambda item: item[0][0] in receivers_prev, edge_dict.items()))
+            modified_edge_dict = take(node_count, filter(lambda item: item[0][0] in receivers_prev, edge_dict.items()))
         else:
-            modified_edge_dict = take(transaction_ratio, edge_dict.items())
+            modified_edge_dict = take(node_count, edge_dict.items())
         modified_edge_dict = {dict_tuple[0]: dict_tuple[1] for dict_tuple in modified_edge_dict}
         limited_edges = {**limited_edges, **modified_edge_dict}
     return limited_edges

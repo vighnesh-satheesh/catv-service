@@ -1,14 +1,16 @@
 import json
 from operator import gt, lt
 import traceback
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils.timezone import now
 
 from api.catvutils.metrics import CatvMetrics
 from api.exceptions import FileNotFound
 from api.models import (
+    AttachedFile,
     CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType,
     ConsumerErrorLogs, CatvResult
@@ -113,8 +115,10 @@ def process_catv_messages(message):
     finally:
         message = results or error_dict
         with transaction.atomic():
+            file = ContentFile(bytes(json.dumps(message).encode('UTF-8')), name=f"{uuid4()}.json")
+            file_instance = AttachedFile.objects.create(file=file)
             request_instance = CatvRequestStatus.objects.get(uid=message_id, user_id=user_id)
             request_instance.status = task_status
             request_instance.updated = now()
             request_instance.save()
-            CatvResult.objects.filter(request=request_instance).update(result=message)
+            CatvResult.objects.filter(request=request_instance).update(result_file=file_instance)

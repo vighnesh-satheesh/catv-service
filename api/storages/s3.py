@@ -49,7 +49,7 @@ def _callable_setting(value, name):
 
 
 def _temporary_file():
-    return SpooledTemporaryFile(max_size=1024 * 1024 * 10)  # 10 MB.
+    return SpooledTemporaryFile(max_size=1024 * 1024 * 50)  # 10 MB.
 
 
 def _to_sys_path(name):
