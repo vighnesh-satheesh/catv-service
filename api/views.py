@@ -2649,17 +2649,19 @@ class CATVReportView(APIView):
     
     def get(self, request, pk=None):
         obj = self.get_object(pk)
-        results = obj.result
-        if not obj.result:
+        if not obj.result_file:
             return APIResponse({
                 "data": {},
                 "messages": {
                     "source": "Results not generated yet. Please try again later."
                 }
             })
+        file_obj = obj.result_file.file.open(mode="rb")
+        buf = file_obj.read()
+        results = json.loads(buf.decode("UTF-8"))
         serializer = CATVRequestListSerializer(obj.request)
         return APIResponse({
-            **obj.result,
+            **results,
             "request_params": serializer.data
         })
     
