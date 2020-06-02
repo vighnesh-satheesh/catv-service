@@ -589,6 +589,7 @@ class Case(models.Model):
     transaction_id = models.CharField(max_length=64, null=True, blank=True)
 
     ico = models.ForeignKey('ICO', null=True, blank=True, on_delete=models.DO_NOTHING)
+    related_case = models.ForeignKey('RelatedCase', null=True, blank=True, on_delete=models.DO_NOTHING)
     indicators = models.ManyToManyField('Indicator', through='CaseIndicator')
 
     @property
@@ -639,6 +640,13 @@ class CaseHistory(models.Model):
             models.Index(fields=['case', ]),
             models.Index(fields=['created', ]),
         ]
+
+
+class RelatedCase(models.Model):
+    related = models.ForeignKey(Case, on_delete=models.DO_NOTHING)
+
+    class Meta:
+        db_table = 'api_related_case'
 
 
 class Annotation(models.Model):

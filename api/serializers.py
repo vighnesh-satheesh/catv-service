@@ -1016,15 +1016,28 @@ class TRDBCaseTransactionSerializer(NonNullModelSerializer):
         read_only_fields = ("block_num", "transaction_id")
 
 
+class RelatedCaseSerializer(serializers.ModelSerializer):
+    related_id = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all())
+   # uid = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.RelatedCase
+        fields = ("id", "related_id")
+
+    def create(self, validated_data):
+        return models.RelatedCase.objects.create(**validated_data)
+
+
 class CaseSimpleListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus)
     ico = ICOSerializer(read_only=True)
+    related = RelatedCaseSerializer(read_only=True)
     created = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "ico", "created", "status")
-        read_only_fields = ("id", "uid", "title", "ico", "created", "status")
+        fields = ("id", "uid", "title", "ico", "created", "status", "related")
+        read_only_fields = ("id", "uid", "title", "ico", "created", "status", "related")
 
     def get_created(self, obj):
         if obj.created is None:
@@ -1157,17 +1170,22 @@ class CasePostSerializer(serializers.ModelSerializer):
         queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
+    related_case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), allow_null=True,
+                                                      required=False)
 
     class Meta:
         model = models.Case
         fields = ("title", "detail", "rich_text_detail", "reporter_info",
-                  "ico", "indicators", "files")
+                  "ico", "indicators", "files", "related_case")
         read_only_fields = ("id", "uid", "created")
 
     def validate_files(self, data):
         return data
 
     def validate_inidcators(self, data):  # TODO: more specific error message.
+        return data
+
+    def validate_related_case(self, data):
         return data
 
     def __upload_files(self, files):
@@ -1189,8 +1207,13 @@ class CasePostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
+        related_data = validated_data.pop("related_case", [])
         try:
             with transaction.atomic():
+                if related_data:
+                    related_case = models.RelatedCase.objects.create(related=related_data)
+                    if related_case:
+                        validated_data["related_case"] = related_case
                 case = models.Case.objects.create(**validated_data)
                 m2m_bulk = []
                 indicator_bulk = []
@@ -1265,6 +1288,7 @@ class CasePostSerializer(serializers.ModelSerializer):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
         ico = validated_data.pop("ico", None)
+        related_data = validated_data.pop("related_case", None)
 
         history_log = Constants.HISTORY_LOG
         history_log["type"] = "content"
@@ -1276,6 +1300,23 @@ class CasePostSerializer(serializers.ModelSerializer):
         history_log["titleUpdated"] = instance.title != validated_data['title']
         history_log["detailUpdated"] = instance.detail != validated_data['detail']
         history_log["relatedProjectUpdated"] = instance.ico != ico
+        if related_data is not None and instance.related_case is not None:
+            history_log["relatedCaseUpdated"] = instance.related_case_id != related_data.id
+        if related_data is None and instance.related_case is not None:
+            history_log["relatedCaseDeleted"] = True
+        if related_data is not None and instance.related_case is None:
+            history_log["relatedCaseAdded"] = True
+        if history_log["relatedCaseUpdated"]:
+            related_case = models.RelatedCase.objects.filter(id=instance.related_case_id)
+            related_case.update(related=related_data)
+        if history_log["relatedCaseDeleted"]:
+            related_case = models.RelatedCase.objects.filter(id=instance.related_case_id)
+            related_case.delete()
+            validated_data["related_case"] = None
+        if history_log["relatedCaseAdded"]:
+            related_case = models.RelatedCase.objects.create(related=related_data)
+            if related_case:
+                validated_data["related_case"] = related_case
 
         if history_log["relatedProjectUpdated"]:
             validated_data["ico"] = ico
@@ -1376,12 +1417,13 @@ class CaseDetailSerializer(NonNullModelSerializer):
     files = serializers.SerializerMethodField()
     created = serializers.SerializerMethodField()
     trdb = serializers.SerializerMethodField()
-    related_cases = serializers.SerializerMethodField()
+    #related_cases = serializers.SerializerMethodField()
+    related_case = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
         fields = ("id", "uid", "title", "detail", "rich_text_detail", "created", "status", "reported_by",
-                  "owned_by", "verified_by", "trdb", "histories", "indicators", "files", "related_cases")
+                  "owned_by", "verified_by", "trdb", "histories", "indicators", "files", "related_case")
 
     def get_queryset(self):
         uuid = self.kwargs["id"]
@@ -1489,13 +1531,30 @@ class CaseDetailSerializer(NonNullModelSerializer):
             }
         return None
 
-    def get_related_cases(self, obj):
-        indicators = models.CaseIndicator.objects.filter(
-            case=obj).values('indicator')
-        related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk').\
-            order_by('-pk')
-        rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
-        return rc_serialized.data
+        # def get_related_cases(self, obj):
+        #     indicators = models.CaseIndicator.objects.filter(
+        #         case=obj).values('indicator')
+        #     related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk'). \
+        #         order_by('-pk')
+        #     rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
+        #     return rc_serialized.data
+
+    def get_related_case(self, obj):
+        if obj.related_case_id:
+            related_case = obj.related_case
+            related_id = obj.related_case_id
+            ser = RelatedCaseSerializer(related_case)
+            case = models.Case.objects.filter(id=ser.data['related_id']).first()
+            if case:
+                ser.data['uid'] = case.uid
+                ser.data['title'] = case.title
+                new_dict = {'uid': case.uid, 'title': case.title, 'created': time.mktime(case.created.timetuple()),
+                            'status': case.status.value}
+                new_dict.update(ser.data)
+                return new_dict
+        else:
+            return {}
+
 
 
 class CaseTRDBSerializer(NonNullModelSerializer):
@@ -1771,7 +1830,7 @@ class AutoCompleteSerializer(serializers.Serializer):
             elif len(query) > 1:
                 filter_queries &= Q(title__icontains=query)
             case_objs = models.Case.objects .filter(
-                filter_queries).order_by('-created')
+                filter_queries).order_by('-created')[:self.result_limit]
             if case_objs:
                 case_serializer = CaseSimpleListSerializer(
                     case_objs, many=True)
