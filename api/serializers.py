@@ -138,6 +138,7 @@ class LoginSerializer(serializers.Serializer):
                 "role_name": role_name,
                 "organization_id": organization_id,
                 "is_admin": is_admin,
+                "last_logged_out": user.last_logged_out,
                 "api_details": api_details
             }
         }

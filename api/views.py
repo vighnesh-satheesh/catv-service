@@ -108,6 +108,11 @@ class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, format=None):
+        if request.user is None or request.auth is None:
+            raise exceptions.AuthenticationCheckError()
+        user = request.user
+        user.last_logged_out = timezone.now()
+        user.save()
         try:
             MultiToken.expire_token(request.auth)
         except self.model.DoesNotExist:
@@ -226,15 +231,15 @@ class DashboardView(APIView):
 
         with connections['readonly'].cursor() as cursor:
             cursor.execute(
-                Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
+                Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'].format(user.last_logged_out))
             all_cases = cursor.fetchall()
-            cursor.execute(Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
+            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id, user.last_logged_out))
             my_cases = cursor.fetchall()
             cases[0]["children"] = all_cases
             cases[1]["children"] = my_cases
             if org_cases:
                 users = tuple(user_list)
-                cursor.execute(Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
+                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ORG'].format(users, user.last_logged_out))
                 org_cases = cursor.fetchall()
                 cases[2]["children"] = org_cases
 

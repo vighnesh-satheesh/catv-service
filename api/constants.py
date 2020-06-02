@@ -131,16 +131,22 @@ class Constants:
         "SELECT_LEFT_PANEL_VALUES_CASE_ALL": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("
                                              "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
                                              "('released', 0)) x(status, cntr) left join (select status, count(*) "
-                                             "as cntr from api_case group by status) y on x.status = y.status;",
+                                             "as cntr from api_case where created"
+                                             " > '{0}' or updated  > '{0}'"
+                                             " group by status) y on x.status = y.status;",
         "SELECT_LEFT_PANEL_VALUES_CASE_MY": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("
                                             "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
                                             "('released', 0)) x(status, cntr) left join (select status, count(*) "
-                                            "as cntr from api_case where owner_id = {0} or reporter_id = {0} "
+                                            "as cntr from api_case where (owner_id = {0} or reporter_id = {0})"
+                                            " and (created > '{1}'"
+                                            " or updated > '{1}')"
                                             "group by status) y on x.status = y.status;",
         "SELECT_LEFT_PANEL_VALUES_CASE_ORG": "SELECT x.status, coalesce(y.cntr, x.cntr) as cntr from ("
                                              "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
                                              "('released', 0)) x(status, cntr) left join (select status, count(*) "
-                                             "as cntr from api_case where owner_id in {0} or reporter_id in {0} "
+                                             "as cntr from api_case where (owner_id in {0} or reporter_id in {0}) "
+                                             "and (created > '{1}'"
+                                             " or updated > '{1}') "
                                              "group by status) y on x.status = y.status;",
         "INSERT_SWAP_HISTORY_QUERY": "INSERT INTO api_exchange_token(user_id,sp_amount,status,req_time,upp) VALUES(%s,%s,%s,%s,%s);",
         "UPDATE_USER_POINTS_QUERY": "UPDATE api_user set points = (points-'{0}') where uid='{1}'",

@@ -469,6 +469,7 @@ class User(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     timestamp = models.DateTimeField(default=now)
     created = models.DateTimeField(default=now)
+    last_logged_out = models.DateTimeField(default=now)
     permission = EnumField(enum=UserPermission, default=UserPermission.SENTINEL, max_length=16)
     email_notification = models.BooleanField(default=True)
     image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
