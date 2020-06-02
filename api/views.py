@@ -7,11 +7,11 @@ import socket
 
 from django.conf import settings
 from django_filters import rest_framework as filters
-from django.db.models import Q, When, Value, Case as CaseFunc, IntegerField
+from django.db.models import F, Q, When, Value, Case as CaseFunc, IntegerField
 from django.db import transaction, IntegrityError
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
-from django.db import connection
+from django.db import connection, connections
 from django.utils import timezone
 
 from rest_framework.views import APIView
@@ -35,7 +35,7 @@ from .models import (
     UserStatus,
     IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
-    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus
+    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus, IndicatorPoint, UserIndicator
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -53,7 +53,7 @@ from .serializers import (
     OrganizationSimpleSerializer, OrganizationUserPostSerializer,
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
     CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer, CatvBtcPathSerializer
+    CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -224,16 +224,17 @@ class DashboardView(APIView):
                 "children": org_cases
             })
 
-        with connection.cursor() as cursor:
-            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'])
+        with connections['readonly'].cursor() as cursor:
+            cursor.execute(
+                Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
             all_cases = cursor.fetchall()
-            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id))
+            cursor.execute(Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
             my_cases = cursor.fetchall()
             cases[0]["children"] = all_cases
             cases[1]["children"] = my_cases
             if org_cases:
                 users = tuple(user_list)
-                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ORG'].format(users))
+                cursor.execute(Constants.QUERIES['FAKE_SELECT_LPV_CASE_ALL'])
                 org_cases = cursor.fetchall()
                 cases[2]["children"] = org_cases
 
@@ -246,7 +247,7 @@ class DashboardView(APIView):
         elif user.permission is UserPermission.USER:
             cases = [cases[1]]
 
-        with connection.cursor() as cursor:
+        with connections['readonly'].cursor() as cursor:
             if lpv:
                 if user.permission is UserPermission.SUPERSENTINEL or \
                         user.permission is UserPermission.SENTINEL:
@@ -257,9 +258,9 @@ class DashboardView(APIView):
                 sql = ''
                 if user.permission is UserPermission.SUPERSENTINEL or \
                         user.permission is UserPermission.SENTINEL:
-                    sql = Constants.QUERIES['SELECT_INDICATOR_COUNT']
+                    sql = Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT']
                 else:
-                    sql = Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'] % ("'released'", "'confirmed'",)
+                    sql = Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT']
 
                 cursor.execute(sql)
                 row = cursor.fetchone()
@@ -568,7 +569,10 @@ class CaseDetailView(APIView):
 
         serializer = CasePostSerializer(obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        if request.auth is not None:
+            serializer.save(reporter=request.user)
+        else:
+            serializer.save()
         c = DefaultCache()
         c.delete_view_cache(request)
 
@@ -712,9 +716,6 @@ class IndicatorView(generics.ListCreateAPIView):
             if api_settings.SWITCH_ES_SEARCH and filter_obj.children:
                 status.extend([CaseStatus.CONFIRMED.value, CaseStatus.RELEASED.value])
                 filter_obj &= Q(cases__in=status)
-            else:
-                status.extend([CaseStatus.CONFIRMED, CaseStatus.RELEASED])
-                filter_obj &= Q(cases__status__in=status)
         return filter_obj
 
     def get_filter(self):
@@ -726,7 +727,13 @@ class IndicatorView(generics.ListCreateAPIView):
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
         pattern_type = self.request.GET.getlist("pattern_type") or []
         keyword = self.request.GET.getlist("keyword") or []
+        user_case = self.request.GET.get(
+            "user_case", "")
+        case_status = self.request.GET.get("indicator", "all")
+        if case_status != "all":
+            case_status = case_status.split("_")[1]
 
+        # TODO: Lots of conditional statements going on here, need to refactor later
         if len(security_category) > 0:
             ftr &= Q(security_category__in=security_category)
         if len(pattern_type) > 0:
@@ -745,13 +752,33 @@ class IndicatorView(generics.ListCreateAPIView):
                         keyword_filter |= Q(id=k)
             ftr &= keyword_filter
 
-        if len(status) > 0:
-            ftr &= Q(cases__in=status) if api_settings.SWITCH_ES_SEARCH else Q(cases__status__in=status)
+        # if len(status) > 0:
+        if status:
+            ftr &= Q(cases__in=status) if api_settings.SWITCH_ES_SEARCH else Q(
+                cases__status__in=status)
 
+        elif user_case:
+            # Fix for portal-frontend user view
+            user = user_case.split("_")[0]
+            # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!
+            es_flag = api_settings.SWITCH_ES_SEARCH
+            if es_flag:
+                user_id = User.objects.get(uid=user).id
+                if case_status != 'all':
+                    ftr &= Q(cases__in=case_status)
+                ftr &= Q(user_id=(str(user_id)))
+
+            else:
+                # Get user id
+                user_id = User.objects.get(uid=user).id
+                ftr = {"case_status": case_status, "user_id": user_id}
         return ftr
 
     def get_es_results(self, query_list, order_key, page):
-        query_string_drf, query_string_raw = utils.build_query_string_filter(query_list)
+        query_string_drf, query_string_raw = utils.build_query_string_filter(
+            query_list)
+        search_query = next(
+            (query for query in query_list if query[0] == 'search'), None)
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
@@ -760,17 +787,18 @@ class IndicatorView(generics.ListCreateAPIView):
             cred = (user, pwd)
         else:
             cred = None
-
         es_serializer_req = requests.Request('GET',
                                              url=f'{api_settings.BASE_API_URL}ecsearch/indicators/?{query_string_drf}'
                                              f'&ordering={order_key}&page={page}', headers=headers)
         es_raw_req = requests.Request('GET',
                                       f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/_count?q={query_string_raw}',
                                       auth=cred)
-
-        async_req_caller = utils.AsyncAPICaller([es_serializer_req, es_raw_req])
+        if not search_query:
+            async_req_caller = utils.AsyncAPICaller(
+                [es_serializer_req, es_raw_req])
+        else:
+            async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
         result = async_req_caller.execute_request_pool()
-
         return result
 
     def list(self, request, *args, **kwargs):
@@ -786,12 +814,24 @@ class IndicatorView(generics.ListCreateAPIView):
         page = int(page)
         page_size = 25
         core_ftr = self.get_filter()
+        user_case = self.request.GET.get("user_case", None)
+        # TODO: Lots of conditional statements going on here, need to refactor later
         if api_settings.SWITCH_ES_SEARCH and core_ftr.children:
             ftr = self.add_case_permission_filters(core_ftr)
             indicators = self.get_es_results(ftr.children, key, page)
+            indicator_res = indicators.get("results", [])
+            if indicator_res and user_case:
+                points = IndicatorPoint.objects.filter(indicator_id__in=[
+                    i['id'] for i in indicator_res], user_id=User.objects.get(uid=user_case.split('_')[0]).id, points=True).values_list("indicator_id", flat=True)
+                for i in indicator_res:
+                    i['status'] = i.pop('cases')
+                    if i['id'] in points:
+                        i['points'] = 10
+                    else:
+                        i['points'] = 0
             return APIResponse({
                 "data": {
-                    "indicators": indicators.get("results", []),
+                    "indicators": indicator_res,
                     "totalItems": indicators.get("totalItems", 0),
                     "totalPages": indicators.get("totalPages", 0),
                     "pageIndex": indicators.get("pageIndex", 0),
@@ -799,10 +839,34 @@ class IndicatorView(generics.ListCreateAPIView):
                 }
             })
         else:
-            ftr = self.add_case_permission_filters(core_ftr)
-            indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
-                         page_size * (page - 1):page_size * page]
-            serializer = IndicatorListSerializer(indicators, many=True)
+            ftr = self.add_case_permission_filters(
+                core_ftr) if not user_case else core_ftr
+            if user_case:
+                user, case = user_case.split("_")
+                if (self.request.user.permission is UserPermission.SUPERSENTINEL or self.request.user.permission is UserPermission.SENTINEL) and ftr['case_status'] == 'released':
+                    sentinel_flag = 'sntl_'
+                else:
+                    sentinel_flag = ''
+                with connections['readonly'].cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT COUNT(id) FROM fn_{sentinel_flag}user_points_status({ftr['user_id']}, '{ftr['case_status']}')")
+                    total_items = cursor.fetchall()[0][0]
+                    indicators = UserIndicator.objects.raw(f"SELECT * FROM fn_{sentinel_flag}user_points_status({ftr['user_id']}, '{ftr['case_status']}')")[
+                        page_size * (page - 1):page_size * page]
+                    serializer = UserIndicatorSerializer(indicators, many=True)
+                    data = serializer.data
+            else:
+                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
+                    page_size * (page - 1):page_size * page]
+                serializer = IndicatorListSerializer(indicators, many=True)
+                data = serializer.data
+            if api_settings.SWITCH_ES_SEARCH and len(ftr) == 0:
+                if permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
+                    query_string = 'cases:(released) OR (confirmed)'
+                else:
+                    query_string = None
+                resp = utils.es_raw_search('_count', query_string)
+                total_items = resp['count']
 
             if len(ftr) == 0 and total_items == 0:
                 c = DefaultCache()
@@ -814,12 +878,11 @@ class IndicatorView(generics.ListCreateAPIView):
                         total_items = d['cr']
 
             if total_items == 0:
-                total_items = self.model.objects.filter(ftr).distinct('id').count()
                 CacheNumberOfIndicatorsCases().delay()
 
             return APIResponse({
                 "data": {
-                    "indicators": serializer.data,
+                    "indicators": data,
                     "totalItems": total_items,
                     "totalPages": math.ceil(total_items / page_size),
                     "pageIndex": page
@@ -1863,11 +1926,12 @@ class Metrics(APIView):
         cached = True if (indicators != None and cases != None) else False
 
         if not cached:
-            case_row_query = Constants.QUERIES['SELECT_METRICS_CASE'].format(tz, aware_startdate.strftime('%Y-%m-%d'))
-            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(tz, aware_startdate.strftime(
+            case_row_query = Constants.QUERIES['SELECT_METRICS_CASE'].format(
+                tz, aware_startdate.strftime('%Y-%m-%d'))
+            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(aware_startdate.strftime(
                 '%Y-%m-%d'))
 
-            with connection.cursor() as cursor:
+            with connections['readonly'].cursor() as cursor:
                 cursor.execute(case_row_query)
                 cases = cursor.fetchall()
                 cursor.execute(indicator_row_query)

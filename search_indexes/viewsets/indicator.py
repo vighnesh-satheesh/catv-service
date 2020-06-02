@@ -2,6 +2,7 @@ from django_elasticsearch_dsl_drf.constants import (
     LOOKUP_QUERY_IN,
     LOOKUP_FILTER_WILDCARD,
     LOOKUP_QUERY_CONTAINS,
+    LOOKUP_FILTER_RANGE
 )
 from django_elasticsearch_dsl_drf.filter_backends import (
     IdsFilterBackend,
@@ -97,6 +98,13 @@ class IndicatorDocumentView(BaseDocumentViewSet):
                 LOOKUP_QUERY_CONTAINS,
                 LOOKUP_FILTER_WILDCARD,
             ],
+        },
+        'user_id': {
+            'field': 'user_id',
+            'lookups': [
+                LOOKUP_QUERY_IN,
+                LOOKUP_FILTER_RANGE
+            ]
         },
     }
     ordering_fields = {

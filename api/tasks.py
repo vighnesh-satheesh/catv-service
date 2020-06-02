@@ -24,14 +24,14 @@ class CacheLeftPanelValuesTask(Task):
                 'cr': 0
             }
         }
-        with connections['default'].cursor() as cursor:
+        with connections['readonly'].cursor() as cursor:
             cursor.execute(Constants.QUERIES['SELECT_CASE_DETAILS'])
             row = cursor.fetchall()
             dashboard_obj['cases'] = row
-            cursor.execute(Constants.QUERIES['SELECT_INDICATOR_COUNT'])
+            cursor.execute(Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT'])
             row = cursor.fetchone()
             dashboard_obj['indicators']['all'] = row[0]
-            cursor.execute(Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'], ('released', 'confirmed',))
+            cursor.execute(Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT'])
             row = cursor.fetchone()
             dashboard_obj['indicators']['cr'] = row[0]
             c = DefaultCache()
@@ -46,11 +46,11 @@ class CacheNumberOfIndicatorsCases(Task):
             'all': 0,
             'cr': 0
         }
-        with connections['default'].cursor() as cursor:
-            cursor.execute(Constants.QUERIES['SELECT_INDICATOR_COUNT'])
+        with connections['readonly'].cursor() as cursor:
+            cursor.execute(Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT'])
             row = cursor.fetchone()
             data['all'] = row[0]
-            cursor.execute(Constants.QUERIES['SELECT_CASE_INDICATOR_COUNT'], ('released', 'confirmed',))
+            cursor.execute(Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT'])
             row = cursor.fetchone()
             data['cr'] = row[0]
             c = DefaultCache()
@@ -139,7 +139,8 @@ class IndicatorESDocumentTask:
                     'annotations': indicator.annotations_indexing,
                     'latest_case': {
                         'hex': getattr(indicator.latest_case_indexing, 'hex', '')
-                    }
+                    },
+                    'user_id': indicator.user_id_indexing
                 }
             }
 

@@ -1,8 +1,11 @@
 import json
+import traceback
 
+from .. import utils
 from ..cache import DefaultCache
 from ..constants import Constants
 from ..models import CaseStatus, CaseHistory
+from ..serializers import CaseTRDBSerializer
 from api.internal.serializers import CasePostSerializer
 from api.models import ConsumerErrorLogs
 from api.tasks import IndicatorESDocumentTask
@@ -31,6 +34,11 @@ def process_crawled_cases(message):
             log=json.dumps(history_log),
             initiator=case.reporter if case.reporter is not None else None
         )
+        
+        if case.status == CaseStatus.RELEASED:
+            case_serializer = CaseTRDBSerializer(case)
+            data = case_serializer.data
+            utils.TRDB_CLIENT.push_case("activateCase", data)
 
         # Update common redis cache for indicator, case count
         c = DefaultCache()
@@ -40,9 +48,10 @@ def process_crawled_cases(message):
         # Update Elasticsearch index
         IndicatorESDocumentTask(action=Constants.INDEX_ACTIONS["INDEX"]).run(case=case)
     except Exception as e:
-        print(str(e))
+        error_trace = traceback.format_exc()
+        print(error_trace)
         ConsumerErrorLogs.objects.create(
             topic=message.topic,
             message=request_body,
-            error_trace=str(e)
+            error_trace=error_trace
         )

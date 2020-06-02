@@ -124,6 +124,10 @@ class IndicatorDocument(Document):
         }
     )
 
+    user_id = fields.IntegerField(
+        attr='user_id_indexing'
+    )
+
     class Django(object):
         """
         Inner nested class to link Elasticsearch with Django ORM

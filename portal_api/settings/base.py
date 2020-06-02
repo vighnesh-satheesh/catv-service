@@ -340,7 +340,7 @@ API_SETTINGS = {
     "KAFKA_USER_TOPIC": env.str('KAFKA_USER_TOPIC', 'cara-address'),
     "KAFKA_BATCH_TOPIC": env.str('KAFKA_BATCH_TOPIC', 'cara-indicator'),
     "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
-    "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', False),
+    "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', True),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
     "LYZE_API_KEY": env.str('API_LYZE_KEY'),
     "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
@@ -348,6 +348,7 @@ API_SETTINGS = {
     "ELASTICSEARCH_INDICATOR_IDX": env.str("API_ELASTIC_INDICATOR_IDX", 'dev_indicator'),
     "KAFKA_CRAWLED_CASE_TOPIC": env.str("API_KAFKA_CRAWLED_CASE_TOPIC", "crawled-cases"),
     "KAFKA_PORTAL_CASE_TOPIC": env.str("API_KAFKA_PORTAL_CASE_TOPIC", "portal-cases"),
+    "KAFKA_DELAYED_CASE_TOPIC": env.str("API_KAFKA_DELAYED_CASE_TOPIC", "crawled-delayed-cases"),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.

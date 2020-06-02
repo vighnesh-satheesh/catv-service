@@ -1334,6 +1334,7 @@ class CasePostSerializer(serializers.ModelSerializer):
                             history_log['indicatorRemoved'] = True
                     else:
                         indi_item["case"] = instance
+                        indi_item["user"] = self.context["request"].user
                         indicator = models.Indicator.objects.create(
                             **indi_item)
                         models.CaseIndicator.objects.create(
@@ -1670,6 +1671,11 @@ class CasePatchSerializer(NonNullModelSerializer):
                 ind_list = models.Indicator.objects.exclude(
                     pattern_type='filehash').filter(pattern=ind.pattern)
                 if ind_list.all().count() == 1:
+                    if instance.reporter:
+                        indicator_points = IndicatorPointsSerializer(
+                            data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
+                        indicator_points.is_valid(raise_exception=True)
+                        indicator_points.save()
                     i = i + 1
             if instance.reporter:
                 instance.reporter.points = instance.reporter.points + (10 * i)
@@ -1729,6 +1735,15 @@ class UserPointsSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         print("rep-data=", validated_data)
         return super(UserPointsSerializer, self).update(instance, validated_data)
+
+
+class IndicatorPointsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.IndicatorPoint
+        fields = ["user_id", "indicator_id", "points"]
+    user_id = serializers.IntegerField()
+    indicator_id = serializers.IntegerField()
+    points = serializers.BooleanField()
 
 
 class AutoCompleteSerializer(serializers.Serializer):
@@ -2515,3 +2530,15 @@ class CatvBtcPathSerializer(CATVEthPathSerializer):
             raise serializers.ValidationError(
                 "Wallet address 'address_to' is not a valid bitcoin address.")
         return value
+
+class UserIndicatorSerializer(NonNullModelSerializer):
+    security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
+    pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
+    pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
+
+    class Meta:
+        model = models.UserIndicator
+        fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
+                  "pattern_type", "security_tags", "created", "points", "status")
+        read_only_fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
+                  "pattern_type", "security_tags", "created", "points", "status")

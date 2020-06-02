@@ -653,7 +653,6 @@ class Annotation(models.Model):
     annotation = models.CharField(max_length=256, blank=True, null=True)
     created = models.DateTimeField(default=now)
 
-
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='indicator_user')
@@ -736,6 +735,10 @@ class Indicator(models.Model):
             latest_case = self.cases.latest('id')
             return latest_case.uid
         return ""
+    
+    @property
+    def user_id_indexing(self):
+        return self.user_id if self.user_id else 0
 
     class Meta:
         indexes = [
@@ -1087,6 +1090,7 @@ class IndicatorMView(models.Model):
     cases = models.TextField(blank=True, null=True)
     annotations = models.CharField(max_length=256, blank=True, null=True)
     latest_case = models.UUIDField(null=True, editable=False)
+    user_id = models.IntegerField()
 
     class Meta:
         managed = False
@@ -1124,3 +1128,26 @@ class ConsumerErrorLogs(models.Model):
         indexes = [
             models.Index(fields=['topic'])
         ]
+
+class IndicatorPoint(models.Model):
+    user = models.ForeignKey(Indicator, on_delete=models.DO_NOTHING)
+    indicator_id = models.IntegerField(null=False)
+    points = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'api_indicator_point'
+
+class UserIndicator(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    security_category = EnumField(enum=IndicatorSecurityCategory)
+    pattern = models.CharField(max_length=256)
+    pattern_subtype = EnumField(enum=IndicatorPatternSubtype, blank=True, null=True)
+    pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False, max_length=32)
+    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
+    created = models.DateTimeField(default=now)
+    points = models.IntegerField(default=0)
+    status = models.CharField(max_length=10, null=True)
+
+    class Meta:
+        managed = False
