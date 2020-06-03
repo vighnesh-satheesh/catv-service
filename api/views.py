@@ -2234,7 +2234,7 @@ class SwapHistory(APIView):
             int(ed)/1000).strftime('%Y-%m-%d %H:%M:%S')
         history_query = Constants.QUERIES['SWAP_HISTORY_USER'].format(
             user, sd, ed)
-        with connection.cursor() as cursor:
+        with connections['readonly'].cursor() as cursor:
             cursor.execute(history_query)
             history = cursor.fetchall()
         data = {'history': history}
@@ -2315,7 +2315,7 @@ class CARAHistory(APIView):
         for add, t in zip(search, time):
             report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(
                 add, t)
-            with connection.cursor() as new_cursor:
+            with connections['readonly'].cursor() as new_cursor:
                 new_cursor.execute(report_query)
                 add_report = new_cursor.fetchmany(1)
                 if add_report is not None:
@@ -2338,7 +2338,7 @@ class CARAReport(APIView):
     def get(self, request):
         address = self.request.GET.get('address')
         report_query = Constants.QUERIES['CARA_REPORT_QUERY'].format(address)
-        with connection.cursor() as cursor:
+        with connections['readonly'].cursor() as cursor:
             cursor.execute(report_query)
             report = cursor.fetchone()
             if report is not None:
