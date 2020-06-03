@@ -93,12 +93,8 @@ class CatvMetrics:
         for node in self.node_list:
             annotation = node["annotation"]
             if annotation:
-                existing_indicator = IndicatorExtraAnnotation.objects.filter(pattern=node["address"])
-                if existing_indicator:
-                    existing_indicator.update(annotation=annotation, updated=now())
-                else:
-                    bulk_indicators.append(
-                        IndicatorExtraAnnotation(pattern=node["address"], annotation=annotation)
-                    )
+                bulk_indicators.append(
+                    IndicatorExtraAnnotation(pattern=node["address"], annotation=annotation)
+                )
         IndicatorExtraAnnotation.objects.bulk_create(bulk_indicators)
 
