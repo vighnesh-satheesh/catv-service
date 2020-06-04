@@ -110,10 +110,11 @@ def take(n, iterable):
     return list(islice(iterable, n))
 
 
-def group_by_depth(edge_dict: dict) -> dict:
+def group_by_depth(edge_dict: dict, mode: int) -> dict:
     grouped_by_depth: dict = defaultdict(dict)
     for key, value in edge_dict.items():
-        grouped_by_depth[value["depth"]][key] = value
+        shifted_depth = value["depth"] + 1 if mode == -1 else value["depth"]
+        grouped_by_depth[shifted_depth][key] = value
     return grouped_by_depth
 
 
@@ -145,9 +146,9 @@ def limit_connected_edges(sorted_grouped_edges: dict, scaling_factor: float) -> 
     return limited_edges
 
 
-def make_lossy_graph(nc, edge_dict):
+def make_lossy_graph(nc, edge_dict, mode):
     print("Grouping by depth...")
-    grouped_by_depth = group_by_depth(edge_dict)
+    grouped_by_depth = group_by_depth(edge_dict, mode)
     print("Sorting by depth...")
     sorted_per_depth = sort_per_depth(grouped_by_depth)
     node_count = nc.count
@@ -491,7 +492,7 @@ def generate_nodes_edges(result, mode):
     limited_edges = {}
     limited_nodes = []
     if nc.count > api_settings.CATV_GRAPH_NODES_CUTOFF:
-        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict, mode)
     track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
                     'volume_count_{}'.format(mode): volume_count, 'graph_node_list': list(limited_nodes),
@@ -522,7 +523,7 @@ def generate_nodes_edges_coinpath(result, mode):
     limited_edges = {}
     limited_nodes = []
     if nc.count > api_settings.CATV_GRAPH_NODES_CUTOFF:
-        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict, mode)
     track_result = {'item_list': result, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
                     'volume_count_{}'.format(mode): volume_count, 'graph_node_list': list(limited_nodes),
@@ -551,7 +552,7 @@ def generate_nodes_edges_ethcoinpath(result, mode):
     limited_edges = {}
     limited_nodes = []
     if nc.count > api_settings.CATV_GRAPH_NODES_CUTOFF:
-        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict, mode)
     track_result = {'item_list': item_list, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
                     'volume_count_{}'.format(mode): volume_count, 'graph_node_list': list(limited_nodes),
@@ -580,7 +581,7 @@ def generate_nodes_edges_btccoinpath(result, mode):
     limited_edges = {}
     limited_nodes = []
     if nc.count > api_settings.CATV_GRAPH_NODES_CUTOFF:
-        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict)
+        limited_edges, limited_nodes = make_lossy_graph(nc, edge_dict, mode)
     track_result = {'item_list': item_list, 'node_list': list(nc.get_nodes_as_dict().values()), 'keys': keys,
                     'node_enum': nc.get_node_enum(), 'edge_list': list(edge_dict.values()),
                     'volume_count_{}'.format(mode): volume_count, 'graph_node_list': list(limited_nodes),
