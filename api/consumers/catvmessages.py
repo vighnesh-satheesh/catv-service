@@ -49,6 +49,8 @@ def process_catv_messages(job: CatvJobQueue):
         token_type = request_body.get("token_type", CatvTokens.ETH.value)
         search_type = request_body.get("search_type", CatvSearchType.FLOW.value)
         search_params = request_body.get("search_params", {})
+        source_depth = search_params.get("source_depth", 0)
+        distribution_depth = search_params.get("distribution_depth", 0)
         search_params.update({'force_lookup': True})
         history_runner = CatvHistoryTask if search_type == CatvSearchType.FLOW.value else CatvPathHistoryTask
         print(search_params)
@@ -56,7 +58,12 @@ def process_catv_messages(job: CatvJobQueue):
         serializer_obj = serializer_map[token_type][search_type](data=search_params)
         serializer_obj.is_valid(raise_exception=True)
         if search_type == CatvSearchType.FLOW.value:
-            core_results = serializer_obj.get_tracking_results(tx_limit=api_settings.CATV_TX_LIMIT, limit=api_settings.CATV_ADDRESS_LIMT, save_to_db=False)
+            balanced_tx_limit = api_settings.CATV_TX_LIMIT
+            balanced_addr_limit = api_settings.CATV_ADDRESS_LIMT
+            if source_depth > 0 and distribution_depth > 0:
+                balanced_tx_limit = balanced_tx_limit / 2
+                balanced_addr_limit = balanced_addr_limit / 2
+            core_results = serializer_obj.get_tracking_results(tx_limit=balanced_tx_limit, limit=balanced_addr_limit, save_to_db=False)
         else:
             core_results = serializer_obj.get_tracking_results(save_to_db=False)
         graph_data = core_results.get("graph", {})
