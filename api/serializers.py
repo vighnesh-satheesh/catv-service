@@ -2,7 +2,6 @@ import os
 import time
 import re
 from collections import OrderedDict
-import socket
 
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
@@ -18,6 +17,7 @@ from rest_framework import serializers
 
 import boto3
 import json
+from requests.exceptions import ReadTimeout
 
 from . import validates
 from . import exceptions
@@ -2057,9 +2057,8 @@ class CATVSerializer(serializers.Serializer):
                 "api_calls": tracking_results.ext_api_calls,
                 "messages": tracking_results.error_messages
             }
-        except socket.timeout:
-            raise exceptions.RequestTimeoutError(
-                "Bloxy source transactions API timeout (exceeded 30 seconds).")
+        except ReadTimeout:
+            raise exceptions.FileNotFound("Timeout exceeded while fetching/processing data.")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:
@@ -2100,9 +2099,8 @@ class CATVBTCSerializer(CATVSerializer):
                 "api_calls": tracking_results.ext_api_calls,
                 "messages": tracking_results.error_messages
             }
-        except socket.timeout:
-            raise exceptions.RequestTimeoutError(
-                "External API timeout (exceeded 30 seconds).")
+        except ReadTimeout:
+            raise exceptions.FileNotFound("Timeout exceeded while fetching/processing data.")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:
@@ -2179,9 +2177,8 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
                 "api_calls": tracking_results.ext_api_calls,
                 "messages": tracking_results.error_messages
             }
-        except socket.timeout:
-            raise exceptions.RequestTimeoutError(
-                "External API timeout (exceeded 30 seconds).")
+        except ReadTimeout:
+            raise exceptions.FileNotFound("Timeout exceeded while fetching/processing data.")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_results.error:
@@ -2503,9 +2500,8 @@ class CATVEthPathSerializer(serializers.Serializer):
                 "api_calls": tracking_instance.ext_api_calls,
                 "messages": tracking_instance.error_messages
             }
-        except socket.timeout:
-            raise exceptions.RequestTimeoutError(
-                "Bloxy source transactions API timeout (exceeded 30 seconds).")
+        except ReadTimeout:
+            raise exceptions.FileNotFound("Timeout exceeded while fetching/processing data.")
         except Exception as e:
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_instance.error:

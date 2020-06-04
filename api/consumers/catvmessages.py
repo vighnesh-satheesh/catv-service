@@ -1,6 +1,5 @@
 import json
 from operator import gt, lt
-import traceback
 from uuid import UUID, uuid4
 
 from django.core.files.base import ContentFile
@@ -98,7 +97,7 @@ def process_catv_messages(job: CatvJobQueue):
             history_runner().run(history=search_params, from_history=True)
             task_status = CatvTaskStatusType.FAILED
     except Exception as e:
-        error_trace = traceback.format_exc()
+        error_trace = str(e)
         print(error_trace)
         generic_error = "Internal server error. Please try again later"
         safe_error_trace = error_trace if isinstance(e, FileNotFound) else generic_error
