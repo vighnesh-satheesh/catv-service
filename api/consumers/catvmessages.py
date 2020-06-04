@@ -13,7 +13,8 @@ from api.models import (
     AttachedFile,
     CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType,
-    ConsumerErrorLogs, CatvResult
+    ConsumerErrorLogs, CatvResult,
+    CatvJobQueue
 )
 from api.serializers import (
     CATVSerializer, CATVBTCCoinpathSerializer,
@@ -25,8 +26,9 @@ from api.tasks import CatvHistoryTask, CatvPathHistoryTask
 __all__ = ('process_catv_messages',)
 
 
-def process_catv_messages(message):
-    request_body = json.loads(message.value.decode("utf-8"))
+def process_catv_messages(job: CatvJobQueue):
+    message = job.message
+    request_body = message
     print("Processing message:\n")
     print(request_body)
 
@@ -108,7 +110,7 @@ def process_catv_messages(message):
         }
         task_status = CatvTaskStatusType.FAILED
         ConsumerErrorLogs.objects.create(
-            topic=message.topic,
+            topic="catv-requests",
             message=request_body,
             error_trace=error_trace
         )
@@ -122,3 +124,4 @@ def process_catv_messages(message):
             request_instance.updated = now()
             request_instance.save()
             CatvResult.objects.filter(request=request_instance).update(result_file=file_instance)
+            job.delete()

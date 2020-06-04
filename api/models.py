@@ -1205,3 +1205,16 @@ class CatvResult(models.Model):
         indexes = [
             models.Index(fields=['request'])
         ]
+
+
+class CatvJobQueue(models.Model):
+    message = JSONField(default={})
+    retries_remaining = models.IntegerField(default=3)
+    created = models.DateTimeField(default=now)
+    
+    class Meta:
+        db_table = 'api_catv_job_queue'
+        indexes = [
+            models.Index(fields=['retries_remaining']),
+            models.Index(fields=['created'])
+        ]
