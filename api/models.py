@@ -15,6 +15,7 @@ from django.utils.safestring import mark_safe
 from django.template.defaultfilters import truncatechars
 from django.utils.timezone import now
 from django.db.models.lookups import IContains
+from django_bulk_update.manager import BulkUpdateManager
 
 import random, string
 import magic
@@ -1186,6 +1187,7 @@ class IndicatorExtraAnnotation(models.Model):
     annotation = models.TextField(blank=True, null=True)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+    objects = BulkUpdateManager()
     
     class Meta:
         db_table = 'api_indicator_extra_annotation'
