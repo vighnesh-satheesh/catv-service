@@ -17,7 +17,7 @@ class Command(BaseCommand):
         try:
             print("Connecting to databasejob queue table....")
             while(True):
-                pending_jobs = CatvJobQueue.objects.raw(Constants.QUERIES["SELECT_UPDATE_CATV_JOBS"].format(api_settings.CATV_NUM_JOBS_PICK))
+                pending_jobs = CatvJobQueue.objects.using('default').raw(Constants.QUERIES["SELECT_UPDATE_CATV_JOBS"].format(api_settings.CATV_NUM_JOBS_PICK))
                 if pending_jobs:
                     for job in pending_jobs:
                         print(job.message)
