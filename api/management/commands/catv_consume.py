@@ -1,36 +1,29 @@
 import sys
+from time import sleep
 
 from django.core.management.base import BaseCommand
-from kafka import KafkaConsumer
 
+from api.constants import Constants
 from api.consumers import process_catv_messages
+from api.models import CatvJobQueue
 from api.serializers import CATVSerializer
 from api.settings import api_settings
 
 
 class Command(BaseCommand):
-    help = "Starts Kafka consumer for CATV and blocks indefinitely"
+    help = "Starts the consumer for CATV and blocks indefinitely"
 
     def handle(self, *args, **options):
-        print("Connecting to Kafka brokers...")
-        catv_consumer = KafkaConsumer(
-            api_settings.KAFKA_CATV_TOPIC,
-            bootstrap_servers=[
-                api_settings.KAFKA_BROKER_1,
-                api_settings.KAFKA_BROKER_2,
-                api_settings.KAFKA_BROKER_3
-            ],
-            auto_offset_reset='earliest',
-            enable_auto_commit=True,
-            auto_commit_interval_ms=1000,
-            group_id='catv-reader',
-            max_poll_records=1
-        )
         try:
-            for message in catv_consumer:
-                print(message)
-                process_catv_messages(message)
+            print("Connecting to databasejob queue table....")
+            while(True):
+                pending_jobs = CatvJobQueue.objects.raw(Constants.QUERIES["SELECT_UPDATE_CATV_JOBS"].format(api_settings.CATV_NUM_JOBS_PICK))
+                if pending_jobs:
+                    for job in pending_jobs:
+                        print(job.message)
+                        process_catv_messages(job)
+                else:
+                    sleep(15)
         except KeyboardInterrupt:
-            catv_consumer.close()
             self.stdout.write(self.style.ERROR("Encountered a keyboard interrupt, exiting..."))
             sys.exit(1)

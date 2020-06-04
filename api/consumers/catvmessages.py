@@ -1,6 +1,5 @@
 import json
 from operator import gt, lt
-import traceback
 from uuid import UUID, uuid4
 
 from django.core.files.base import ContentFile
@@ -13,7 +12,8 @@ from api.models import (
     AttachedFile,
     CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType,
-    ConsumerErrorLogs, CatvResult
+    ConsumerErrorLogs, CatvResult,
+    CatvJobQueue
 )
 from api.serializers import (
     CATVSerializer, CATVBTCCoinpathSerializer,
@@ -25,8 +25,9 @@ from api.tasks import CatvHistoryTask, CatvPathHistoryTask
 __all__ = ('process_catv_messages',)
 
 
-def process_catv_messages(message):
-    request_body = json.loads(message.value.decode("utf-8"))
+def process_catv_messages(job: CatvJobQueue):
+    message = job.message
+    request_body = message
     print("Processing message:\n")
     print(request_body)
 
@@ -72,13 +73,14 @@ def process_catv_messages(message):
                 dist_analysis = catv_metrics.generate_metrics(gt)
         catv_metrics.save_annotations()
         if 'graph_node_list' in graph_data and graph_data['graph_node_list']:
+            if len(graph_data['node_list']) != len(graph_data['graph_node_list']):
+                core_results["messages"]["source"] += f"\nThis address has too many transactions. Viewing all transactions would be difficult, "\
+                    f"so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
             graph_data["node_list"] = graph_data["graph_node_list"]
             graph_data["edge_list"] = graph_data["graph_edge_list"]
             print(len(graph_data["node_list"]))
             del graph_data["graph_node_list"]
             del graph_data["graph_edge_list"]
-            core_results["messages"]["source"] += f"\nThis address has too many transactions. Viewing all transactions would be difficult, "\
-                f"so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
         results = {
             "data": {
                 **graph_data,
@@ -96,7 +98,7 @@ def process_catv_messages(message):
             history_runner().run(history=search_params, from_history=True)
             task_status = CatvTaskStatusType.FAILED
     except Exception as e:
-        error_trace = traceback.format_exc()
+        error_trace = str(e)
         print(error_trace)
         generic_error = "Internal server error. Please try again later"
         safe_error_trace = error_trace if isinstance(e, FileNotFound) else generic_error
@@ -108,7 +110,7 @@ def process_catv_messages(message):
         }
         task_status = CatvTaskStatusType.FAILED
         ConsumerErrorLogs.objects.create(
-            topic=message.topic,
+            topic="catv-requests",
             message=request_body,
             error_trace=error_trace
         )
@@ -122,3 +124,4 @@ def process_catv_messages(message):
             request_instance.updated = now()
             request_instance.save()
             CatvResult.objects.filter(request=request_instance).update(result_file=file_instance)
+            job.delete()

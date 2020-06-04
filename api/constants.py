@@ -171,6 +171,10 @@ class Constants:
                                     "values ('new', 0), ('progress', 0), ('rejected', 0), ('confirmed', 0), "
                                     "('released', 0)) x(status, cntr);",
         "FAKE_SELECT_INDICATOR_COUNT": "SELECT 0 as count from api_indicator limit 1;",
+        "SELECT_UPDATE_CATV_JOBS": "UPDATE api_catv_job_queue j1 SET retries_remaining = retries_remaining - 1 "
+                                   "WHERE j1.id = (SELECT j2.id FROM api_catv_job_queue j2 WHERE j2.retries_remaining > 0 "
+                                   "ORDER BY j2.created FOR UPDATE SKIP LOCKED LIMIT {0}) "
+                                   "RETURNING j1.id, j1.message, j1.retries_remaining, j1.created;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

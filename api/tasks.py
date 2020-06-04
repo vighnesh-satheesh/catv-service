@@ -13,7 +13,10 @@ from kafka import KafkaProducer
 from .cache import DefaultCache
 from .constants import Constants
 from .exceptions import DataIntegrityError
-from .models import Case, CatvRequestStatus, CatvResult
+from .models import (
+    Case, CatvJobQueue,
+    CatvRequestStatus, CatvResult
+)
 from .settings import api_settings
 
 
@@ -234,18 +237,7 @@ class CatvRequestTask:
             "search_type": self.search_type,
             "search_params": self.search_params
         }
-        producer = KafkaProducer(
-            bootstrap_servers=[
-                api_settings.KAFKA_BROKER_1,
-                api_settings.KAFKA_BROKER_2,
-                api_settings.KAFKA_BROKER_3
-            ],
-            value_serializer=lambda m: json.dumps(m).encode("utf-8"),
-            retries=3
-        )
-        producer.send(self.topic, message_body)
-        producer.flush()
-        producer.close()
+        CatvJobQueue.objects.create(message=message_body, retries_remaining=3)
     
     def save(self):
         try:

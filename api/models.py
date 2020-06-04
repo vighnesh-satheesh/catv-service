@@ -15,6 +15,7 @@ from django.utils.safestring import mark_safe
 from django.template.defaultfilters import truncatechars
 from django.utils.timezone import now
 from django.db.models.lookups import IContains
+from django_bulk_update.manager import BulkUpdateManager
 
 import random, string
 import magic
@@ -1186,6 +1187,7 @@ class IndicatorExtraAnnotation(models.Model):
     annotation = models.TextField(blank=True, null=True)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+    objects = BulkUpdateManager()
     
     class Meta:
         db_table = 'api_indicator_extra_annotation'
@@ -1204,4 +1206,17 @@ class CatvResult(models.Model):
         db_table = 'api_catv_result'
         indexes = [
             models.Index(fields=['request'])
+        ]
+
+
+class CatvJobQueue(models.Model):
+    message = JSONField(default={})
+    retries_remaining = models.IntegerField(default=3)
+    created = models.DateTimeField(default=now)
+    
+    class Meta:
+        db_table = 'api_catv_job_queue'
+        indexes = [
+            models.Index(fields=['retries_remaining']),
+            models.Index(fields=['created'])
         ]

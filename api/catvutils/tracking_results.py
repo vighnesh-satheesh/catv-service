@@ -17,6 +17,11 @@ from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
 from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface, BloxyEthAPIInterface
 
 
+def chunks(iterable, size):
+    for i in range(0, len(iterable), size):
+        yield iterable[i:i+size]
+
+
 def find_key(_dict, key):
     return _dict[key] if key in _dict else None
 
@@ -134,12 +139,16 @@ class TrackingResults:
     @staticmethod
     def update_annotations(nc, item_list, token_type):
         addr_list = nc.get_node_enum().keys()
-        query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype=token_type, pattern_type="cryptoaddr")
-        query_list &= Q(pattern_lower__in=[addr.lower() for addr in addr_list])
-        indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).\
-            prefetch_related('cases').values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail',
-                                             'pattern_subtype', 'pattern_type', 'annotation').\
-            order_by('-cases__updated')
+        addr_list = [addr.lower() for addr in addr_list]
+        indicators = []
+        for chunk_addr in chunks(addr_list, 2000):
+            query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype=token_type, pattern_type="cryptoaddr")
+            query_list &= Q(pattern_lower__in=chunk_addr)
+            matched_indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).\
+                prefetch_related('cases').values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail',
+                                                'pattern_subtype', 'pattern_type', 'annotation').\
+                order_by('-cases__updated')
+            indicators.extend(matched_indicators)
         seen_indicators = []
 
         for item in indicators:
