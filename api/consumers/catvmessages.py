@@ -76,10 +76,11 @@ def process_catv_messages(job: CatvJobQueue):
             graph_data["node_list"] = graph_data["graph_node_list"]
             graph_data["edge_list"] = graph_data["graph_edge_list"]
             print(len(graph_data["node_list"]))
+            if len(graph_data['node_list']) != len(graph_data['graph_node_list']):
+                core_results["messages"]["source"] += f"\nThis address has too many transactions. Viewing all transactions would be difficult, "\
+                    f"so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
             del graph_data["graph_node_list"]
             del graph_data["graph_edge_list"]
-            core_results["messages"]["source"] += f"\nThis address has too many transactions. Viewing all transactions would be difficult, "\
-                f"so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
         results = {
             "data": {
                 **graph_data,
