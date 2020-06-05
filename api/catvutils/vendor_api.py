@@ -107,7 +107,8 @@ class BloxyEthAPIInterface:
             'from_date': path_tracker.from_date,
             'till_date': path_tracker.to_date,
             'limit_address_tx_count': path_tracker.limit_address_tx,
-            'format': 'json'
+            'format': 'json',
+            'stop': 'nearest'
         }
         if path_tracker.token_address:
             payload.update({'token': path_tracker.token_address})

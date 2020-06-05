@@ -2438,7 +2438,7 @@ class CATVEthPathSerializer(serializers.Serializer):
     token_address = serializers.CharField(
         required=False, default='0x0000000000000000000000000000000000000000')
     depth = serializers.IntegerField(
-        required=False, min_value=1, max_value=30, default=5)
+        required=False, min_value=1, max_value=10, default=5)
     from_date = serializers.CharField(
         required=False, default=timezone.datetime(2015, 1, 1).strftime('%Y-%m-%d'))
     to_date = serializers.CharField(
