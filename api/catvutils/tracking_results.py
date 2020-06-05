@@ -201,16 +201,18 @@ class TrackingResults:
             updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
-            nc.filter_update_nodes()
-            tracking_results['node_enum'] = nc.get_node_enum()
+            updated_nc.filter_update_nodes()
+            tracking_results['graph_node_list'] = list(updated_nc.get_nodes_as_dict().values())
+            tracking_results['node_enum'] = updated_nc.get_node_enum()
             self._source_graph = tracking_results
         if not self._skip_dist and self._async_dist_graph:
             tracking_results, nc = self._async_dist_graph.get()
             updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
-            nc.filter_update_nodes()
-            tracking_results['node_enum'] = nc.get_node_enum()
+            updated_nc.filter_update_nodes()
+            tracking_results['graph_node_list'] = list(updated_nc.get_nodes_as_dict().values())
+            tracking_results['node_enum'] = updated_nc.get_node_enum()
             self._dist_graph = tracking_results
 
     def make_graph_dict(self):
