@@ -237,7 +237,7 @@ class CatvRequestTask:
             "search_type": self.search_type,
             "search_params": self.search_params
         }
-        CatvJobQueue.objects.create(message=message_body, retries_remaining=3)
+        CatvJobQueue.objects.create(message=message_body, retries_remaining=1)
     
     def save(self):
         try:
