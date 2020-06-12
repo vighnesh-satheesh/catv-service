@@ -371,6 +371,9 @@ class CaseFilter(filters.FilterSet):
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
         pattern_type = self.request.GET.getlist("pattern_type") or []
         keyword = self.request.GET.getlist("keyword") or []
+        start_date = self.request.GET.getlist("start_date") or []
+        end_date = self.request.GET.getlist("end_date") or []
+        tz = self.request.query_params.get('timezone', None)
 
         if len(security_category) > 0:
             indicator_filter &= Q(
@@ -380,6 +383,20 @@ class CaseFilter(filters.FilterSet):
         if len(pattern_subtype) > 0:
             indicator_filter &= Q(
                 indicator__pattern_subtype__in=pattern_subtype)
+        if len(start_date) > 0:
+            sd = datetime.datetime.utcfromtimestamp(int(start_date[0]) / 1000)
+            if tz is not None:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC'))
+            indicator_filter &= Q(indicator__updated__gte=aware_sd) & Q(indicator__created__gte=aware_sd)
+        if len(end_date) > 0:
+            ed = datetime.datetime.utcfromtimestamp(int(end_date[0]) / 1000)
+            if tz is not None:
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC'))
+            indicator_filter &= Q(indicator__updated__lte=aware_ed) & Q(indicator__created__lte=aware_ed)
 
         if len(keyword) > 0:
             keyword_pattern_type = []
@@ -767,6 +784,9 @@ class IndicatorView(generics.ListCreateAPIView):
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
         pattern_type = self.request.GET.getlist("pattern_type") or []
         keyword = self.request.GET.getlist("keyword") or []
+        start_date = self.request.GET.getlist("start_date") or []
+        end_date = self.request.GET.getlist("end_date") or []
+        tz = self.request.query_params.get('timezone', None)
         user_case = self.request.GET.get(
             "user_case", "")
         case_status = self.request.GET.get("indicator", "all")
@@ -780,6 +800,18 @@ class IndicatorView(generics.ListCreateAPIView):
             ftr &= Q(pattern_type__in=pattern_type)
         if len(pattern_subtype) > 0:
             ftr &= Q(pattern_subtype__in=pattern_subtype)
+        if len(start_date) > 0 and len(end_date) > 0:
+            sd = datetime.datetime.utcfromtimestamp(int(start_date[0]) / 1000)
+            ed = datetime.datetime.utcfromtimestamp(int(end_date[0]) / 1000)
+            if tz is not None:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC'))
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC'))
+            ftr &= Q(created__gte=str(datetime.datetime.timestamp(aware_sd) * 1000))
+            ftr &= Q(created__lte=str(datetime.datetime.timestamp(aware_ed) * 1000))
+
         if len(keyword) > 0:
             for idx, k in enumerate(keyword):
                 if api_settings.SWITCH_ES_SEARCH:

@@ -2,7 +2,9 @@ from django_elasticsearch_dsl_drf.constants import (
     LOOKUP_QUERY_IN,
     LOOKUP_FILTER_WILDCARD,
     LOOKUP_QUERY_CONTAINS,
-    LOOKUP_FILTER_RANGE
+    LOOKUP_FILTER_RANGE,
+    LOOKUP_QUERY_GTE,
+    LOOKUP_QUERY_LTE
 )
 from django_elasticsearch_dsl_drf.filter_backends import (
     IdsFilterBackend,
@@ -106,6 +108,14 @@ class IndicatorDocumentView(BaseDocumentViewSet):
                 LOOKUP_FILTER_RANGE
             ]
         },
+        'created': {
+            'field': 'created',
+            'lookups': [
+                LOOKUP_FILTER_RANGE,
+                LOOKUP_QUERY_GTE,
+                LOOKUP_QUERY_LTE
+            ]
+        }
     }
     ordering_fields = {
         'id': 'id',
