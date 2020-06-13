@@ -36,7 +36,7 @@ def assign_usage_quota(sender, instance, created, **kwargs):
     if created and instance.status == UserStatus.APPROVED:
         try:
             current_user = instance
-            user_role = RoleUsageLimit.objects.get(role=current_user.role)
+            user_role = RoleUsageLimit.objects.using('default').get(role=current_user.role)
             with transaction.atomic():
                 Usage.objects.create(user=current_user, api_calls_left=user_role.api_limit,
                                      catv_calls_left=user_role.catv_limit, cara_calls_left=user_role.cara_limit,
