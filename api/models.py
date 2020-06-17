@@ -1220,3 +1220,24 @@ class CatvJobQueue(models.Model):
             models.Index(fields=['retries_remaining']),
             models.Index(fields=['created'])
         ]
+
+
+class CaseMView(models.Model):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
+    detail = models.TextField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    rich_text_detail = models.CharField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    created = models.DateTimeField(default=now)
+    updated = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=32)
+    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
+    reporter_id = models.IntegerField(null=True)
+    owner_id = models.IntegerField(null=True)
+    verifier_id = models.IntegerField(null=True)
+    security_category = models.TextField(null=True)
+    pattern_type = models.TextField(null=True)
+    pattern_subtype = models.TextField(null=True)
+    
+    class Meta:
+        managed = False
+        db_table = 'matvw_case_search'

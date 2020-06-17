@@ -284,7 +284,8 @@ class QueryDictList(dict):
                 for term in v:
                     query_list.append(f'{skip_join_key}{query_operator}{term}')
             else:
-                query_list.append(f'{k}{query_operator}{subquery_joiner.join(v)}')
+                str_v = [str(val) for val in v]
+                query_list.append(f'{k}{query_operator}{subquery_joiner.join(str_v)}')
         return query_joiner.join(query_list)
 
     def build_query_raw(self, query_operator=':', subquery_joiner=' OR ', query_joiner=' AND ', skip_term_key='search',
@@ -295,7 +296,8 @@ class QueryDictList(dict):
                 wildcard_v = list(map(lambda t: f'{t}{subquery_joiner}*{t}*', v))
                 query_list.append(f'({subquery_joiner.join(wildcard_v)})')
             else:
-                query_list.append(f'({k.split(key_splitter)[0]}{query_operator}{subquery_joiner.join(v)})')
+                str_v = [str(val) for val in v]
+                query_list.append(f'({k.split(key_splitter)[0]}{query_operator}{subquery_joiner.join(str_v)})')
         return query_joiner.join(query_list)
 
 
