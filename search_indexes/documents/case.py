@@ -78,22 +78,28 @@ class CaseDocument(Document):
 
     verifier = fields.IntegerField(attr='verifier_id')
 
-    security_category = StringField(
-        fields={
-            'raw': KeywordField(),
-        }
+    security_category = fields.ListField(
+        StringField(
+            fields={
+                'raw': KeywordField(),
+            }
+        )
     )
 
-    pattern_type = StringField(
-        fields={
-            'raw': KeywordField(),
-        }
+    pattern_type = fields.ListField(
+        StringField(
+            fields={
+                'raw': KeywordField(),
+            }
+        )
     )
 
-    pattern_subtype = StringField(
-        fields={
-            'raw': KeywordField(),
-        }
+    pattern_subtype = fields.ListField(
+        StringField(
+            fields={
+                'raw': KeywordField(),
+            }
+        )
     )
 
     class Django(object):

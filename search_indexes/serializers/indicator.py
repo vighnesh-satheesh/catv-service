@@ -17,9 +17,9 @@ class IndicatorDocumentSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     uid = serializers.SerializerMethodField()
     security_category = serializers.CharField(read_only=True)
-    security_tags = serializers.SerializerMethodField()
-    vector = serializers.SerializerMethodField()
-    environment = serializers.SerializerMethodField()
+    security_tags = serializers.ListField(child=serializers.CharField(), read_only=True)
+    vector = serializers.ListField(child=serializers.CharField(), read_only=True)
+    environment = serializers.ListField(child=serializers.CharField(), read_only=True)
     pattern_type = serializers.CharField(read_only=True)
     pattern_subtype = serializers.CharField(read_only=True)
     pattern = serializers.CharField(read_only=True)
@@ -54,21 +54,6 @@ class IndicatorDocumentSerializer(serializers.Serializer):
             return uuid.UUID(obj.uid.hex)
         return uuid.uuid4()
 
-    def get_security_tags(self, obj):
-        if obj.security_tags:
-            return obj.security_tags.split(", ")
-        return []
-
-    def get_vector(self, obj):
-        if obj.vector:
-            return obj.vector.split(", ")
-        return []
-
-    def get_environment(self, obj):
-        if obj.environment:
-            return obj.environment.split(", ")
-        return []
-
     def get_cases(self, obj):
         if obj.cases:
             return obj.cases.split(", ")
@@ -80,6 +65,6 @@ class IndicatorDocumentSerializer(serializers.Serializer):
             return format(created_datetime, 'U')
 
     def get_latest_case(self, obj):
-        if obj.latest_case:
+        if obj.latest_case and obj.latest_case.hex:
             return uuid.UUID(obj.latest_case.hex)
         return None
