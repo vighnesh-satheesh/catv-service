@@ -113,6 +113,9 @@ class IndicatorESDocumentTask:
         super().__init__(*args, **kwargs)
         self.action = action if Constants.INDEX_ACTIONS.get(action, None) else Constants.INDEX_ACTIONS["INDEX"]
         self.related_indicators = []
+        self.security_category = set()
+        self.pattern_type = set()
+        self.pattern_subtype = set()
         if api_settings.ELASTICSEARCH_CREDENTIALS:
             host_netloc = urlparse(api_settings.ELASTICSEARCH_HOST).netloc
             es_host = f'http://{api_settings.ELASTICSEARCH_CREDENTIALS}@{host_netloc}'
@@ -122,6 +125,9 @@ class IndicatorESDocumentTask:
 
     def generate_indicator_data(self):
         for indicator in self.related_indicators:
+            self.security_category.add(indicator.security_category_indexing)
+            self.pattern_type.add(indicator.pattern_type_indexing)
+            self.pattern_subtype.add(indicator.pattern_subtype_indexing)
             yield {
                 "_op_type": self.action,
                 "_type": "_doc",
@@ -132,7 +138,7 @@ class IndicatorESDocumentTask:
                         'hex': indicator.uid.hex
                     },
                     'security_category': indicator.security_category_indexing,
-                    'security_tags': indicator.security_tags_indexing,
+                    'security_tags': indicator.security_tags,
                     'vector': indicator.vector_indexing,
                     'environment': indicator.environment_indexing,
                     'pattern_type': indicator.pattern_type_indexing,
@@ -148,11 +154,32 @@ class IndicatorESDocumentTask:
                     'user_id': indicator.user_id_indexing
                 }
             }
+    
+    def generate_case_data(self, case_instance: Case):
+        return {
+            "id": case_instance.id,
+            "uid": {
+                "hex": case_instance.uid.hex
+            },
+            "title": case_instance.title,
+            "detail": case_instance.detail,
+            "rich_text_detail": case_instance.rich_text_detail,
+            "created": case_instance.created.isoformat(sep='T', timespec='milliseconds'),
+            "updated": case_instance.updated.isoformat(sep='T', timespec='milliseconds'),
+            "status": case_instance.status.value,
+            "reporter_info": case_instance.reporter_info,
+            "reporter": case_instance.reporter_id,
+            "owner": case_instance.owner_id,
+            "verifier": case_instance.verifier_id,
+            "security_category": list(self.security_category),
+            "pattern_type": list(self.pattern_type),
+            "pattern_subtype": list(self.pattern_subtype)
+        }
 
     def run(self, *args, **kwargs):
         case_instance = kwargs.get('case', None)
         indicators = kwargs.get('indicators', None)
-        if case_instance:
+        if isinstance(case_instance, Case):
             try:
                 self.related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
             except Case.DoesNotExist:
@@ -170,6 +197,15 @@ class IndicatorESDocumentTask:
         ):
             successes += ok
         print(f"Indexed {successes} documents")
+        
+        if isinstance(case_instance, Case):
+            self.es_client.index(
+                index=api_settings.ELASTICSEARCH_CASE_IDX, id=case_instance.id,
+                body=self.generate_case_data(case_instance))
+        elif isinstance(case_instance, (str, int)):
+            self.es_client.delete(
+                index=api_settings.ELASTICSEARCH_CASE_IDX, id=int(case_instance)
+            )
 
         return True
 
@@ -197,6 +233,7 @@ class CaseMessageTask:
     def __init__(self, topic, action=None):
         self.topic = topic
         self.related_ids = None
+        self.case_id = None
         print(f"Param action is: {action}")
         self.action = action if action else Constants.CASE_ACTIONS["CREATE"]
         print(self.action)
@@ -204,7 +241,8 @@ class CaseMessageTask:
     def run(self):
         message_body = {
             "action_type": self.action,
-            "related_ids": self.related_ids
+            "related_ids": self.related_ids,
+            "case_id": self.case_id
         }
         producer = KafkaProducer(
             bootstrap_servers=[

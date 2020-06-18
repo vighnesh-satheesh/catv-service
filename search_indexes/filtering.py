@@ -186,8 +186,12 @@ class CustomFilteringBackend(FilteringFilterBackend):
         :rtype: elasticsearch_dsl.search.Search
         """
         filter_query_params = self.get_filter_query_params(request, view)
-        excluded_query_params = {key: val for key, val in filter_query_params.items() if key in view.combine_fields}
-        included_query_params = {key: val for key, val in filter_query_params.items() if key not in view.combine_fields}
+        if getattr(view, "combine_fields", None):
+            excluded_query_params = {key: val for key, val in filter_query_params.items() if key in view.combine_fields}
+            included_query_params = {key: val for key, val in filter_query_params.items() if key not in view.combine_fields}
+        else:
+            excluded_query_params = None
+            included_query_params = filter_query_params
         for options in included_query_params.values():
             # When no specific lookup given, in case of multiple values
             # we apply `terms` filter by default and proceed to the next
@@ -295,5 +299,4 @@ class CustomFilteringBackend(FilteringFilterBackend):
                                                       value)
         if excluded_query_params:
             queryset = self.apply_query_combine(queryset, excluded_query_params.values())
-        print(queryset.to_dict())
         return queryset

@@ -536,9 +536,11 @@ class CaseView(generics.ListCreateAPIView):
         return qs
     
     def list(self, request, *args, **kwargs):
-        if api_settings.SWITCH_ES_SEARCH:
+        filter_keys = set(["user_case", "security_category", "pattern_type", "pattern_subtype", "keyword", "start_date", "end_date"])
+        filter_match = next((key for key in self.request.query_params.keys() if key in filter_keys), False)
+        if filter_match and api_settings.SWITCH_ES_SEARCH:
             search_wrapper = CaseSearchES(request)
-            results = search_wrapper.filter_case_board_es()
+            results = search_wrapper.search()
             return APIResponse({
                 "data": results
             })
@@ -706,6 +708,7 @@ class CaseDetailView(APIView):
                     raise exceptions.OwnerRequiredError()
                 case_m2m_queryset = CaseIndicator.objects.filter(case=obj)
                 indicator_ids = [case_m2m.indicator_id for case_m2m in case_m2m_queryset]
+                case_task.case_id = obj.id
                 case_task.related_ids = indicator_ids
                 case_m2m_queryset.delete()
 

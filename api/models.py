@@ -711,7 +711,7 @@ class Indicator(models.Model):
         if self.security_tags:
             for tag in self.security_tags:
                 s_tags.append(tag)
-        return ", ".join(s_tags)
+        return s_tags
 
     @property
     def vector_indexing(self):
@@ -719,7 +719,7 @@ class Indicator(models.Model):
         if self.vector:
             for vector in self.vector:
                 vectors.append(vector.value)
-        return ", ".join(vectors)
+        return vectors
 
     @property
     def environment_indexing(self):
@@ -727,7 +727,7 @@ class Indicator(models.Model):
         if self.environment:
             for environ in self.environment:
                 environs.append(environ.value)
-        return ", ".join(environs)
+        return environs
 
     @property
     def cases_indexing(self):
@@ -1090,9 +1090,9 @@ class IndicatorMView(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     security_category = models.CharField(max_length=10)
-    security_tags = models.TextField(blank=True, null=True)
-    vector = models.TextField(blank=True, null=True)
-    environment = models.TextField(blank=True, null=True)
+    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
+    vector = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
+    environment = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
 
     pattern_type = models.CharField(blank=False, null=False, max_length=32)
     pattern_subtype = models.CharField(blank=True, null=True, max_length=10)
@@ -1234,9 +1234,9 @@ class CaseMView(models.Model):
     reporter_id = models.IntegerField(null=True)
     owner_id = models.IntegerField(null=True)
     verifier_id = models.IntegerField(null=True)
-    security_category = models.TextField(null=True)
-    pattern_type = models.TextField(null=True)
-    pattern_subtype = models.TextField(null=True)
+    security_category = ArrayField(models.CharField(max_length=32, null=True), null=True)
+    pattern_type = ArrayField(models.CharField(max_length=32, null=True), null=True)
+    pattern_subtype = ArrayField(models.CharField(max_length=32, null=True), null=True)
     
     class Meta:
         managed = False
