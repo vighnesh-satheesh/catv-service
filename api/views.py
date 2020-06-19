@@ -2319,12 +2319,15 @@ class CARA(APIView):
         return APIResponse(data)
 
 
-class CARAHistory(APIView):
+class CARAHistory(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
+    pagination_class = CatvRequestPagination
 
     def get(self, request):
         user = self.request.GET.get('user')
+        page = self.request.GET.get('page', 1)
+        page = int(page)
         history_query = Constants.QUERIES['CARA_HISTORY_USER'].format(user)
         error_count_query = Constants.QUERIES['CARA_ERROR_COUNT'].format(user)
         with connection.cursor() as cursor:
@@ -2340,6 +2343,7 @@ class CARAHistory(APIView):
                 update_error_report_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(
                     0, user, x[0])
                 cursor.execute(update_error_report_query)
+        history = self.paginate_queryset(history)
         search = [x[0] for x in history]
         time = [x[1] for x in history]
         reports = []
@@ -2359,7 +2363,11 @@ class CARAHistory(APIView):
                 'time': time,
                 'reports': reports,
                 'errors': errors}
-        return APIResponse(data)
+        return self.get_paginated_response(data)
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")
 
 
 # class for generating report
