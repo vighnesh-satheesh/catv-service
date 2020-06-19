@@ -80,6 +80,6 @@ class IndicatorDocumentSerializer(serializers.Serializer):
             return format(created_datetime, 'U')
 
     def get_latest_case(self, obj):
-        if obj.latest_case:
+        if obj.latest_case and obj.latest_case.hex:
             return uuid.UUID(obj.latest_case.hex)
         return None

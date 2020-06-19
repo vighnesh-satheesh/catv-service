@@ -820,8 +820,7 @@ class IndicatorView(generics.ListCreateAPIView):
     def get_es_results(self, query_list, order_key, page):
         query_string_drf, query_string_raw = utils.build_query_string_filter(
             query_list)
-        search_query = next(
-            (query for query in query_list if query[0] == 'search'), None)
+        search_query = self.request.GET.getlist("keyword", [])
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
