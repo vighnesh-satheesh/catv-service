@@ -72,13 +72,13 @@ class CaseSearchES:
         
         if query_list:
             es_serializer_req = Request('GET',
-                                                url=f'{api_settings.BASE_API_URL}ecsearch/cases/?{query_string_drf}'
+                                                url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/?{query_string_drf}'
                                                 f'&ordering={order_key}&page={page}', headers=headers)
             es_raw_req = Request('GET',
                                       f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_CASE_IDX}/_count?q={query_string_raw}',
                                       auth=cred)
         else:
-            es_serializer_req = Request('GET', url=f'{api_settings.BASE_API_URL}ecsearch/cases/', headers=headers)
+            es_serializer_req = Request('GET', url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/', headers=headers)
             es_raw_req = Request('GET',
                                         f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_CASE_IDX}/_count', auth=cred)
         if not search_query:
