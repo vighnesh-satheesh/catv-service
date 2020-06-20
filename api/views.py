@@ -849,7 +849,7 @@ class IndicatorView(generics.ListCreateAPIView):
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
         es_serializer_req = requests.Request('GET',
-                                             url=f'{api_settings.BASE_API_URL}ecsearch/indicators/?{query_string_drf}'
+                                             url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?{query_string_drf}'
                                              f'&ordering={order_key}&page={page}', headers=headers)
         async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
         result = async_req_caller.execute_request_pool()

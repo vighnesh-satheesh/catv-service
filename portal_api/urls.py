@@ -25,8 +25,12 @@ from search_indexes.urls import urlpatterns as search_index_urls
 
 urlpatterns = [
     url('^', include(api_urls)),
-    url(r'^ecsearch/', include(search_index_urls)),
 ]
+
+if settings.EXPOSE_SEARCH_API:
+    urlpatterns += [
+        url(r'^ecsearch/', include(search_index_urls)),
+    ]
 
 if settings.ENVIRONMENT == "development":
     import debug_toolbar

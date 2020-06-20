@@ -347,7 +347,7 @@ def es_serialized_search(query_string, page, order_key):
     }
 
     es_serializer_req = requests.get(
-        url=f'{api_settings.BASE_API_URL}ecsearch/indicators/?{query_string}'
+        url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?{query_string}'
         f'&ordering={order_key}&page={page}',
         headers=headers
     )

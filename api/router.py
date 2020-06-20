@@ -11,27 +11,32 @@ router = routers.SimpleRouter()
 
 urlpatterns = [
     url(r'^', include(router.urls)),
-    url(r'^search/autocomplete/?$',
-        views.AutoCompleteView.as_view(), name='search-autocomplete')
+    url(r'^healthcheck/?$', views.HealthCheckView.as_view(), name='healthcheck'),
 ]
 
+if settings.EXPOSE_FREESEARCH_ENDPOINT:
+    urlpatterns += [
+        url(r'^search/autocomplete/?$',
+            views.AutoCompleteView.as_view(), name='search-autocomplete'),
+    ]
+
 # Internal APIs
-urlpatterns += [
-    url(r'^internal/indicator/?$',
-        views_internal.IndicatorInternalView.as_view(), name='internal-indicator'),
-    url(r'^internal/indicators/?$', views_internal.IndicatorInternalPostView.as_view(),
-        name='internal-indicator-post'),
-    url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(),
-        name='internal-case'),
-    url(r'^internal/catv/?$', views_internal.CATVInternalView.as_view(),
-        name='internal-catv'),
-    url(r'^internal/proxy_token/?$',
-        views_internal.ProxyAuthentication.as_view(), name='proxy-api-token'),
-]
+if settings.EXPOSE_INTERNAL_API:
+    urlpatterns += [
+        url(r'^internal/indicator/?$',
+            views_internal.IndicatorInternalView.as_view(), name='internal-indicator'),
+        url(r'^internal/indicators/?$', views_internal.IndicatorInternalPostView.as_view(),
+            name='internal-indicator-post'),
+        url(r'^internal/case/?$', views_internal.CaseIntervalView.as_view(),
+            name='internal-case'),
+        url(r'^internal/catv/?$', views_internal.CATVInternalView.as_view(),
+            name='internal-catv'),
+        url(r'^internal/proxy_token/?$',
+            views_internal.ProxyAuthentication.as_view(), name='proxy-api-token'),
+    ]
 
 if settings.EXPOSE_GENERAL_API:
     urlpatterns += [
-        url(r'^healthcheck/?$', views.HealthCheckView.as_view(), name='healthcheck'),
         url(r'^login/?$', views.LoginView.as_view(), name='user-login'),
         url(r'^logout/?$', views.LogoutView.as_view(), name='user-logout'),
         url(r'^changepw/(?P<code>[0-9a-zA-Z\-]+)/?$',
