@@ -100,4 +100,6 @@ class AppInit:
         allowed_host.append('prdportal.prdsentinelportal.com')
         allowed_host.append('search.stgsentinelportal.com')
         allowed_host.append('search.prdsentinelportal.com')
+        allowed_host.append('UPP-STG-PortalSearch-NLB-6287457643abc7e2.elb.ap-southeast-1.amazonaws.com')
+        allowed_host.append('UPP-PRD-PortalSearch-NLB-31e92056937afc9d.elb.ap-southeast-1.amazonaws.com')
         os.environ["ECS_PRIVATE_IP"] = ",".join(allowed_host)
