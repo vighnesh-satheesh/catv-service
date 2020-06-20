@@ -312,9 +312,11 @@ class AsyncAPICaller:
             prepped = req.prepare()
             resp = s.send(prepped)
             if resp.status_code != 200:
+                print(resp.text)
                 return resp.status_code, {}
             return resp.status_code, loads(resp.text)
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            print(e)
             return 500, {}
 
     def execute_request_pool(self):
