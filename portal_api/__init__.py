@@ -89,17 +89,17 @@ class AppInit:
                 print(">>> failed to get ecs ip: ", err)
 
         if os.environ.get("CONTAINER_TYPE") == "portal_admin":
-            allowed_host.append('admin.prdsentinelportal.com')
-            allowed_host.append('admin.stgsentinelportal.com')
-            allowed_host.append('stgadmin.stgsentinelportal.com')
-            allowed_host.append('prdadmin.prdsentinelportal.com')
-            
-
-        allowed_host.append('stgportal.sentinelportal.com')
-        allowed_host.append('prdportal.sentinelportal.com')
-        allowed_host.append('prdportal.prdsentinelportal.com')
-        allowed_host.append('search.stgsentinelportal.com')
-        allowed_host.append('search.prdsentinelportal.com')
-        allowed_host.append('UPP-STG-PortalSearch-NLB-6287457643abc7e2.elb.ap-southeast-1.amazonaws.com')
-        allowed_host.append('UPP-PRD-PortalSearch-NLB-31e92056937afc9d.elb.ap-southeast-1.amazonaws.com')
+            allowed_host.extend([
+                'admin.prdsentinelportal.com',
+                'admin.stgsentinelportal.com',
+                'stgadmin.stgsentinelportal.com',
+                'prdadmin.prdsentinelportal.com'
+            ])            
+        allowed_host.extend([
+            'stgportal.sentinelportal.com',
+            'prdportal.sentinelportal.com',
+            'prdportal.prdsentinelportal.com',
+            'search.stgsentinelportal.com',
+            'search.prdsentinelportal.com'
+        ])
         os.environ["ECS_PRIVATE_IP"] = ",".join(allowed_host)

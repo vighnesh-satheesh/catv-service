@@ -120,11 +120,19 @@ class CaseSearchES:
             case_filter &= Q(pattern_subtype__in=pattern_subtype)
         if len(start_date) > 0:
             start_date = datetime.utcfromtimestamp(int(start_date[0]) / 1000)
-            fmt_start_date = start_date.strftime("%Y-%m-%d"'T'"%H:%M:%S")
+            if tz is not None:
+                aware_start = start_date.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_start = start_date.replace(tzinfo=pytz.timezone('UTC'))
+            fmt_start_date = str(datetime.timestamp(aware_start) * 1000)
             case_filter &= Q(updated__gte=fmt_start_date) & Q(created__gte=fmt_start_date)
         if len(end_date) > 0:
             end_date = datetime.utcfromtimestamp(int(end_date[0]) / 1000)
-            fmt_end_date = end_date.strftime("%Y-%m-%d"'T'"%H:%M:%S")
+            if tz is not None:
+                aware_end = end_date.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_end = end_date.replace(tzinfo=pytz.timezone('UTC'))
+            fmt_end_date = str(datetime.timestamp(aware_end) * 1000)
             case_filter &= Q(updated__lte=fmt_end_date) & Q(created__lte=fmt_end_date)
         if len(keyword) > 0:
             for k in keyword:
