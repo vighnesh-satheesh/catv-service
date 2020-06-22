@@ -27,6 +27,6 @@ class CustomPageNumberPagination(PageNumberPagination):
             ('totalPages', page_count)
         )
         __data.append(
-            'actual_count', actual_count)
+            ('actual_count', actual_count)
         )
         return sorted(__data)
