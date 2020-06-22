@@ -10,7 +10,8 @@ class CustomPageNumberPagination(PageNumberPagination):
 
     def get_paginated_response_context(self, data):
         __data = super(CustomPageNumberPagination, self).get_paginated_response_context(data)
-        result_count = self.page.paginator.count if self.page.paginator.count <= 10000 else 10000
+        actual_count = self.page.paginator.count
+        result_count = actual_count if actual_count <= 10000 else 10000
         page_size = self.get_page_size(self.request)
         page_count = ceil(result_count / page_size)
         __data.append(
@@ -24,5 +25,8 @@ class CustomPageNumberPagination(PageNumberPagination):
         )
         __data.append(
             ('totalPages', page_count)
+        )
+        __data.append(
+            ('actual_count', actual_count)
         )
         return sorted(__data)

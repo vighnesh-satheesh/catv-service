@@ -57,35 +57,16 @@ class CaseSearchES:
         """Helper method to make request to search_index viewsets and additional raw count query, if needed."""
         query_string_drf, query_string_raw = build_query_string_filter(query_list)
         print(query_list)
-        search_query = self.request.GET.getlist("keyword", [])
-        # search_query = next(
-        #     (query for query in query_list if query[0] == 'search'), None)
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
-
-        if api_settings.ELASTICSEARCH_CREDENTIALS:
-            user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
-            cred = (user, pwd)
-        else:
-            cred = None
-        
         if query_list:
             es_serializer_req = Request('GET',
                                                 url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/?{query_string_drf}'
                                                 f'&ordering={order_key}&page={page}', headers=headers)
-            es_raw_req = Request('GET',
-                                      f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_CASE_IDX}/_count?q={query_string_raw}',
-                                      auth=cred)
         else:
             es_serializer_req = Request('GET', url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/', headers=headers)
-            es_raw_req = Request('GET',
-                                        f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_CASE_IDX}/_count', auth=cred)
-        if not search_query:
-            async_req_caller = AsyncAPICaller(
-                [es_serializer_req, es_raw_req])
-        else:
-            async_req_caller = AsyncAPICaller([es_serializer_req], 1)
+        async_req_caller = AsyncAPICaller([es_serializer_req], 1)
         result = async_req_caller.execute_request_pool()
         return result
     
@@ -145,7 +126,7 @@ class CaseSearchES:
             "totalItems": case_results.get("totalItems", 0),
             "totalPages": case_results.get("totalPages", 0),
             "pageIndex": case_results.get("pageIndex", 0),
-            "actualCount": case_results.get("count", case_results.get("totalItems", 0)),
+            "actualCount": case_results.get("actual_count", 0),
         }
     
     def __filter_user_board_es(self):
@@ -186,7 +167,7 @@ class CaseSearchES:
             "totalItems": user_case_results.get("totalItems", 0),
             "totalPages": user_case_results.get("totalPages", 0),
             "pageIndex": user_case_results.get("pageIndex", 0),
-            "actualCount": user_case_results.get("count", user_case_results.get("totalItems", 0)),
+            "actualCount": user_case_results.get("actual_count", 0),
         }
     
     def search(self):

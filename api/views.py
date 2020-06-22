@@ -872,27 +872,13 @@ class IndicatorView(generics.ListCreateAPIView):
     def get_es_results(self, query_list, order_key, page):
         query_string_drf, query_string_raw = utils.build_query_string_filter(
             query_list)
-        search_query = next(
-            (query for query in query_list if query[0] == 'search'), None)
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
-        if api_settings.ELASTICSEARCH_CREDENTIALS:
-            user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
-            cred = (user, pwd)
-        else:
-            cred = None
         es_serializer_req = requests.Request('GET',
                                              url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?{query_string_drf}'
                                              f'&ordering={order_key}&page={page}', headers=headers)
-        es_raw_req = requests.Request('GET',
-                                      f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/_count?q={query_string_raw}',
-                                      auth=cred)
-        if not search_query:
-            async_req_caller = utils.AsyncAPICaller(
-                [es_serializer_req, es_raw_req])
-        else:
-            async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
+        async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
         result = async_req_caller.execute_request_pool()
         return result
 
@@ -930,7 +916,7 @@ class IndicatorView(generics.ListCreateAPIView):
                     "totalItems": indicators.get("totalItems", 0),
                     "totalPages": indicators.get("totalPages", 0),
                     "pageIndex": indicators.get("pageIndex", 0),
-                    "actualCount": indicators.get("count", indicators.get("totalItems", 0)),
+                    "actualCount": indicators.get("actual_count", 0),
                 }
             })
         else:
