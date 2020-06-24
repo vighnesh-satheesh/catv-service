@@ -3,7 +3,7 @@ from django_elasticsearch_dsl import Document, Index, fields
 from django_elasticsearch_dsl_drf.compat import KeywordField, StringField
 
 from api.models import IndicatorMView
-from ..analyzer import HTML_STRIP
+from ..analyzer import HTML_STRIP, PATTERN_TREE_SPLIT
 
 __all__ = ('IndicatorDocument',)
 
@@ -122,6 +122,10 @@ class IndicatorDocument(Document):
     )
 
     user_id = fields.IntegerField()
+    
+    pattern_tree = StringField(
+        analyzer=PATTERN_TREE_SPLIT
+    )
 
     class Django(object):
         """

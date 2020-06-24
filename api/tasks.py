@@ -151,7 +151,8 @@ class IndicatorESDocumentTask:
                     'latest_case': {
                         'hex': getattr(indicator.latest_case_indexing, 'hex', '')
                     },
-                    'user_id': indicator.user_id_indexing
+                    'user_id': indicator.user_id_indexing,
+                    'pattern_tree': indicator.pattern_tree
                 }
             }
     

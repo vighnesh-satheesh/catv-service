@@ -1104,6 +1104,7 @@ class IndicatorMView(models.Model):
     annotations = models.CharField(max_length=256, blank=True, null=True)
     latest_case = models.UUIDField(null=True, editable=False)
     user_id = models.IntegerField()
+    pattern_tree = LtreeField(blank=False, null=False)
 
     class Meta:
         managed = False
