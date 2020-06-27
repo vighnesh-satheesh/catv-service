@@ -284,7 +284,8 @@ class QueryDictList(dict):
                 for term in v:
                     query_list.append(f'{skip_join_key}{query_operator}{term}')
             else:
-                query_list.append(f'{k}{query_operator}{subquery_joiner.join(v)}')
+                str_v = [str(val) for val in v]
+                query_list.append(f'{k}{query_operator}{subquery_joiner.join(str_v)}')
         return query_joiner.join(query_list)
 
     def build_query_raw(self, query_operator=':', subquery_joiner=' OR ', query_joiner=' AND ', skip_term_key='search',
@@ -295,7 +296,8 @@ class QueryDictList(dict):
                 wildcard_v = list(map(lambda t: f'{t}{subquery_joiner}*{t}*', v))
                 query_list.append(f'({subquery_joiner.join(wildcard_v)})')
             else:
-                query_list.append(f'({k.split(key_splitter)[0]}{query_operator}{subquery_joiner.join(v)})')
+                str_v = [str(val) for val in v]
+                query_list.append(f'({k.split(key_splitter)[0]}{query_operator}{subquery_joiner.join(str_v)})')
         return query_joiner.join(query_list)
 
 
@@ -310,9 +312,11 @@ class AsyncAPICaller:
             prepped = req.prepare()
             resp = s.send(prepped)
             if resp.status_code != 200:
+                print(resp.text)
                 return resp.status_code, {}
             return resp.status_code, loads(resp.text)
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            print(e)
             return 500, {}
 
     def execute_request_pool(self):
@@ -345,7 +349,7 @@ def es_serialized_search(query_string, page, order_key):
     }
 
     es_serializer_req = requests.get(
-        url=f'{api_settings.BASE_API_URL}ecsearch/indicators/?{query_string}'
+        url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?{query_string}'
         f'&ordering={order_key}&page={page}',
         headers=headers
     )

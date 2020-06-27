@@ -2,7 +2,7 @@ from django.conf import settings
 from django_elasticsearch_dsl import Document, Index, fields
 from django_elasticsearch_dsl_drf.compat import KeywordField, StringField
 
-from api.models import Case
+from api.models import Case, CaseMView
 from ..analyzer import HTML_STRIP
 
 __all__ = ('CaseDocument',)
@@ -15,7 +15,7 @@ INDEX.settings(
     number_of_replicas=1,
     # TIP: Set `refresh_interval` to -1 to make initial indexing for large datasets faster.
     # Default is 1s.
-    # refresh_interval=1
+    refresh_interval='1s'
 )
 
 
@@ -25,21 +25,6 @@ class CaseDocument(Document):
     Case Elasticsearch document.
     """
     id = fields.IntegerField(attr='id')
-
-    title = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP)
-        }
-    )
-
-    detail = StringField(
-        fields={
-            'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP),
-        }
-    )
 
     # Doing this because indexing UUIDs is not recommended in Elasticsearch
     # and disabling indexing only works for object fields and top-level doc definition.
@@ -51,148 +36,79 @@ class CaseDocument(Document):
         }
     )
 
+    title = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
+        }
+    )
+
+    detail = StringField(
+        fields={
+            'raw': KeywordField(),
+        }
+    )
+    
+    rich_text_detail = StringField(
+        analyzer=HTML_STRIP,
+        fields={
+            'raw': KeywordField(),
+        }
+    )
+
     created = fields.DateField()
 
     updated = fields.DateField()
 
     status = StringField(
-        attr='status_indexing',
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP),
         }
     )
 
     reporter_info = StringField(
-        analyzer=HTML_STRIP,
         fields={
             'raw': KeywordField(),
-            'lower': StringField(analyzer=HTML_STRIP),
         }
     )
 
-    reporter = fields.ObjectField(
-        properties={
-            'nickname': StringField(
-                analyzer=HTML_STRIP,
-                fields={
-                    'raw': KeywordField(),
-                    'lower': StringField(analyzer=HTML_STRIP),
-                }
-            ),
-            'uid': fields.ObjectField(
-                enabled=False,
-                properties={
-                    'hex': StringField()
-                }
-            )
-        }
+    reporter = fields.IntegerField(attr='reporter_id')
+
+    owner = fields.IntegerField(attr='owner_id')
+
+    verifier = fields.IntegerField(attr='verifier_id')
+
+    security_category = fields.ListField(
+        StringField(
+            fields={
+                'raw': KeywordField(),
+            }
+        )
     )
 
-    owner = fields.ObjectField(
-        properties={
-            'nickname': StringField(
-                analyzer=HTML_STRIP,
-                fields={
-                    'raw': KeywordField(),
-                    'lower': StringField(analyzer=HTML_STRIP),
-                }
-            ),
-            'uid': fields.ObjectField(
-                enabled=False,
-                properties={
-                    'hex': StringField()
-                }
-            )
-        }
+    pattern_type = fields.ListField(
+        StringField(
+            fields={
+                'raw': KeywordField(),
+            }
+        )
     )
 
-    verifier = fields.ObjectField(
-        properties={
-            'nickname': StringField(
-                analyzer=HTML_STRIP,
-                fields={
-                    'raw': KeywordField(),
-                    'lower': StringField(analyzer=HTML_STRIP),
-                }
-            ),
-            'uid': fields.ObjectField(
-                enabled=False,
-                properties={
-                    'hex': StringField()
-                }
-            )
-        }
+    pattern_subtype = fields.ListField(
+        StringField(
+            fields={
+                'raw': KeywordField(),
+            }
+        )
     )
-
-    # Uncomment the lines below tp include indicator objects in the Case document
-    # WARNING: Indexing can take painfully long if there are a large number
-    # of indicators, i.e., more than a million.
-    #
-    # indicators = fields.ListField(
-    #     fields.ObjectField(
-    #         properties={
-    #             'id': fields.IntegerField(attr='id'),
-    #             'uid': fields.StringField(),
-    #             'security_category': StringField(
-    #                 attr='security_category_indexing',
-    #                 fields={
-    #                     'raw': KeywordField(),
-    #                     'suggest': fields.CompletionField(),
-    #                     'edge_ngram_completion': StringField(
-    #                         analyzer=edge_ngram_completion
-    #                     )
-    #                 }
-    #             ),
-    #             'pattern_type': StringField(
-    #                 attr='pattern_type_indexing',
-    #                 fields={
-    #                     'raw': KeywordField(),
-    #                     'suggest': fields.CompletionField(),
-    #                     'edge_ngram_completion': StringField(
-    #                         analyzer=edge_ngram_completion
-    #                     )
-    #                 }
-    #             ),
-    #             'pattern_subtype': StringField(
-    #                 attr='pattern_subtype_indexing',
-    #                 fields={
-    #                     'raw': KeywordField(),
-    #                     'suggest': fields.CompletionField(),
-    #                     'edge_ngram_completion': StringField(
-    #                         analyzer=edge_ngram_completion
-    #                     )
-    #                 }
-    #             ),
-    #             'annotation': StringField(
-    #                 fields={
-    #                     'raw': KeywordField(),
-    #                     'suggest': fields.CompletionField(),
-    #                     'edge_ngram_completion': StringField(
-    #                         analyzer=edge_ngram_completion
-    #                     )
-    #                 }
-    #             ),
-    #             'pattern': StringField(
-    #                 fields={
-    #                     'raw': KeywordField(),
-    #                     'suggest': fields.CompletionField(),
-    #                     'edge_ngram_completion': StringField(
-    #                         analyzer=edge_ngram_completion
-    #                     )
-    #                 }
-    #             )
-    #         }
-    #     )
-    # )
 
     class Django(object):
         """
         Inner nested class to link Elasticsearch with Django ORM
         """
-        model = Case  # The model associated with this document.
+        model = CaseMView  # The model associated with this document.
 
     class Meta(object):
         parallel_indexing = True
         # Use queryset_pagination to control how many documents are indexed at a time
-        # queryset_pagination = 100
+        queryset_pagination = 100

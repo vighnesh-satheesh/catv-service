@@ -22,9 +22,10 @@ def process_portal_cases(message):
             case = Case.objects.get(id=request_body.get("related_ids", None))
             IndicatorESDocumentTask(action=Constants.INDEX_ACTIONS["UPDATE"]).run(case=case)
         elif action_type == Constants.CASE_ACTIONS["DELETE"]:
+            case = request_body.get("case_id", None)
             indicators = Indicator.objects.filter(id__in=request_body.get("related_ids", None))
             print(indicators)
-            IndicatorESDocumentTask(action=Constants.INDEX_ACTIONS["UPDATE"]).run(indicators=indicators)
+            IndicatorESDocumentTask(action=Constants.INDEX_ACTIONS["UPDATE"]).run(case=case, indicators=indicators)
     except Exception as e:
         error_trace = traceback.format_exc()
         print(error_trace)
