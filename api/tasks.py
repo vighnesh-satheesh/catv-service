@@ -138,7 +138,7 @@ class IndicatorESDocumentTask:
                         'hex': indicator.uid.hex
                     },
                     'security_category': indicator.security_category_indexing,
-                    'security_tags': indicator.security_tags,
+                    'security_tags': indicator.security_tags_indexing,
                     'vector': indicator.vector_indexing,
                     'environment': indicator.environment_indexing,
                     'pattern_type': indicator.pattern_type_indexing,
