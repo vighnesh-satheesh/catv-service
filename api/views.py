@@ -2378,13 +2378,20 @@ class CARAReport(APIView):
     def get(self, request):
         address = self.request.GET.get('address')
         report_query = Constants.QUERIES['CARA_REPORT_QUERY'].format(address)
+        case_query = Constants.QUERIES['SELECT_CASE_BY_PATTERN'].format(address)
         with connections['readonly'].cursor() as cursor:
             cursor.execute(report_query)
             report = cursor.fetchone()
+            cursor.execute(case_query)
+            case = cursor.fetchone()
             if report is not None:
                 data = {'report': report}
             else:
                 data = {'report': ""}
+            if case is not None:
+                data['case'] = case
+            else:
+                data['case'] = ""
         return APIResponse(data)
 
 

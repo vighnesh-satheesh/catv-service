@@ -62,6 +62,9 @@ class Constants:
                                          "order by created desc;",
         "SELECT_CASE_BY_CREATED": "SELECT created from api_case where created > %s order by created desc;",
         "SELECT_CASE_DETAILS": "SELECT status, reporter_id, owner_id FROM api_case limit 1;",
+        "SELECT_CASE_BY_PATTERN": "select c.uid from api_case c join api_m2m_case_indicator ci on c.id=ci.case_id"
+                                  " join api_indicator i on ci.indicator_id = i.id where i.pattern='{0}'"
+                                  " and c.status='released' limit 1",
         "SELECT_INDICATOR_COUNT": "SELECT count(*) from api_indicator;",
         "SELECT_CASE_INDICATOR_COUNT": "SELECT COUNT(ci.indicator_id) FROM api_m2m_case_indicator AS ci "
                                        "JOIN api_case as c ON ci.case_id = c.id "
