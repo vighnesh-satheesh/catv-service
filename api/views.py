@@ -2166,25 +2166,29 @@ class ValidateAddress(APIView):
 
     def get(self, request, pk=None, pattern=None):
 
-        settings_obj = self.model.objects.filter(id=1)
-        serializer = RewardSettingSerializer(
-            settings_obj, context={"request": request}, many=True)
-        data = serializer.data
-        web3 = Web3(Web3.HTTPProvider(settings.REWARDS_URL))
-        token_address = web3.toChecksumAddress(data[0].get('token_address'))
+        return APIResponse({
+            "data": "success"
+        })
+
+        #settings_obj = self.model.objects.filter(id=1)
+        #serializer = RewardSettingSerializer(
+         #   settings_obj, context={"request": request}, many=True)
+        #data = serializer.data
+        #web3 = Web3(Web3.HTTPProvider(settings.REWARDS_URL))
         #token_address = web3.toChecksumAddress(data[0].get('token_address'))
-        abi = data[0].get('token_abi')
-        token_abi = json.loads(abi)
-        token = web3.eth.contract(web3.toChecksumAddress(settings.TOKEN_ADDRESS), abi=settings.TOKEN_ABI)
-        bal = token.call().balanceOf(web3.toChecksumAddress(self.request.GET.get('address')))
-        if (bal >= (data[0].get('min_token') * 1000000000000000000)):
-            return APIResponse({
-                "data": "success"
-            })
-        else:
-            return APIResponse({
-                "data": "fail"
-            })
+        #token_address = web3.toChecksumAddress(data[0].get('token_address'))
+        #abi = data[0].get('token_abi')
+       # token_abi = json.loads(abi)
+        #token = web3.eth.contract(web3.toChecksumAddress(settings.TOKEN_ADDRESS), abi=settings.TOKEN_ABI)
+        #bal = token.call().balanceOf(web3.toChecksumAddress(self.request.GET.get('address')))
+        #if (bal >= (data[0].get('min_token') * 1000000000000000000)):
+         #   return APIResponse({
+          #      "data": "success"
+           # })
+        #else:
+         #   return APIResponse({
+          #      "data": "fail"
+           # })
 
 
 class SwapData(APIView):
