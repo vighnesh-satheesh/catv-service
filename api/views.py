@@ -2182,6 +2182,7 @@ class ValidateAddress(APIView):
             print('token:', token)
             print('before bal')
             bal = token.call().balanceOf(web3.toChecksumAddress(self.request.GET.get('address')))
+            print(bal)
             print('after bal')
             if (bal >= (data[0].get('min_token') * 1000000000000000000)):
                 return APIResponse({
@@ -2192,6 +2193,8 @@ class ValidateAddress(APIView):
                     "data": "fail"
                 })
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             #print(e.__str__())
             return APIResponse({
                 "data": "error"
