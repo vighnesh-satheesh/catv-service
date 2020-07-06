@@ -2171,6 +2171,7 @@ class ValidateAddress(APIView):
             settings_obj, context={"request": request}, many=True)
         data = serializer.data
         try:
+            print('before connect')
             web3 = Web3(Web3.HTTPProvider(settings.REWARDS_URL))
             print('connected:', web3.isConnected())
             token_address = web3.toChecksumAddress(data[0].get('token_address'))
