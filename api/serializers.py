@@ -1680,7 +1680,7 @@ class CasePatchSerializer(NonNullModelSerializer):
                         indicator_points.save()
                     i = i + 1
             if instance.reporter:
-                instance.reporter.points = instance.reporter.points + (10 * i)
+                instance.reporter.points = int(instance.reporter.points or 0) + (10 * i)
                 UserPointsSerializer().update(instance.reporter, {"points": instance.reporter.points})
         elif validated_data["status"] == models.CaseStatus.REJECTED:
             instance.verifier = self.context["request"].user
