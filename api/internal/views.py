@@ -22,10 +22,11 @@ from .serializers import (
     IndicatorPostSerializer,
     IndicatorSimpleListSerializer,
     IndicatorDetailSerializer,
-    CaseHistoryPostSerializer
+    CaseHistoryPostSerializer,
+    CATVInternalSerializer
 )
 
-from ..serializers import CaseTRDBSerializer, CATVSerializer, LoginSerializer
+from ..serializers import CaseTRDBSerializer, LoginSerializer
 from ..constants import Constants
 from .. import utils
 from .. import permissions
@@ -189,10 +190,10 @@ class CATVInternalView(APIView):
     permission_classes = (permissions.InternalOnly,)
 
     def post(self, request):
-        serializer = CATVSerializer(data=request.data, context={"request": request})
+        serializer = CATVInternalSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         addr_limit = serializer.data.get("transaction_limit", 100000)
-        results = serializer.get_tracking_results(tx_limit=addr_limit, limit=addr_limit, save_to_db=False)
+        results = serializer.get_tracking_results(tx_limit=addr_limit, limit=addr_limit, save_to_db=False, build_lossy_graph=False)
         return APIResponse({
             "data": {**results["graph"]}
         })
