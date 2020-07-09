@@ -17,7 +17,7 @@ from .. import fields
 from ..settings import api_settings
 from ..constants import Constants
 from indicatorlib import Pattern
-from ..serializers import CaseTRDBSerializer
+from ..serializers import CaseTRDBSerializer, CATVSerializer
 from .. import utils
 
 class NonNullModelSerializer(serializers.ModelSerializer):
@@ -329,4 +329,9 @@ class CasePostSerializer(serializers.ModelSerializer):
         except Exception as err:
             raise err
         return case
+
+
+class CATVInternalSerializer(CATVSerializer):
+    source_depth = serializers.IntegerField(required=False, min_value=1, max_value=30)
+    distribution_depth = serializers.IntegerField(required=False, min_value=1, max_value=30)
 

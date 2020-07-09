@@ -2043,11 +2043,11 @@ class CATVSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Incorrect date format, should be YYYY-MM-DD.")
 
-    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
+    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True, build_lossy_graph=True):
         tracking_results = TrackingResults(**self.data)
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
-            tracking_results.create_graph_data()
+            tracking_results.create_graph_data(build_lossy_graph)
             tracking_results.set_annotations_from_db(
                 token_type=models.CatvTokens.ETH.value)
             return {
@@ -2083,13 +2083,13 @@ class CATVBTCSerializer(CATVSerializer):
                 "Transaction hash is an invalid Bitcoin transaction hash")
         return value
 
-    def get_tracking_results(self, tx_limit=10, limit=10, save_to_db=True):
+    def get_tracking_results(self, tx_limit=10, limit=10, save_to_db=True, build_lossy_graph=True):
         serializer_data = self.data
         tracking_results = BTCTrackingResults(**serializer_data)
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
             tracking_results.create_graph_data(
-                serializer_data["wallet_address"])
+                serializer_data["wallet_address"], build_lossy_graph)
             tracking_results.set_annotations_from_db(
                 token_type=models.CatvTokens.BTC.value)
             return {
@@ -2162,12 +2162,12 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
                 "Wallet address is an invalid Bitcoin address")
         return value
 
-    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True):
+    def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True, build_lossy_graph=True):
         serializer_data = self.data
         tracking_results = BTCCoinpathTrackingResults(**serializer_data)
         try:
             tracking_results.get_tracking_data(tx_limit, limit, save_to_db)
-            tracking_results.create_graph_data()
+            tracking_results.create_graph_data(build_lossy_graph)
             tracking_results.set_annotations_from_db(
                 token_type=models.CatvTokens.BTC.value)
             return {

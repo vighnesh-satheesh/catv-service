@@ -122,17 +122,17 @@ class TrackingResults:
         pool.close()
         pool.join()
 
-    def create_graph_data(self):
+    def create_graph_data(self, build_lossy_graph=True):
         pool = Pool(processes=2)
         if not self._skip_source:
             source_result = self._async_source_result.get()
             if source_result:
-                self._async_source_graph = pool.apply_async(generate_nodes_edges, (source_result, -1,))
+                self._async_source_graph = pool.apply_async(generate_nodes_edges, (source_result, -1, build_lossy_graph))
 
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
             if dist_result:
-                self._async_dist_graph = pool.apply_async(generate_nodes_edges, (dist_result, 1,))
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges, (dist_result, 1, build_lossy_graph))
         pool.close()
         pool.join()
 
@@ -286,16 +286,16 @@ class BTCTrackingResults(TrackingResults):
         pool.close()
         pool.join()
 
-    def create_graph_data(self, wallet_address=None):
+    def create_graph_data(self, wallet_address=None, build_lossy_graph=True):
         pool = Pool(processes=2)
         if not self._skip_source:
             source_result = self._async_source_result.get()
             if source_result:
-                self._async_source_graph = pool.apply_async(generate_nodes_edges_btc, (source_result, -1, wallet_address))
+                self._async_source_graph = pool.apply_async(generate_nodes_edges_btc, (source_result, -1, wallet_address, build_lossy_graph))
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
             if dist_result:
-                self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1, wallet_address))
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges_btc, (dist_result, 1, wallet_address, build_lossy_graph))
         pool.close()
         pool.join()
 
@@ -332,16 +332,16 @@ class BTCCoinpathTrackingResults(TrackingResults):
         pool.close()
         pool.join()
 
-    def create_graph_data(self):
+    def create_graph_data(self, build_lossy_graph=True):
         pool = Pool(processes=2)
         if not self._skip_source:
             source_result = self._async_source_result.get()
             if source_result:
-                self._async_source_graph = pool.apply_async(generate_nodes_edges_coinpath, (source_result, -1))
+                self._async_source_graph = pool.apply_async(generate_nodes_edges_coinpath, (source_result, -1, build_lossy_graph))
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
             if dist_result:
-                self._async_dist_graph = pool.apply_async(generate_nodes_edges_coinpath, (dist_result, 1))
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges_coinpath, (dist_result, 1, build_lossy_graph))
         pool.close()
         pool.join()
 
@@ -375,12 +375,12 @@ class EthPathResults(TrackingResults):
         pool.close()
         pool.join()
 
-    def create_graph_data(self):
+    def create_graph_data(self, build_lossy_graph=True):
         pool = Pool(processes=1)
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
             if dist_result:
-                self._async_dist_graph = pool.apply_async(self._graph_func, (dist_result, 1))
+                self._async_dist_graph = pool.apply_async(self._graph_func, (dist_result, 1, build_lossy_graph))
         pool.close()
         pool.join()
 
