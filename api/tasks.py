@@ -15,7 +15,9 @@ from .constants import Constants
 from .exceptions import DataIntegrityError
 from .models import (
     Case, CatvJobQueue,
-    CatvRequestStatus, CatvResult
+    CatvRequestStatus, CatvResult,
+    Role, RoleUsageLimit,
+    User, Usage
 )
 from .settings import api_settings
 
@@ -292,6 +294,29 @@ class CatvRequestTask:
             raise DataIntegrityError("data integrity error")
 
 
+class UserRoleUpdateTask(Task):
+    def run(self, *args, **kwargs):
+        user_id = kwargs['user_id']
+        new_role = Role.objects.get(role_name=kwargs['new_role'])
+        new_role_usage = RoleUsageLimit.objects.get(role=new_role)
+        with transaction.atomic():
+            User.objects.filter(id=user_id).update(role=new_role)
+            Usage.objects.filter(user_id=user_id).update(
+                api_calls_left=new_role_usage.api_limit,
+                catv_calls_left=new_role_usage.catv_limit,
+                cara_calls_left=new_role_usage.cara_limit
+            )
+        return True
+
+
+class CheckUserUpgradeTask(Task):
+    def run(self, *args, **kwargs):
+        query = Constants.QUERIES['EXPIRE_UPGRADE_CHALLENGE']
+        with connections['default'].cursor() as cursor:
+            cursor.execute(query)
+        return True
+
+
 tasks.register(CacheLeftPanelValuesTask)
 tasks.register(CatvHistoryTask)
 tasks.register(CheckUpdateUsageQuotaTask)
@@ -299,3 +324,5 @@ tasks.register(CacheNumberOfIndicatorsCases)
 tasks.register(CaraHistoryTask)
 tasks.register(CheckDeleteInvitesTask)
 tasks.register(CatvPathHistoryTask)
+tasks.register(UserRoleUpdateTask)
+tasks.register(CheckUserUpgradeTask)

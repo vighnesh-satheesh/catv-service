@@ -101,6 +101,7 @@ if settings.EXPOSE_GENERAL_API:
             views.exchange_oauth_api_token, name='oauth-api-login'),
         url(r'^catv_requests/?$', views.CATVRequestsView.as_view(), name='catv-requests'),
         url(r'^catv_report/(?P<pk>[0-9a-z\-]+)/?$', views.CATVReportView.as_view(), name='catv-report'),
+        url(r'^upgrade/?$', views.UserUpgradeView.as_view(), name='upgrade-plans'),
 
     ]
 

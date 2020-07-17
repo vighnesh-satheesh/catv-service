@@ -204,7 +204,8 @@ REST_FRAMEWORK = {
         'caraPost': '3/min',
         'catvPost': '5/min',
         'guestSearchGet': '20/min',
-        'catvInternalPost': '1/min'
+        'catvInternalPost': '1/min',
+        'upgradePostPut': '5/hour'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -362,6 +363,7 @@ API_SETTINGS = {
     "CATV_NUM_JOBS_PICK": env.int("API_CATV_NUM_JOBS_PICK", 3),
     "ELASTICSEARCH_CASE_IDX": env.str("API_ELASTIC_CASE_IDX", 'dev_case'),
     "SEARCH_BACKEND_URL": env.str("API_SEARCH_BACKEND_URL", "http://localhost:8000/"),
+    "MAINNET_URL": env.str("API_MAINNET_URL", "https://mainnet.infura.io/v3/acc7e98bea464efa91f383ce2dd3d764"),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
@@ -382,6 +384,10 @@ CELERYBEAT_SCHEDULE = {
         'task': 'api.tasks.CheckDeleteInvitesTask',
         'schedule': timedelta(minutes=45),
     },
+    'check-user-upgrade-every-hour': {
+        'task': 'api.tasks.CheckUserUpgradeTask',
+        'schedule': timedelta(minutes=60),
+    }
 }
 # email
 EMAIL_BACK_END = 'django.core.mail.backends.smtp.EmailBackend'

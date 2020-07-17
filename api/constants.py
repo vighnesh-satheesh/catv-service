@@ -178,6 +178,9 @@ class Constants:
                                    "WHERE j1.id = (SELECT j2.id FROM api_catv_job_queue j2 WHERE j2.retries_remaining > 0 "
                                    "ORDER BY j2.created FOR UPDATE SKIP LOCKED LIMIT {0}) "
                                    "RETURNING j1.id, j1.message, j1.retries_remaining, j1.created;",
+        "EXPIRE_UPGRADE_CHALLENGE": "UPDATE api_user_upgrade set status='expired', updated=now() where (DATE_PART('day', "
+                                    "now()::timestamp - sent::timestamp) * 24 + DATE_PART('hour', "
+                                    "now()::timestamp - sent::timestamp)) >= 24;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

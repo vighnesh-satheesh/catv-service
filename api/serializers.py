@@ -37,7 +37,7 @@ from .catvutils.tracking_results import (
     BtcPathResults
 )
 from .catvutils.vendor_api import LyzeAPIInterface
-from .tasks import CaseMessageTask
+from .tasks import CaseMessageTask, UserRoleUpdateTask
 
 
 class NonNullModelSerializer(serializers.ModelSerializer):
@@ -106,8 +106,6 @@ class LoginSerializer(serializers.Serializer):
         'input_type': 'password'})
 
     def __create_success_response(self, user, token):
-        role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(
-            user.role.id)
         organization_id, is_admin = self.check_organization(user)
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
@@ -121,6 +119,12 @@ class LoginSerializer(serializers.Serializer):
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {
             "api_key": None, "expire_datetime": None}
+        if bal < 50000 and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
+            community_role = models.Role.objects.get(role_name=models.UserRoles.COMMUNITY.value)
+            role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(community_role.id)
+            UserRoleUpdateTask().delay(user_id=user.id, new_role=community_role.role_name)
+        else:
+            role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(user.role.id)
         return {
             "accessToken": token.key if user.status == models.UserStatus.APPROVED else "",
             "user": {

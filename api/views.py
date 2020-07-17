@@ -4,6 +4,7 @@ import json
 import math
 from operator import gt, lt
 import pytz
+from random import randrange
 import socket
 
 from django.conf import settings
@@ -38,7 +39,9 @@ from .models import (
     RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
     CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus,
     CatvSearchType, CatvRequestStatus, CatvTaskStatusType,
-    UserIndicator, IndicatorPoint, CatvResult
+    UserIndicator, IndicatorPoint, CatvResult,
+    Role, RoleUsageLimit, UserRoles,
+    UserUpgrade, UpgradeVerifyStatus
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -65,7 +68,7 @@ from .throttling import (
     EmailVerificationThrottle,
     IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
     CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle,
-    CatvNoThrottle)
+    CatvNoThrottle, UpgradePlanThrottle, UpgradePlanNoThrottle)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination, CatvRequestPagination
 from . import exceptions
@@ -80,7 +83,8 @@ from .email.tasks import SendEmail
 from .constants import Constants
 from .tasks import (
     CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
-    CatvPathHistoryTask, CaseMessageTask, CatvRequestTask
+    CatvPathHistoryTask, CaseMessageTask, CatvRequestTask,
+    UserRoleUpdateTask
 )
 from .catvutils.metrics import CatvMetrics
 from .search import CaseSearchES
@@ -2773,3 +2777,103 @@ class CATVReportView(APIView):
                 "source": "Address successfully re-submitted for report generation."
             }
         })
+
+
+class UserUpgradeView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    
+    def get_throttles(self):
+        if self.request.method.lower() in ['put', 'post']:
+            return [UpgradePlanThrottle(), ]
+        return [UpgradePlanNoThrottle(), ]
+    
+    def validate_get(self, request):
+        error = None
+        if self.request.user.role.role_name != UserRoles.COMMUNITY.value:
+            error = "No upgrade options available."
+        if not error and not self.request.user.address:
+            error = "No user wallet found. Add user wallet in profile first."
+        if error:
+            raise exceptions.NotAllowedError(detail=error)
+        
+    def validate_post(self, request):
+        error = None
+        verify_record = UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value).order_by('created')[:1]
+        if verify_record:
+            error = "You already have a transaction verification challenge pending."
+        if error:
+            raise exceptions.NotAllowedError(detail=error)
+        
+    def validate_put(self, request):
+        error = None
+        if not self.request.data.get("tx_hash", None):
+            error = "Missing required transaction hash parameter."
+        user_verify_qset = UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value).order_by('-created')[:1]
+        if not user_verify_qset:
+            error = "Could not find a verification test entry. System didn't find any token amount asscoiated."
+        if error:
+            raise exceptions.NotAllowedError(detail=error)
+        return user_verify_qset[0]
+    
+    def get(self, request):
+        self.validate_get(request)
+        try:
+            user_challenge = UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value).order_by('-created')[:1]
+            plan_features = RoleUsageLimit.objects.get(
+                role=Role.objects.get(role_name=UserRoles.PAID.value))
+            return APIResponse({
+                "data": {
+                    "transfer_address": RewardSetting.objects.get(id=1).token_address,
+                    "asked_tokens": "{:.4f}".format(user_challenge[0].asked_tokens) if user_challenge else None,
+                    "plan_details": {
+                        "catv": plan_features.catv_limit,
+                        "cara": plan_features.cara_limit,
+                        "api": plan_features.api_limit
+                    }
+                }
+            })
+        except (Role.DoesNotExist, RoleUsageLimit.DoesNotExist):
+            raise exceptions.ServerError(detail="Upgrade role not found")
+    
+    def post(self, request):
+        self.validate_get(request)
+        self.validate_post(request)
+        random_tokens = randrange(1, 9) * 1e-4
+        verify_record = UserUpgrade.objects.create(user=self.request.user, asked_tokens=random_tokens, status=UpgradeVerifyStatus.PENDING)
+        return APIResponse({
+            "data": {
+                "asked_tokens": "{:.4f}".format(verify_record.asked_tokens)
+            }
+        })
+    
+    def put(self, request):
+        self.validate_get(request)
+        verify_record = self.validate_put(request)
+        tx_hash = self.request.data["tx_hash"]
+        try:
+            reward_details = RewardSetting.objects.get(id=1)
+            web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
+            tx_info = web3_client.eth.getTransaction(tx_hash)
+            if not tx_info:
+                raise exceptions.NotAllowedError(detail="Invalid tx hash provided.")
+            if not tx_info.get("blockNumber", None):
+                raise exceptions.NotAllowedError(detail="Block not mined yet.")
+            block_num, value, sender, to = tx_info["blockNumber"], tx_info["value"], tx_info["from"], tx_info["to"]
+            block_ts = web3_client.eth.getBlock(block_num).timestamp
+            block_ts = datetime.datetime.utcfromtimestamp(block_ts)
+            
+            if pytz.utc.localize(block_ts) > verify_record.created.astimezone(pytz.utc) \
+                and "{:.4f}".format(verify_record.asked_tokens) == "{:.4f}".format(value / 1e18) \
+                and w3.toChecksumAddress(sender) == w3.toChecksumAddress(self.request.user.address) \
+                and w3.toChecksumAddress(to) == w3.toChecksumAddress(reward_details.token_address):
+                    UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value)\
+                        .update(status=UpgradeVerifyStatus.VERIFIED.value, tx_hash=tx_hash)
+                    UserRoleUpdateTask().delay(user_id=self.request.user.id, new_role=UserRoles.COMMUNITY_VERIFIED.value)
+                    return APIResponse({
+                        "data": "Transaction successfully validated"
+                    })
+            else:
+                raise exceptions.NotAllowedError(detail="One or more of the following do not match: Sender, Receiver, Amount, Timestamp")
+        except RewardSetting.DoesNotExist:
+            raise exceptions.ServerError(detail="Missing reward setting")

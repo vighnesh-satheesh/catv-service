@@ -128,3 +128,12 @@ class CaraPostThrottle(UserRateThrottle):
 
 class CATVInternalPostThrottle(AnonRateThrottle):
     scope = "catvInternalPost"
+
+
+class UpgradePlanThrottle(UserRateThrottle):
+    scope = "upgradePostPut"
+
+
+class UpgradePlanNoThrottle(BaseThrottle):
+    def allow_request(self, request, view):
+        return True
