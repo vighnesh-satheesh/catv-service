@@ -119,7 +119,7 @@ class LoginSerializer(serializers.Serializer):
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {
             "api_key": None, "expire_datetime": None}
-        if bal < 50000 and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
+        if bal < api_settings.MAB_USER_UPGRADE and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
             community_role = models.Role.objects.get(role_name=models.UserRoles.COMMUNITY.value)
             role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(community_role.id)
             UserRoleUpdateTask().delay(user_id=user.id, new_role=community_role.role_name)
@@ -446,14 +446,20 @@ class UserPostSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data, *args, **kwargs):
         try:
-            instance.update(
-                password=validated_data.get("new_password", None),
-                image=validated_data.get("image"),
-                nickname=validated_data["nickname"],
-                email_notification=validated_data["email_notification"],
-                address=validated_data["address"],
-                points=validated_data["points"]
-            )
+            with transaction.atomic():
+                # Invalidate verification challenge if user changed wallet address after generating a challenge
+                if instance.address and instance.address != validated_data["address"]:
+                    models.UserUpgrade.objects.\
+                    filter(user=instance, status=models.UpgradeVerifyStatus.PENDING.value).\
+                    update(status=models.UpgradeVerifyStatus.FAILED)
+                instance.update(
+                    password=validated_data.get("new_password", None),
+                    image=validated_data.get("image"),
+                    nickname=validated_data["nickname"],
+                    email_notification=validated_data["email_notification"],
+                    address=validated_data["address"],
+                    points=validated_data["points"]
+                )
         except IntegrityError as e:
             if "nickname" in str(e):
                 raise exceptions.DataIntegrityError("duplicate: nickname")

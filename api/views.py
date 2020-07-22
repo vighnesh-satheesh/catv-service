@@ -2824,8 +2824,11 @@ class UserUpgradeView(APIView):
                 role=Role.objects.get(role_name=UserRoles.PAID.value))
             return APIResponse({
                 "data": {
-                    "transfer_address": RewardSetting.objects.get(id=1).token_address,
-                    "asked_tokens": "{:.4f}".format(user_challenge[0].asked_tokens) if user_challenge else None,
+                    "transfer_address": api_settings.ADMIN_WALLET_ADDRESS,
+                    "contract_address": api_settings.TOKEN_ADDRESS,
+                    "asked_tokens": "{:.6f}".format(user_challenge[0].asked_tokens) if user_challenge else None,
+                    "display_tokens": api_settings.VERIFY_TX_AMT,
+                    "wallet_mab": api_settings.MAB_USER_UPGRADE,
                     "plan_details": {
                         "catv": plan_features.catv_limit,
                         "cara": plan_features.cara_limit,
@@ -2839,11 +2842,11 @@ class UserUpgradeView(APIView):
     def post(self, request):
         self.validate_get(request)
         self.validate_post(request)
-        random_tokens = randrange(1, 9) * 1e-4
+        random_tokens = float(api_settings.VERIFY_TX_AMT)
         verify_record = UserUpgrade.objects.create(user=self.request.user, asked_tokens=random_tokens, status=UpgradeVerifyStatus.PENDING)
         return APIResponse({
             "data": {
-                "asked_tokens": "{:.4f}".format(verify_record.asked_tokens)
+                "asked_tokens": "{:.6f}".format(verify_record.asked_tokens)
             }
         })
     
@@ -2852,7 +2855,6 @@ class UserUpgradeView(APIView):
         verify_record = self.validate_put(request)
         tx_hash = self.request.data["tx_hash"]
         try:
-            reward_details = RewardSetting.objects.get(id=1)
             web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
             tx_info = web3_client.eth.getTransaction(tx_hash)
             if not tx_info:
@@ -2864,9 +2866,9 @@ class UserUpgradeView(APIView):
             block_ts = datetime.datetime.utcfromtimestamp(block_ts)
             
             if pytz.utc.localize(block_ts) > verify_record.created.astimezone(pytz.utc) \
-                and "{:.4f}".format(verify_record.asked_tokens) == "{:.4f}".format(value / 1e18) \
+                and "{:.6f}".format(verify_record.asked_tokens) == "{:.6f}".format(value / 1e18) \
                 and w3.toChecksumAddress(sender) == w3.toChecksumAddress(self.request.user.address) \
-                and w3.toChecksumAddress(to) == w3.toChecksumAddress(reward_details.token_address):
+                and w3.toChecksumAddress(to) == w3.toChecksumAddress(api_settings.ADMIN_WALLET_ADDRESS):
                     UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value)\
                         .update(status=UpgradeVerifyStatus.VERIFIED.value, tx_hash=tx_hash)
                     UserRoleUpdateTask().delay(user_id=self.request.user.id, new_role=UserRoles.COMMUNITY_VERIFIED.value)
@@ -2875,5 +2877,7 @@ class UserUpgradeView(APIView):
                     })
             else:
                 raise exceptions.NotAllowedError(detail="One or more of the following do not match: Sender, Receiver, Amount, Timestamp")
-        except RewardSetting.DoesNotExist:
-            raise exceptions.ServerError(detail="Missing reward setting")
+        except Exception as e:
+            if isinstance(e, exceptions.NotAllowedError):
+                raise e
+            raise exceptions.ValidationError(detail="Something went wrong while validating transaction")
