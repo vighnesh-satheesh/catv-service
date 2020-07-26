@@ -118,6 +118,9 @@ class IndicatorESDocumentTask:
         self.security_category = set()
         self.pattern_type = set()
         self.pattern_subtype = set()
+        self.case_uid = ""
+        self.case_status = ""
+        self.case_updated = None
         if api_settings.ELASTICSEARCH_CREDENTIALS:
             host_netloc = urlparse(api_settings.ELASTICSEARCH_HOST).netloc
             es_host = f'http://{api_settings.ELASTICSEARCH_CREDENTIALS}@{host_netloc}'
@@ -148,13 +151,15 @@ class IndicatorESDocumentTask:
                     'pattern': indicator.pattern,
                     'detail': indicator.detail,
                     'created': indicator.created.isoformat(sep='T', timespec='milliseconds'),
-                    'cases': indicator.cases_indexing,
+                    'cases': self.case_status,
                     'annotations': indicator.annotations_indexing,
                     'latest_case': {
-                        'hex': getattr(indicator.latest_case_indexing, 'hex', '')
+                        'hex': getattr(self.case_uid, 'hex', '')
                     },
                     'user_id': indicator.user_id_indexing,
-                    'pattern_tree': indicator.pattern_tree
+                    'pattern_tree': indicator.pattern_tree.split(".") if indicator.pattern_tree else [],
+                    'pattern_tree_count': len(indicator.pattern_tree.split(".")) if indicator.pattern_tree else 0,
+                    'updated': self.case_updated.isoformat(sep='T', timespec='milliseconds') if self.case_updated else None
                 }
             }
     
@@ -185,6 +190,9 @@ class IndicatorESDocumentTask:
         if isinstance(case_instance, Case):
             try:
                 self.related_indicators = Case.objects.using('default').get(id=case_instance.id).indicators.all()
+                self.case_uid = case_instance.uid
+                self.case_status = case_instance.status.value
+                self.case_updated = case_instance.updated
             except Case.DoesNotExist:
                 self.related_indicators = []
         elif indicators:
