@@ -46,7 +46,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
     }
     filter_fields = {
         'security_category': {
-            'field': 'security_category.raw',
+            'field': 'security_category',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
@@ -54,7 +54,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             ],
         },
         'security_tags': {
-            'field': 'security_tags.raw',
+            'field': 'security_tags',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
@@ -62,7 +62,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             ]
         },
         'vector': {
-            'field': 'vector.raw',
+            'field': 'vector',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
@@ -70,7 +70,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             ],
         },
         'environment': {
-            'field': 'environment.raw',
+            'field': 'environment',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
@@ -78,7 +78,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             ]
         },
         'pattern_type': {
-            'field': 'pattern_type.raw',
+            'field': 'pattern_type',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
@@ -86,7 +86,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             ],
         },
         'pattern_subtype': {
-            'field': 'pattern_subtype.raw',
+            'field': 'pattern_subtype',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
@@ -94,7 +94,7 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             ],
         },
         'cases': {
-            'field': 'cases.raw',
+            'field': 'cases',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,

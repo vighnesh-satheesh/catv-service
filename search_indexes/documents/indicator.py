@@ -10,7 +10,7 @@ __all__ = ('IndicatorDocument',)
 INDEX = Index(settings.ELASTICSEARCH_INDEX_NAMES[__name__])
 
 INDEX.settings(
-    number_of_shards=1,
+    number_of_shards=2,
     # TIP: Set `number_of_replicas` to 0 to make initial indexing for large datasets faster.
     number_of_replicas=1,
     # TIP: Set `refresh_interval` to -1 to make initial indexing for large datasets faster.
@@ -36,83 +36,27 @@ class IndicatorDocument(Document):
         }
     )
 
-    security_category = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    security_category = KeywordField()
 
-    security_tags = fields.ListField(
-        StringField(
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-            }
-        )
-    )
+    security_tags = KeywordField()
 
-    vector = fields.ListField(
-        StringField(
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-            }
-        )
-    )
+    vector = KeywordField()
 
-    environment = fields.ListField(
-        StringField(
-            analyzer=HTML_STRIP,
-            fields={
-                'raw': KeywordField(),
-            }
-        )
-    )
+    environment = KeywordField()
 
-    pattern_type = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    pattern_type = KeywordField()
 
-    pattern_subtype = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    pattern_subtype = KeywordField()
 
-    pattern = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    pattern = KeywordField()
 
-    detail = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    detail = KeywordField()
 
     created = fields.DateField()
 
-    cases = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    cases = KeywordField()
 
-    annotations = StringField(
-        analyzer=HTML_STRIP,
-        fields={
-            'raw': KeywordField(),
-        }
-    )
+    annotations = KeywordField()
 
     latest_case = fields.ObjectField(
         enabled=False,
@@ -123,9 +67,13 @@ class IndicatorDocument(Document):
 
     user_id = fields.IntegerField()
     
-    pattern_tree = StringField(
-        analyzer=PATTERN_TREE_SPLIT
+    pattern_tree = KeywordField()
+    
+    pattern_tree_count = fields.IntegerField(
+        attr='pattern_tree_count'
     )
+    
+    updated = fields.DateField()
 
     class Django(object):
         """
