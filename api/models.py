@@ -1104,7 +1104,15 @@ class IndicatorMView(models.Model):
     annotations = models.CharField(max_length=256, blank=True, null=True)
     latest_case = models.UUIDField(null=True, editable=False)
     user_id = models.IntegerField()
-    pattern_tree = LtreeField(blank=False, null=False)
+    pattern_tree = ArrayField(models.CharField(max_length=256, blank=False), blank=True, null=True)
+    updated = models.DateTimeField(default=now)
+    
+    @property
+    def pattern_tree_count(self):
+        if not self.pattern_tree:
+            return 0
+        else:
+            return len(self.pattern_tree)
 
     class Meta:
         managed = False
