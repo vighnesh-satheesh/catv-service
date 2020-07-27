@@ -102,8 +102,6 @@ class AppInit:
             'stgsearch.sentinelprotocol.io',
             'search.sentinelprotocol.io',            
             'search.stgsentinelportal.com',
-            'search.prdsentinelportal.com',
-            'stgmportal.sentinelprotocol.io',
-            'mportal.sentinelprotocol.io'
+            'search.prdsentinelportal.com'
         ])
         os.environ["ECS_PRIVATE_IP"] = ",".join(allowed_host)
