@@ -11,7 +11,7 @@ from django.db import transaction, IntegrityError
 from django.db.models import Q, Value, BooleanField
 from django.db.models.signals import post_save
 from django.utils import timezone
-from web3.auto.infura import w3
+from web3 import Web3
 
 from rest_framework import serializers
 
@@ -110,10 +110,10 @@ class LoginSerializer(serializers.Serializer):
         reward_setting = models.RewardSetting.objects.filter(id=1).values()
         bal = 0
         if user.address != "" and user.address is not None:
-            address_c = w3.toChecksumAddress(
-                reward_setting[0].get('token_address'))
+            web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
+            address_c = web3_client.toChecksumAddress(api_settings.TOKEN_ADDRESS)
             token_abi = json.loads(reward_setting[0].get('token_abi'))
-            token_upp = w3.eth.contract(address_c, abi=token_abi)
+            token_upp = web3_client.eth.contract(address_c, abi=token_abi)
             bal = (token_upp.call().balanceOf(
                 user.address)) / 1000000000000000000
         api_details = user.key_set.values('api_key', 'expire_datetime')
@@ -411,7 +411,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             data["id"] = user.uid
             address = request.data.get("address", None)
             if address != "" and address != "empty" and address is not None:
-                data["address"] = w3.toChecksumAddress(address)
+                web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
+                data["address"] = web3_client.toChecksumAddress(address)
             else:
                 data["address"] = ""
             points = request.data.get("points", None)
