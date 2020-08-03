@@ -137,6 +137,7 @@ class UserRoles(Enum):
     ORG_TRIAL = 'organization-trial'
     SENTINEL = 'sentinel'
     SUPERSENTINEL = 'supersentinel'
+    COMMUNITY_VERIFIED = 'communityuser-verified'
 
 
 class UserPermission(Enum):
@@ -176,6 +177,9 @@ class PermissionList(Enum):
     CATV_EXPORT_IMAGE = 'export_image'
     CARA_EXPORT_REPORT = 'export_report'
     VIEW_ORG_CASES = 'view_org_cases'
+    ACCESS_CATV = 'access_catv'
+    ACCESS_CARA = 'access_cara'
+    ACCESS_API = 'access_api'
 
 
 class UserStatus(Enum):
@@ -349,6 +353,12 @@ class CatvTaskStatusType(Enum):
     PROGRESS = 'progress'
     RELEASED = 'released'
     FAILED = 'failed'
+    
+class UpgradeVerifyStatus(Enum):
+    PENDING = 'pending'
+    VERIFIED = 'verified'
+    FAILED = 'failed'
+    EXPIRED = 'expired'
 
 
 @unique
@@ -1250,3 +1260,19 @@ class CaseMView(models.Model):
     class Meta:
         managed = False
         db_table = 'matvw_case_search'
+
+
+class UserUpgrade(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='upgrade_user')
+    asked_tokens = models.FloatField(null=True)
+    status = EnumField(enum=UpgradeVerifyStatus, null=True)
+    tx_hash = models.CharField(max_length=100, null=True)
+    created = models.DateTimeField(default=now)
+    updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'api_user_upgrade'
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['created'])
+        ]
