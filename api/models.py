@@ -17,7 +17,8 @@ from django.utils.timezone import now
 from django.db.models.lookups import IContains
 from django_bulk_update.manager import BulkUpdateManager
 
-import random, string
+import random
+import string
 import magic
 from PIL import Image
 from enumfields import EnumField
@@ -353,7 +354,8 @@ class CatvTaskStatusType(Enum):
     PROGRESS = 'progress'
     RELEASED = 'released'
     FAILED = 'failed'
-    
+
+
 class UpgradeVerifyStatus(Enum):
     PENDING = 'pending'
     VERIFIED = 'verified'
@@ -470,8 +472,10 @@ class RolePermissionManager(models.Manager):
 
 
 class RolePermission(models.Model):
-    role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='role')
-    action = models.ForeignKey(Action, null=False, blank=False, on_delete=models.CASCADE, related_name='role_action')
+    role = models.ForeignKey(
+        Role, null=False, blank=False, on_delete=models.CASCADE, related_name='role')
+    action = models.ForeignKey(Action, null=False, blank=False,
+                               on_delete=models.CASCADE, related_name='role_action')
     allowed = models.BooleanField(default=False)
     objects = RolePermissionManager()
 
@@ -492,10 +496,13 @@ class User(models.Model):
     timestamp = models.DateTimeField(default=now)
     created = models.DateTimeField(default=now)
     last_logged_out = models.DateTimeField(default=now)
-    permission = EnumField(enum=UserPermission, default=UserPermission.SENTINEL, max_length=16)
+    permission = EnumField(enum=UserPermission,
+                           default=UserPermission.SENTINEL, max_length=16)
     email_notification = models.BooleanField(default=True)
-    image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
-    status = EnumField(enum=UserStatus, default=UserStatus.APPROVED, max_length=16)
+    image = models.ImageField(
+        null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
+    status = EnumField(
+        enum=UserStatus, default=UserStatus.APPROVED, max_length=16)
     role = models.ForeignKey(Role, on_delete=models.PROTECT,
                              default=get_default_role)
     points = models.BigIntegerField(null=False, blank=False, default=0)
@@ -578,7 +585,8 @@ class User(models.Model):
 
 
 class RoleUsageLimit(models.Model):
-    role = models.ForeignKey(Role, null=False, blank=False, on_delete=models.CASCADE, related_name='usage_role')
+    role = models.ForeignKey(Role, null=False, blank=False,
+                             on_delete=models.CASCADE, related_name='usage_role')
     api_limit = models.IntegerField(null=True, default=5)
     catv_limit = models.IntegerField(null=True, default=5)
     cara_limit = models.IntegerField(null=True, default=5)
@@ -593,26 +601,35 @@ class RoleUsageLimit(models.Model):
 
 class Case(models.Model):
     # user generated info
-    title = models.CharField(max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
-    detail = models.TextField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
-    rich_text_detail = models.CharField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    title = models.CharField(
+        max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
+    detail = models.TextField(
+        default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    rich_text_detail = models.CharField(
+        default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     # auto generated info
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
     status = EnumField(enum=CaseStatus, default=CaseStatus.NEW)
-    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
-    reporter = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='reporter')
-    owner = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='owner')
-    verifier = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='verifier')
+    reporter_info = models.CharField(
+        max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
+    reporter = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='reporter')
+    owner = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='owner')
+    verifier = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='verifier')
 
     block_num = models.IntegerField(null=True, blank=True)
     # block_id = models.CharField(max_length=64, null=True, blank=True)
     transaction_id = models.CharField(max_length=64, null=True, blank=True)
 
-    ico = models.ForeignKey('ICO', null=True, blank=True, on_delete=models.DO_NOTHING)
-    related_case = models.ForeignKey('RelatedCase', null=True, blank=True, on_delete=models.DO_NOTHING)
+    ico = models.ForeignKey('ICO', null=True, blank=True,
+                            on_delete=models.DO_NOTHING)
+    related_case = models.ForeignKey(
+        'RelatedCase', null=True, blank=True, on_delete=models.DO_NOTHING)
     indicators = models.ManyToManyField('Indicator', through='CaseIndicator')
 
     @property
@@ -648,13 +665,15 @@ class Case(models.Model):
         return super(Case, self).save(*args, **kargs)
 
     def clean(self):
-        validates.validate_max_length(self.detail, model=True, limit=api_settings.CASE_DETAIL_MAX_LEN, field_name="detail")
+        validates.validate_max_length(
+            self.detail, model=True, limit=api_settings.CASE_DETAIL_MAX_LEN, field_name="detail")
         return super(Case, self).clean()
 
 
 class CaseHistory(models.Model):
     case = models.ForeignKey(Case, on_delete=models.CASCADE)
-    initiator = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING)
+    initiator = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.DO_NOTHING)
     log = models.TextField()
     created = models.DateTimeField(default=now)
 
@@ -676,25 +695,35 @@ class Annotation(models.Model):
     annotation = models.CharField(max_length=256, blank=True, null=True)
     created = models.DateTimeField(default=now)
 
+
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='indicator_user')
+    user = models.ForeignKey(User, null=True, blank=True,
+                             on_delete=models.DO_NOTHING, related_name='indicator_user')
     cases = models.ManyToManyField(Case, through='CaseIndicator')
 
     security_category = EnumField(enum=IndicatorSecurityCategory)
-    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
-    vector = ArrayField(EnumField(enum=IndicatorVector, max_length=32), blank=True, null=True)
-    environment = ArrayField(EnumField(enum=IndicatorEnvironment, max_length=32), blank=True, null=True)
+    security_tags = ArrayField(models.CharField(
+        max_length=32, blank=False), blank=True, null=True)
+    vector = ArrayField(EnumField(enum=IndicatorVector,
+                                  max_length=32), blank=True, null=True)
+    environment = ArrayField(
+        EnumField(enum=IndicatorEnvironment, max_length=32), blank=True, null=True)
 
     pattern = models.CharField(max_length=256)
-    pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False, max_length=32)
-    pattern_subtype = EnumField(enum=IndicatorPatternSubtype, blank=True, null=True)
+    pattern_type = EnumField(enum=IndicatorPatternType,
+                             blank=False, null=False, max_length=32)
+    pattern_subtype = EnumField(
+        enum=IndicatorPatternSubtype, blank=True, null=True)
     pattern_tree = LtreeField(blank=False, null=False)
 
-    detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
+    detail = models.TextField(default='', blank=True, null=True,
+                              max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
     annotation = models.CharField(max_length=256, blank=True, null=True)
-    annotations = models.ManyToManyField(Annotation, through='IndicatorAnnotation')
-    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
+    annotations = models.ManyToManyField(
+        Annotation, through='IndicatorAnnotation')
+    reporter_info = models.CharField(
+        max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
 
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
@@ -758,7 +787,7 @@ class Indicator(models.Model):
             latest_case = self.cases.latest('id')
             return latest_case.uid
         return ""
-    
+
     @property
     def user_id_indexing(self):
         return self.user_id if self.user_id else 0
@@ -783,14 +812,19 @@ class Indicator(models.Model):
         # removing trailing slash
         if self.pattern[-1] == '/':
             self.pattern = self.pattern[:-1]
-        self.pattern_tree = Pattern.getMaterializedPathForInsert(self.pattern.lower())
+        self.pattern_tree = Pattern.getMaterializedPathForInsert(
+            self.pattern.lower())
         return super(Indicator, self).save(*args, **kwargs)
 
     def clean(self):
-        validates.validate_max_length(self.pattern, model=True, limit=api_settings.INDICATOR_PATTERN_MAX_LEN, field_name="pattern")
-        validates.validate_max_length(self.detail, model=True, limit=api_settings.CASE_DETAIL_MAX_LEN, field_name="detail")
-        validates.validate_pattern_type_subtype(self.pattern_type, self.pattern_subtype, model=True)
-        validates.validate_security_type_tag(self.security_category, self.security_tags, model=True)
+        validates.validate_max_length(
+            self.pattern, model=True, limit=api_settings.INDICATOR_PATTERN_MAX_LEN, field_name="pattern")
+        validates.validate_max_length(
+            self.detail, model=True, limit=api_settings.CASE_DETAIL_MAX_LEN, field_name="detail")
+        validates.validate_pattern_type_subtype(
+            self.pattern_type, self.pattern_subtype, model=True)
+        validates.validate_security_type_tag(
+            self.security_category, self.security_tags, model=True)
         validates.validate_indicator_vector(self.vector, model=True)
         validates.validate_indicator_environment(self.vector, model=True)
         return super(Indicator, self).clean()
@@ -817,8 +851,10 @@ class ICO(models.Model):
     symbol = models.CharField(max_length=128, default='')
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
-    verifier = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='%(class)s_verifier')
-    image = models.ImageField(null=True, blank=True, storage=ImageStorage, upload_to=image_upload_path)
+    verifier = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='%(class)s_verifier')
+    image = models.ImageField(
+        null=True, blank=True, storage=ImageStorage, upload_to=image_upload_path)
     type = models.TextField(null=True, blank=True)
     subtitle = models.TextField(null=True, blank=True)
     website = models.TextField(null=True, blank=True)
@@ -829,7 +865,8 @@ class ICO(models.Model):
     opened = models.DateTimeField(null=True, blank=True)
     closed = models.DateTimeField(null=True, blank=True)
 
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='ico_user')
+    user = models.ForeignKey(User, null=True, blank=True,
+                             on_delete=models.DO_NOTHING, related_name='ico_user')
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
 
@@ -846,9 +883,12 @@ class AttachedFile(models.Model):
     status = EnumField(enum=FileStatus, default=FileStatus.NEW)
     created = models.DateTimeField(default=now)
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    uploader = models.ForeignKey(User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='uploader')
-    case = models.ForeignKey(Case, null=True, blank=True, on_delete=models.CASCADE, related_name='case')
-    indicator = models.ForeignKey(Indicator, null=True, blank=True, on_delete=models.CASCADE, related_name='indicator')
+    uploader = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='uploader')
+    case = models.ForeignKey(Case, null=True, blank=True,
+                             on_delete=models.CASCADE, related_name='case')
+    indicator = models.ForeignKey(
+        Indicator, null=True, blank=True, on_delete=models.CASCADE, related_name='indicator')
 
     class Meta:
         db_table = "api_file"
@@ -912,14 +952,19 @@ class CaseInvalidateCandidates(models.Model):
 
 class Key(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    api_key = models.CharField(default=generate_api_key, max_length=40, blank=True, null=True, unique=True)
-    request_assign = models.IntegerField(default=10000000, blank=True, null=True)
+    api_key = models.CharField(
+        default=generate_api_key, max_length=40, blank=True, null=True, unique=True)
+    request_assign = models.IntegerField(
+        default=10000000, blank=True, null=True)
     request_current = models.IntegerField(default=0, blank=True, null=True)
     type_id = EnumField(enum=APIKeyType, default=APIKeyType.LIMITED)
-    name = models.CharField(default = "", max_length=128, blank=True, null=True)
-    domain = ArrayField(models.CharField(max_length=256, blank=True), blank=True, null=True)
-    domain_restricted = models.NullBooleanField(default=False, blank=True, null=True)
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
+    name = models.CharField(default="", max_length=128, blank=True, null=True)
+    domain = ArrayField(models.CharField(
+        max_length=256, blank=True), blank=True, null=True)
+    domain_restricted = models.NullBooleanField(
+        default=False, blank=True, null=True)
+    user = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.CASCADE)
     created = models.DateTimeField(default=now)
     expire_datetime = models.DateTimeField(null=True, blank=True)
 
@@ -936,16 +981,21 @@ class Key(models.Model):
 class EmailSent(models.Model):
     email = models.EmailField(unique=False)
     created = models.DateTimeField(default=now)
-    type = EnumField(enum=EmailSentType, max_length = 20)
+    type = EnumField(enum=EmailSentType, max_length=20)
 
 
 class Comment(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    body = models.TextField(max_length=api_settings.COMMENT_BODY_MAX_LEN, default="")
-    writer = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE)
-    case = models.ForeignKey(Case, null=True, blank=True, on_delete=models.CASCADE)
-    indicator = models.ForeignKey(Indicator, null=True, blank=True, on_delete=models.CASCADE)
-    ico = models.ForeignKey(ICO, null=True, blank=True, on_delete=models.CASCADE)
+    body = models.TextField(
+        max_length=api_settings.COMMENT_BODY_MAX_LEN, default="")
+    writer = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.CASCADE)
+    case = models.ForeignKey(
+        Case, null=True, blank=True, on_delete=models.CASCADE)
+    indicator = models.ForeignKey(
+        Indicator, null=True, blank=True, on_delete=models.CASCADE)
+    ico = models.ForeignKey(ICO, null=True, blank=True,
+                            on_delete=models.CASCADE)
     deleted = models.BooleanField(default=False)
     created = models.DateTimeField(default=now)
 
@@ -960,8 +1010,10 @@ class Comment(models.Model):
 
 class Notification(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='user')
-    initiator = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='initiator')
+    user = models.ForeignKey(User, null=True, blank=True,
+                             on_delete=models.CASCADE, related_name='user')
+    initiator = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.CASCADE, related_name='initiator')
     target = JSONField(default={})
     read = models.BooleanField(default=False)
     created = models.DateTimeField(default=now)
@@ -987,7 +1039,8 @@ class BloxyDistribution(models.Model):
     class Meta:
         db_table = 'api_bloxy_distribution'
         indexes = [
-            models.Index(fields=['address', 'depth_limit', 'from_time', 'till_time'])
+            models.Index(fields=['address', 'depth_limit',
+                                 'from_time', 'till_time'])
         ]
 
 
@@ -1004,7 +1057,8 @@ class BloxySource(models.Model):
     class Meta:
         db_table = 'api_bloxy_source'
         indexes = [
-            models.Index(fields=['address', 'depth_limit', 'from_time', 'till_time'])
+            models.Index(fields=['address', 'depth_limit',
+                                 'from_time', 'till_time'])
         ]
 
 
@@ -1057,10 +1111,13 @@ class ICFHistory(models.Model):
 class Organization(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=100, null=False, blank=False)
-    image = models.ImageField(null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
-    administrator = models.ForeignKey(User, null=False, blank=False, on_delete=models.CASCADE, related_name='org_admin')
+    image = models.ImageField(
+        null=True, blank=True, storage=UserImageStorage, upload_to=image_upload_path)
+    administrator = models.ForeignKey(
+        User, null=False, blank=False, on_delete=models.CASCADE, related_name='org_admin')
     users = models.ManyToManyField('User', through='OrganizationUser')
-    domains = ArrayField(models.CharField(max_length=100), size=2, default=list)
+    domains = ArrayField(models.CharField(
+        max_length=100), size=2, default=list)
 
     class Meta:
         indexes = [
@@ -1070,7 +1127,8 @@ class Organization(models.Model):
     @property
     def pending_invites(self):
         return OrganizationInvites.objects.filter(organization=self). \
-            exclude(status=OrganizationInviteStatus.APPROVED.value).values('email', 'status')
+            exclude(status=OrganizationInviteStatus.APPROVED.value).values(
+                'email', 'status')
 
 
 class OrganizationUser(models.Model):
@@ -1100,23 +1158,28 @@ class IndicatorMView(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     security_category = models.CharField(max_length=10)
-    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
-    vector = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
-    environment = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
+    security_tags = ArrayField(models.CharField(
+        max_length=32, blank=False), blank=True, null=True)
+    vector = ArrayField(models.CharField(
+        max_length=32, blank=False), blank=True, null=True)
+    environment = ArrayField(models.CharField(
+        max_length=32, blank=False), blank=True, null=True)
 
     pattern_type = models.CharField(blank=False, null=False, max_length=32)
     pattern_subtype = models.CharField(blank=True, null=True, max_length=10)
     pattern = models.CharField(max_length=256, blank=False, null=False)
 
-    detail = models.TextField(default='', blank=True, null=True, max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
+    detail = models.TextField(default='', blank=True, null=True,
+                              max_length=api_settings.INDICATOR_DETAIL_MAX_LEN)
     created = models.DateTimeField(default=now)
     cases = models.TextField(blank=True, null=True)
     annotations = models.CharField(max_length=256, blank=True, null=True)
     latest_case = models.UUIDField(null=True, editable=False)
     user_id = models.IntegerField()
-    pattern_tree = ArrayField(models.CharField(max_length=256, blank=False), blank=True, null=True)
+    pattern_tree = ArrayField(models.CharField(
+        max_length=256, blank=False), blank=True, null=True)
     updated = models.DateTimeField(default=now)
-    
+
     @property
     def pattern_tree_count(self):
         if not self.pattern_tree:
@@ -1161,6 +1224,7 @@ class ConsumerErrorLogs(models.Model):
             models.Index(fields=['topic'])
         ]
 
+
 class IndicatorPoint(models.Model):
     user = models.ForeignKey(Indicator, on_delete=models.DO_NOTHING)
     indicator_id = models.IntegerField(null=False)
@@ -1170,13 +1234,17 @@ class IndicatorPoint(models.Model):
         managed = False
         db_table = 'api_indicator_point'
 
+
 class UserIndicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     security_category = EnumField(enum=IndicatorSecurityCategory)
     pattern = models.CharField(max_length=256)
-    pattern_subtype = EnumField(enum=IndicatorPatternSubtype, blank=True, null=True)
-    pattern_type = EnumField(enum=IndicatorPatternType, blank=False, null=False, max_length=32)
-    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
+    pattern_subtype = EnumField(
+        enum=IndicatorPatternSubtype, blank=True, null=True)
+    pattern_type = EnumField(enum=IndicatorPatternType,
+                             blank=False, null=False, max_length=32)
+    security_tags = ArrayField(models.CharField(
+        max_length=32, blank=False), blank=True, null=True)
     created = models.DateTimeField(default=now)
     points = models.IntegerField(default=0)
     status = models.CharField(max_length=10, null=True)
@@ -1184,10 +1252,12 @@ class UserIndicator(models.Model):
     class Meta:
         managed = False
 
+
 class CatvRequestStatus(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     params = JSONField(default=dict)
-    status = EnumField(enum=CatvTaskStatusType, default=CatvTaskStatusType.PROGRESS)
+    status = EnumField(enum=CatvTaskStatusType,
+                       default=CatvTaskStatusType.PROGRESS)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
@@ -1207,7 +1277,7 @@ class IndicatorExtraAnnotation(models.Model):
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
     objects = BulkUpdateManager()
-    
+
     class Meta:
         db_table = 'api_indicator_extra_annotation'
         indexes = [
@@ -1218,9 +1288,11 @@ class IndicatorExtraAnnotation(models.Model):
 
 
 class CatvResult(models.Model):
-    request = models.ForeignKey(CatvRequestStatus, null=False, blank=False, on_delete=models.CASCADE, related_name='request')
-    result_file = models.ForeignKey(AttachedFile, null=True, blank=True, on_delete=models.CASCADE, related_name='result_file')
-    
+    request = models.ForeignKey(CatvRequestStatus, null=False,
+                                blank=False, on_delete=models.CASCADE, related_name='request')
+    result_file = models.ForeignKey(
+        AttachedFile, null=True, blank=True, on_delete=models.CASCADE, related_name='result_file')
+
     class Meta:
         db_table = 'api_catv_result'
         indexes = [
@@ -1232,7 +1304,7 @@ class CatvJobQueue(models.Model):
     message = JSONField(default={})
     retries_remaining = models.IntegerField(default=3)
     created = models.DateTimeField(default=now)
-    
+
     class Meta:
         db_table = 'api_catv_job_queue'
         indexes = [
@@ -1243,36 +1315,59 @@ class CatvJobQueue(models.Model):
 
 class CaseMView(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    title = models.CharField(max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
-    detail = models.TextField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
-    rich_text_detail = models.CharField(default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    title = models.CharField(
+        max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
+    detail = models.TextField(
+        default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    rich_text_detail = models.CharField(
+        default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=32)
-    reporter_info = models.CharField(max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
+    reporter_info = models.CharField(
+        max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
     reporter_id = models.IntegerField(null=True)
     owner_id = models.IntegerField(null=True)
     verifier_id = models.IntegerField(null=True)
-    security_category = ArrayField(models.CharField(max_length=32, null=True), null=True)
-    pattern_type = ArrayField(models.CharField(max_length=32, null=True), null=True)
-    pattern_subtype = ArrayField(models.CharField(max_length=32, null=True), null=True)
-    
+    security_category = ArrayField(
+        models.CharField(max_length=32, null=True), null=True)
+    pattern_type = ArrayField(models.CharField(
+        max_length=32, null=True), null=True)
+    pattern_subtype = ArrayField(models.CharField(
+        max_length=32, null=True), null=True)
+
     class Meta:
         managed = False
         db_table = 'matvw_case_search'
 
 
 class UserUpgrade(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='upgrade_user')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='upgrade_user')
     asked_tokens = models.FloatField(null=True)
     status = EnumField(enum=UpgradeVerifyStatus, null=True)
     tx_hash = models.CharField(max_length=100, null=True)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         db_table = 'api_user_upgrade'
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['created'])
         ]
+
+
+class RoleInfo(models.Model):
+    class Meta:
+        db_table = 'api_role_info'
+    icf_rate_limit = models.CharField(default='5/s', max_length=32, null=False)
+    cara_rate_limit = models.CharField(
+        default='5/s', max_length=32, null=False)
+    cara_submit_rate_limit = models.CharField(
+        default='5/m', max_length=32, null=False)
+    catv_rate_limit = models.CharField(
+        default='5/s', max_length=32, null=False)
+    org_access = models.BooleanField(default=False)
+    role = models.ForeignKey(
+        Role, null=False, blank=False, on_delete=models.CASCADE, related_name='info_role')
