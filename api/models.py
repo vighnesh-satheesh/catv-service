@@ -1356,3 +1356,18 @@ class UserUpgrade(models.Model):
             models.Index(fields=['user']),
             models.Index(fields=['created'])
         ]
+
+
+class RoleInfo(models.Model):
+    class Meta:
+        db_table = 'api_role_info'
+    icf_rate_limit = models.CharField(default='5/s', max_length=32, null=False)
+    cara_rate_limit = models.CharField(
+        default='5/s', max_length=32, null=False)
+    cara_submit_rate_limit = models.CharField(
+        default='5/m', max_length=32, null=False)
+    catv_rate_limit = models.CharField(
+        default='5/s', max_length=32, null=False)
+    org_access = models.BooleanField(default=False)
+    role = models.ForeignKey(
+        Role, null=False, blank=False, on_delete=models.CASCADE, related_name='info_role')
