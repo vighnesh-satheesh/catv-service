@@ -9,6 +9,17 @@ from api.models import IndicatorExtraAnnotation
 
 __all__ = ('CatvMetrics',)
 
+def pick_n_unique(iterable, key, n):
+    seen = []
+    n_list = []
+    for item in iterable:
+        if len(n_list) == n:
+            return n_list
+        if item[key] not in seen:
+            n_list.append(item)
+            seen.append(item[key])
+    return n_list
+
 
 class CatvMetrics:
     def __init__(self, data):
@@ -31,7 +42,8 @@ class CatvMetrics:
             }
         # top 10 blacklisted wallets by balance
         black_wallets = list(filter(lambda node: node["group"] == 'Blacklist', self.seg_node_list))
-        black_wallets_top = sorted(black_wallets, key=lambda wallet: wallet["balance"], reverse=True)[:10]
+        black_wallets_top = sorted(black_wallets, key=lambda wallet: wallet["balance"], reverse=True)
+        black_wallets_top = pick_n_unique(black_wallets_top, "address", 10)
         black_wallets_top = [{"address": wallet["address"], "balance": wallet["balance"]} for wallet in black_wallets_top]
         # top 10 exchange wallets by balance
         exchange_wallets = list(filter(lambda node: node["group"] == 'Exchange & DEX', self.seg_node_list))
