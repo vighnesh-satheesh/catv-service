@@ -179,8 +179,8 @@ class Constants:
                                    "ORDER BY j2.created FOR UPDATE SKIP LOCKED LIMIT {0}) "
                                    "RETURNING j1.id, j1.message, j1.retries_remaining, j1.created;",
         "EXPIRE_UPGRADE_CHALLENGE": "UPDATE api_user_upgrade set status='expired', updated=now() where (DATE_PART('day', "
-                                    "now()::timestamp - sent::timestamp) * 24 + DATE_PART('hour', "
-                                    "now()::timestamp - sent::timestamp)) >= 168;",
+                                    "now()::timestamp - created::timestamp) * 24 + DATE_PART('hour', "
+                                    "now()::timestamp - created::timestamp)) >= 168;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",
