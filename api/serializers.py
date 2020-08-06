@@ -410,11 +410,14 @@ class UserPostSerializer(serializers.ModelSerializer):
                 data["token"] = token.key
             data["id"] = user.uid
             address = request.data.get("address", None)
-            if address != "" and address != "empty" and address is not None:
+            # Don't know what comparing it to 'empty' string value does here
+            # Is it passed from the frontend? comparisons redundant
+            if address and address != "empty":
                 web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
                 data["address"] = web3_client.toChecksumAddress(address)
             else:
-                data["address"] = ""
+                # Conflicts with unique constraint if empty string values are used when user updates profile
+                data["address"] = None
             points = request.data.get("points", None)
             if points != "":
                 data["points"] = points
