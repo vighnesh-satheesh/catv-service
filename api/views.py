@@ -1647,6 +1647,8 @@ class UserDetailView(APIView):
                 }
             })
         except Exception as e:
+            # TODO: Not good to mask all errors here
+            # Internally it could throw DataIntegrity errors, need more helpful error messages
             import traceback
             traceback.print_exc()
             raise exceptions.ValidationError("invalid data")
