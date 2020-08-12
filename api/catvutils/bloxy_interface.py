@@ -16,7 +16,6 @@ class BloxyAPIInterface:
             print(response)
             return []
         response_list = response.json()
-        print(response_list)
         return response_list
 
     def get_transactions(self, address, tx_limit, limit, depth_limit=2, from_time=datetime(2015, 1, 1, 0, 0), till_time=datetime.now(),
