@@ -63,8 +63,6 @@ class BloxyBTCAPIInterface:
 
     def fetch_api_response(self, api_url, data, timeout=600):
         response = requests.get(api_url, params=data, timeout=timeout)
-        print(api_url)
-        print(data)
         if response.status_code != 200:
             print(response)
             return []
@@ -72,12 +70,16 @@ class BloxyBTCAPIInterface:
         return response_list
 
     def get_transactions(self, address, tx_limit, limit, depth_limit=2, from_time=datetime(2015, 1, 1, 0, 0),
-                         till_time=datetime.now(), source=True):
+                         till_time=datetime.now(), source=True, chain='BTC'):
         api_url = self.__source_endpoint if source else self.__distribution_endpoint
         depth = depth_limit
+        updated_chain = chain.lower()
+        if updated_chain == 'trx':
+            updated_chain = 'tron'
         payload = {'key': self.__key, 'address': address, 'depth_limit': depth,
                    'from_date': from_time, 'till_date': till_time, 'snapshot_time': from_time if source else till_time,
-                   'limit_address_tx_count': tx_limit, 'limit': limit, 'format': 'json'}
+                   'limit_address_tx_count': tx_limit, 'limit': limit, 'format': 'json',
+                   'chain': updated_chain}
         r = self.fetch_api_response(api_url, payload)
         return r
 
@@ -101,6 +103,7 @@ class BloxyEthAPIInterface:
             'key': self.__key,
             'address1': path_tracker.address_from,
             'address2': path_tracker.address_to,
+            'chain': path_tracker.chain.lower(),
             'token': path_tracker.token_address,
             'depth_limit': path_tracker.depth_limit,
             'min_tx_amount': path_tracker.min_tx_amount,

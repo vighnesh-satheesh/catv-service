@@ -1880,6 +1880,14 @@ class CATVView(APIView):
             CatvTokens.BTC.value: {
                 CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
+            },
+            CatvTokens.TRON.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.LTC.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
             }
         }
         utils_map = {
@@ -1894,6 +1902,7 @@ class CATVView(APIView):
         }
         serializer_cls = serializer_map[token_type][search_type]
         serializer = serializer_cls(data=request.data, context={"request": request})
+        serializer._token_type = token_type
         serializer.is_valid(raise_exception=True)
         history = serializer.data
         if api_settings.SWITCH_CATV_KAFKA:
@@ -2753,7 +2762,9 @@ class CATVReportView(APIView):
         obj = self.get_related_object(pk)
         reverse_token_map = {
             "Ethereum": CatvTokens.ETH.value,
-            "Bitcoin": CatvTokens.BTC.value
+            "Bitcoin": CatvTokens.BTC.value,
+            "Tron": CatvTokens.TRON.value,
+            "Litecoin": CatvTokens.LTC.value
         }
         token_type = utils.determine_wallet_type(obj.params.get("wallet_address", obj.params.get("address_from", "")))
         has_from_address = obj.params.get("address_from", "")
