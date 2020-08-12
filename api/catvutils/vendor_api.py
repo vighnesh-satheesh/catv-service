@@ -63,8 +63,6 @@ class BloxyBTCAPIInterface:
 
     def fetch_api_response(self, api_url, data, timeout=600):
         response = requests.get(api_url, params=data, timeout=timeout)
-        print(api_url)
-        print(data)
         if response.status_code != 200:
             print(response)
             return []
@@ -93,8 +91,6 @@ class BloxyEthAPIInterface:
 
     def fetch_api_response(self, api_url, data, timeout=600):
         response = requests.get(api_url, params=data, timeout=timeout)
-        print(api_url)
-        print(data)
         if response.status_code != 200:
             print(response)
             return []
@@ -107,7 +103,7 @@ class BloxyEthAPIInterface:
             'key': self.__key,
             'address1': path_tracker.address_from,
             'address2': path_tracker.address_to,
-            'chain': path_tracker.chain,
+            'chain': path_tracker.chain.lower(),
             'token': path_tracker.token_address,
             'depth_limit': path_tracker.depth_limit,
             'min_tx_amount': path_tracker.min_tx_amount,

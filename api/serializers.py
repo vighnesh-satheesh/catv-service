@@ -2036,8 +2036,7 @@ class CATVSerializer(serializers.Serializer):
                 "Either of source_depth or distribution_depth is needed.")
 
     def validate_wallet_address(self, value):
-        pattern = re.compile("^0x[a-fA-F0-9]{40}$")
-        if self._token_type == models.CatvTokens.ETH.value and not pattern.match(value):
+        if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
                 "Token address is not a valid ethereum address.")
         return value
@@ -2175,8 +2174,7 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
         super().__init__(*args, **kwargs)
     
     def validate_wallet_address(self, value):
-        pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
-        if self._token_type == models.CatvTokens.BTC.value and not pattern.match(value):
+        if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
                 "Wallet address is an invalid Bitcoin address")
         return value
@@ -2444,7 +2442,8 @@ class CATVHistorySerializer(serializers.Serializer):
     path_search = serializers.BooleanField(default=False, required=False)
 
     def validate_token_type(self, data):
-        if not data or data.value.upper() not in models.CatvTokens.__members__.keys():
+        valid_tokens = [token.value for token in models.CatvTokens]
+        if not data or data.value.upper() not in valid_tokens:
             raise serializers.ValidationError("Token type unsupported.")
         return data
 
@@ -2469,15 +2468,13 @@ class CATVEthPathSerializer(serializers.Serializer):
         self._tracker = EthPathResults
 
     def validate_address_from(self, value):
-        pattern = re.compile("^0x[a-fA-F0-9]{40}$")
-        if not pattern.match(value):
+        if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
                 "Wallet address 'address_form' is not a valid ethereum address.")
         return value
 
     def validate_address_to(self, value):
-        pattern = re.compile("^0x[a-fA-F0-9]{40}$")
-        if not pattern.match(value):
+        if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
                 "Wallet address 'address_to' is not a valid ethereum address.")
         return value
@@ -2533,15 +2530,13 @@ class CatvBtcPathSerializer(CATVEthPathSerializer):
         self._tracker = BtcPathResults
 
     def validate_address_from(self, value):
-        pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
-        if not pattern.match(value):
+        if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
                 "Wallet address 'address_form' is not a valid bitcoin address.")
         return value
 
     def validate_address_to(self, value):
-        pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
-        if not pattern.match(value):
+        if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
                 "Wallet address 'address_to' is not a valid bitcoin address.")
         return value

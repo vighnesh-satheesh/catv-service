@@ -184,7 +184,7 @@ def create_edge(id, tx, node_enum):
             'amount': tx['amount'],
             'tx_hash': tx['tx_hash'],
             'depth': tx['depth'],
-            'tx_time': '{} {}'.format(tx['tx_time'].split("T")[0], tx['tx_time'].split("T")[1][:5])
+            'tx_time': '{} {}'.format(tx['tx_time'].split("T")[0], tx['tx_time'].split("T")[1][:5]) if len(tx['tx_time'].split("T")) > 1 else tx['tx_time']
         }],
         'depth': tx['depth']
     }
