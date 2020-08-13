@@ -11,6 +11,8 @@ class BloxyAPIInterface:
         self._distribution_endpoint = settings.BLOXY_DIST_ENDPOINT
 
     def call_bloxy_api(self, api_url, data, timeout=600):
+        print(api_url)
+        print(data)
         response = requests.get(api_url, params=data, timeout=timeout)
         if response.status_code != 200:
             print(response)
@@ -34,7 +36,6 @@ class BloxyAPIInterface:
         payload = {'key': self._key, 'address': address, 'depth_limit': depth,
                    'from_time': from_time, 'till_time': till_time, 'snapshot_time': from_time if source else till_time,
                    'limit_address_tx_count': tx_limit, 'limit': limit, 'chain': updated_chain}
-        print(payload)
         if token_address:
             payload['token_address'] = token_address
         r = self.call_bloxy_api(api_url, payload)
