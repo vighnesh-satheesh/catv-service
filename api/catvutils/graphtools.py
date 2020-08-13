@@ -221,7 +221,7 @@ def assign_edges(result, mode, node_enum):
                 'amount': item['amount'],
                 'tx_hash': item['tx_hash'],
                 'depth': item['depth'],
-                'tx_time': '{} {}'.format(item['tx_time'].split("T")[0], item['tx_time'].split("T")[1][:5])
+                'tx_time': '{} {}'.format(item['tx_time'].split("T")[0], item['tx_time'].split("T")[1][:5]) if len(item['tx_time'].split("T")) > 1 else item['tx_time']
             })
             edge_dict[(item['sender'], item['receiver'])]['sum'] += item['amount']
             if 'depth' not in edge_dict[(item['sender'], item['receiver'])]:
