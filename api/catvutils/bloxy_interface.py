@@ -37,6 +37,6 @@ class BloxyAPIInterface:
                    'from_time': from_time, 'till_time': till_time, 'snapshot_time': from_time if source else till_time,
                    'limit_address_tx_count': tx_limit, 'limit': limit, 'chain': updated_chain}
         if token_address:
-            payload['token_address'] = token_address
+            payload['token'] = token_address
         r = self.call_bloxy_api(api_url, payload)
         return r
