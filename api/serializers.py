@@ -2516,6 +2516,8 @@ class CATVEthPathSerializer(serializers.Serializer):
         except ReadTimeout:
             raise exceptions.FileNotFound("Timeout exceeded while fetching/processing data.")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             err_msg = "Incorrect or missing transactions. Please try adjusting your search criteria."
             if tracking_instance.error:
                 err_msg = tracking_instance.error
