@@ -2335,9 +2335,9 @@ class CARA(APIView):
         time = datetime.datetime.now(datetime.timezone.utc)
         if blockchain == 'eth':
             address = address.lower()
-            data = (user, address, time)
+            data = (user, address, time, blockchain)
         else:
-            data = (user, address, time)
+            data = (user, address, time, blockchain)
         if force:
             cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(
                 address, user)
@@ -2387,6 +2387,7 @@ class CARAHistory(generics.ListAPIView):
         history = self.paginate_queryset(history)
         search = [x[0] for x in history]
         time = [x[1] for x in history]
+        blockchain = [x[2] for x in history]
         reports = []
         errors = []
         for add, t in zip(search, time):
@@ -2402,6 +2403,7 @@ class CARAHistory(generics.ListAPIView):
                     errors.extend(list(error))
         data = {'history': search,
                 'time': time,
+                'blockchain': blockchain,
                 'reports': reports,
                 'errors': errors}
         return self.get_paginated_response(data)
