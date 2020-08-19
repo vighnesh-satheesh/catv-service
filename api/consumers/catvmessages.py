@@ -39,6 +39,14 @@ def process_catv_messages(job: CatvJobQueue):
         CatvTokens.BTC.value: {
             CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
             CatvSearchType.PATH.value: CatvBtcPathSerializer
+        },
+        CatvTokens.TRON.value: {
+            CatvSearchType.FLOW.value: CATVSerializer,
+            CatvSearchType.PATH.value: CATVEthPathSerializer
+        },
+        CatvTokens.LTC.value: {
+            CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+            CatvSearchType.PATH.value: CatvBtcPathSerializer
         }
     }
 
@@ -56,6 +64,7 @@ def process_catv_messages(job: CatvJobQueue):
         print(search_params)
         
         serializer_obj = serializer_map[token_type][search_type](data=search_params)
+        serializer_obj._token_type = token_type
         serializer_obj.is_valid(raise_exception=True)
         if search_type == CatvSearchType.FLOW.value:
             balanced_tx_limit = api_settings.CATV_TX_LIMIT

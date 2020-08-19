@@ -13,7 +13,10 @@ from .graphtools import (
     generate_nodes_edges_coinpath, generate_nodes_edges_ethcoinpath,
     generate_nodes_edges_btccoinpath
 )
-from ..models import BloxyDistribution, BloxySource, Indicator, CaseStatus
+from ..models import (
+    BloxyDistribution, BloxySource, Indicator,
+    CaseStatus, CatvTokens
+)
 from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface, BloxyEthAPIInterface
 
 
@@ -48,6 +51,7 @@ class TrackingResults:
         self.error = None
         self.ext_api_calls = 0
         self.error_messages = {"source": "", "distribution": ""}
+        self.chain = kwargs.get('chain', CatvTokens.ETH.value)
 
     def bloxy_response_callback(self, *args, **kwargs):
         if args and 'error' in args[0]:
@@ -55,7 +59,7 @@ class TrackingResults:
 
     def get_results_from_bloxy(self, bloxy_interface, depth, till_date, tx_limit, limit, for_source=False):
         bloxy_response = bloxy_interface.get_transactions(self.wallet_address, tx_limit, limit, depth,
-                                                          self.from_date, till_date, self.token_address, for_source)
+                                                          self.from_date, till_date, self.token_address, for_source, self.chain)
         if not bloxy_response:
             error_key = "source" if for_source else "distribution"
             self.error_messages[error_key] = "Missing {} results for the wallet address within the date range " \
@@ -198,7 +202,7 @@ class TrackingResults:
     def set_annotations_from_db(self, token_type='ETH'):
         if not self._skip_source and self._async_source_graph:
             tracking_results, nc = self._async_source_graph.get()
-            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], self.chain)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             updated_nc.filter_update_nodes()
@@ -207,7 +211,7 @@ class TrackingResults:
             self._source_graph = tracking_results
         if not self._skip_dist and self._async_dist_graph:
             tracking_results, nc = self._async_dist_graph.get()
-            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], token_type)
+            updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], self.chain)
             tracking_results['node_list'] = list(updated_nc.get_nodes_as_dict().values())
             tracking_results['item_list'] = updated_item_list
             updated_nc.filter_update_nodes()
@@ -301,9 +305,6 @@ class BTCTrackingResults(TrackingResults):
 
 
 class BTCCoinpathTrackingResults(TrackingResults):
-    def __init__(self, **kwargs):
-        super(BTCCoinpathTrackingResults, self).__init__(**kwargs)
-
     def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
         external_api_client = BloxyBTCAPIInterface(settings.BLOXY_API_KEY)
         depth_limit = self.source_depth if for_source else self.distribution_depth
@@ -311,7 +312,7 @@ class BTCCoinpathTrackingResults(TrackingResults):
         till_date_extend = self.to_date + "T23:59:59"
         transaction_data = external_api_client.get_transactions(self.wallet_address, tx_limit, limit,
                                                                 depth_limit, till_time=till_date_extend,
-                                                                source=for_source, from_time=from_time)
+                                                                source=for_source, from_time=from_time, chain=self.chain)
         self.ext_api_calls += 1
         if not transaction_data:
             error_key = "source" if for_source else "distribution"
@@ -354,6 +355,7 @@ class EthPathResults(TrackingResults):
         self.depth_limit = kwargs['depth']
         self.min_tx_amount = kwargs['min_tx_amount']
         self.limit_address_tx = kwargs['limit_address_tx']
+        self.chain = kwargs.get('chain', CatvTokens.ETH.value)
         self._external_api_client = BloxyEthAPIInterface(settings.BLOXY_API_KEY, settings.BLOXY_ETHCOINPATH_ENDPOINT)
         self._graph_func = generate_nodes_edges_ethcoinpath
 

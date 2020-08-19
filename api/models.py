@@ -238,6 +238,7 @@ class IndicatorPatternSubtype(Enum):
 
     # other
     OTHER = 'other'
+    TRON = 'TRX'
 
     @classmethod
     def cryptoaddr_subtypes(cls):
@@ -343,6 +344,8 @@ class InviteType(str, Enum):
 class CatvTokens(Enum):
     ETH = 'ETH'
     BTC = 'BTC'
+    TRON = 'TRX'
+    LTC = 'LTC'
 
 
 class CatvSearchType(Enum):

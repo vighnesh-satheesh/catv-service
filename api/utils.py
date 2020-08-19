@@ -19,7 +19,11 @@ from rest_framework import exceptions as rf_exceptions
 from rest_framework.views import exception_handler
 
 from .response import APIResponse
-from .models import CaseStatus, UserPermission, RolePermission, PermissionList, get_permission_from_status
+from .models import (
+    CaseStatus, UserPermission, RolePermission,
+    PermissionList, get_permission_from_status,
+    CatvTokens
+)
 from . import exceptions
 from .settings import api_settings
 
@@ -378,8 +382,26 @@ def es_raw_search(es_func, query_string, **kwargs):
 
 
 def determine_wallet_type(address_str):
-    pattern_type = "Ethereum"
-    btc_pattern = re.compile("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")
-    if btc_pattern.match(address_str):
-        pattern_type = "Bitcoin"
-    return pattern_type
+    regex_token_map = {
+        "^0x[a-fA-F0-9]{40}$": "Ethereum",
+        "^T[a-zA-Z0-9]{21,34}$": "Tron",
+        "^([13]|bc1).*[a-zA-Z0-9]{26,35}$": "Bitcoin",
+        "^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$": "Litecoin"
+    }
+    for regex_token in regex_token_map.items():
+        pattern = re.compile(regex_token[0])
+        if pattern.match(address_str):
+            return regex_token[1]
+    return "Ethereum"
+
+def pattern_matches_token(address, token_type):
+    token_regex_map = {
+        CatvTokens.ETH.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.TRON.value: "^T[a-zA-Z0-9]{21,34}$",
+        CatvTokens.BTC.value: "^([13]|bc1).*[a-zA-Z0-9]{26,35}$",
+        CatvTokens.LTC.value: "^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$"
+    }
+    pattern = token_regex_map.get(token_type, None)
+    if not pattern:
+        return false
+    return re.compile(pattern).match(address)
