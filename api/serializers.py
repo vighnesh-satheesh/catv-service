@@ -2024,7 +2024,8 @@ class CATVSerializer(serializers.Serializer):
         required=True, min_value=100, max_value=100000)
     from_date = serializers.CharField(required=True)
     to_date = serializers.CharField(required=True)
-    token_address = serializers.CharField(required=False)
+    token_address = serializers.CharField(
+        required=False, default='0x0000000000000000000000000000000000000000')
     force_lookup = serializers.BooleanField(required=False, default=False)
         
 
