@@ -225,7 +225,6 @@ class IndicatorPatternSubtype(Enum):
     XLM = 'XLM'
     BNB = 'BNB'
     ADA = 'ADA'
-    PHON = 'PHON'
     # network address
     URL = 'url'
     EMAIL = 'email'
@@ -243,12 +242,13 @@ class IndicatorPatternSubtype(Enum):
 
     # other
     OTHER = 'other'
+    PHONE = 'phone'
 
     @classmethod
     def cryptoaddr_subtypes(cls):
         return [cls.ETH, cls.ETC, cls.EOS, cls.BTC, cls.BCH,
                 cls.LTC, cls.DASH, cls.ZEC, cls.XMR, cls.NEO, cls.XRP, cls.NA,
-                cls.KLAY, cls.TRON, cls.XLM, cls.BNB, cls.ADA, cls.PHON]
+                cls.KLAY, cls.TRON, cls.XLM, cls.BNB, cls.ADA]
 
     @classmethod
     def networkaddr_subtypes(cls):
