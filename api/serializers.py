@@ -362,7 +362,7 @@ class UserPostSerializer(serializers.ModelSerializer):
                 invite = models.OrganizationInvites.objects.get(
                     invite_hash=invitation_code)
                 referred_email = invite.inviter_key.split('-invite-')[1]
-                if referred_email != data['email']:
+                if referred_email.lower() != data['email'].lower():
                     raise exceptions.ValidationError("User email and email invite sent to do not match."
                                                      "Cannot sign up with this invitation code.")
 
@@ -434,7 +434,8 @@ class UserPostSerializer(serializers.ModelSerializer):
             validated_data["password"] = new_pw
             instance = models.User.objects.create(**validated_data)
             if organization:
-                models.OrganizationInvites.objects.filter(organization=organization, email=validated_data['email']). \
+                models.OrganizationInvites.objects.\
+                    filter(organization=organization, email__iexact=validated_data['email']).\
                     update(status=models.OrganizationInviteStatus.PENDING_APPROVAL)
         except IntegrityError as e:
             if "nickname" in str(e):

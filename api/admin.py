@@ -203,7 +203,7 @@ class UserForm(forms.ModelForm):
                     usage_role_object.save()
 
                 org_invites = OrganizationInvites.objects.select_related('organization').\
-                    get(email=user.email, status=OrganizationInviteStatus.PENDING_APPROVAL.value)
+                    get(email__iexact=user.email, status=OrganizationInviteStatus.PENDING_APPROVAL.value)
                 if org_invites:
                     OrganizationUser.objects.create(organization=org_invites.organization, user=user,
                                                     status=OrganizationUserStatus.ACTIVE)
