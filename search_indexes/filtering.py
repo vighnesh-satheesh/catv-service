@@ -56,7 +56,8 @@ class CustomFilteringBackend(FilteringFilterBackend):
 
         value_lower = value
 
-        if options.get('field', None) != 'pattern_subtype.raw':
+        if options.get('field', None) != 'pattern_subtype.raw' \
+            and options.get('field', None) != 'pattern_subtype':
             value_lower = value.lower()
 
         return super(CustomFilteringBackend, cls).apply_query_contains(
@@ -91,7 +92,8 @@ class CustomFilteringBackend(FilteringFilterBackend):
 
         value_lower = value
 
-        if options.get('field', None) != 'pattern_subtype.raw':
+        if options.get('field', None) != 'pattern_subtype.raw' \
+            and options.get('field', None) != 'pattern_subtype':
             value_lower = value.lower()
 
         return super(CustomFilteringBackend, cls).apply_query_in(
@@ -125,7 +127,8 @@ class CustomFilteringBackend(FilteringFilterBackend):
         """
         value_lower = value
 
-        if options.get('field', None) != 'pattern_subtype.raw':
+        if options.get('field', None) != 'pattern_subtype.raw' \
+            and options.get('field', None) != 'pattern_subtype':
             value_lower = value.lower()
 
         return super(CustomFilteringBackend, cls).apply_query_wildcard(
