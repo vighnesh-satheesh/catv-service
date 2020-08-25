@@ -314,6 +314,8 @@ def assign_nodes(result, mode):
             amount_in=item.get(outer + '_amount_in', 0),
             amount_out=item.get(outer + '_amount_out', 0),
         )
+        if mode == -1:
+            temp_node.level += 1
         nc.add_node(temp_node)
         try:
             volume_count[item[inner]] += 1
@@ -481,13 +483,17 @@ def add_keys_btc(result):
     for item_dict in result:
         item_dict["tx_hash"] = item_dict["ref_tx_id"]
 
+def reverse_source_depth(result):
+    for item_dict in result:
+        item_dict.update((k, int(v) * -1) for k, v in item_dict.items() if k == "depth")
+
 
 def generate_nodes_edges(result, mode, build_lossy_graph):
     keys = list(result[0].keys())
     nc, volume_count = assign_nodes(result, mode)
     edge_dict = assign_edges(result, mode, nc.get_node_enum())
     if mode == -1:
-        depth_shift_for_source(result)
+        reverse_source_depth(result)
     tx_count = len(result)
     limited_edges = {}
     limited_nodes = []
