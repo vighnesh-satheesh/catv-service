@@ -44,11 +44,11 @@ class CaseSearchES:
             raise CaseFilterError()
 
         if subcate is not None:
-            case_filter &= Q(status=subcate)
+            case_filter &= Q(status__in=[subcate])
 
         if cate == "all":
             if self.request.user.permission == UserPermission.EXCHANGE and not is_user_view:
-                case_filter &= (Q(status="released") | Q(status="confirmed"))
+                case_filter &= (Q(status__in=["released", "confirmed"]))
         elif cate == "my":
             case_filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
         return case_filter
