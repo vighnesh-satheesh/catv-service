@@ -24,7 +24,7 @@ class BloxyAPIInterface:
                          token_address=None, source=True, chain='ETH'):
         if source:
             api_url = self._source_endpoint
-            depth = depth_limit - 1
+            depth = depth_limit
         else:
             api_url = self._distribution_endpoint
             depth = depth_limit
