@@ -1662,7 +1662,12 @@ class IcfView(APIView):
         if request.user is None or request.auth is None:
             raise exceptions.AuthenticationCheckError()
         user = request.user
-        obj = self.model.objects.filter(user=user.pk).order_by("-pk")
+        org_details = user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            obj = self.model.objects.filter(user=org.administrator).order_by("-pk")
+        else:
+            obj = self.model.objects.filter(user=user).order_by("-pk")
         if not obj.exists():
             raise exceptions.ICFNotFound()
 
@@ -2549,11 +2554,12 @@ class OrganizationDetailView(APIView):
         orguser_serializer.is_valid(raise_exception=True)
         validated_data = orguser_serializer.data
         if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
-            user = User.objects.get(email=validated_data['user']['email'])
-            OrganizationUser.objects.filter(
-                organization=organization, user=user).delete()
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user)
+            orguser.status =  validated_data['status']
+            orguser.save()
         elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
-            user = User.objects.get(email=validated_data['user']['email'])
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
             orguser = OrganizationUser.objects.get(organization=organization, user=user,
                                                    status=OrganizationUserStatus.PENDING.value)
             orguser.status = OrganizationUserStatus.ACTIVE.value

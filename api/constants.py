@@ -35,11 +35,15 @@ class Constants:
     QUERIES = {
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
                                     "distribution_depth,transaction_limit,from_date,to_date,logged_time,token_type) "
-                                    "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);",
-        "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls_left=(catv_calls_left-1) where user_id=%s and "
-                                  "catv_calls_left > 0;",
-        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left-1) where user_id='{0}' and "
-                                  "cara_calls_left > 0;",
+                                    "VALUES('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}');",
+        "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls_left=(catv_calls_left-1) where user_id=("
+                                  "SELECT administrator_id from (SELECT ao.administrator_id from api_organization ao "
+                                  "inner join api_organizationuser aou on ao.id = aou.organization_id where aou.user_id='{0}' and aou.status='active' "
+                                  "union SELECT '{0}') x limit 1) and catv_calls_left > 0;",
+        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left-1) where user_id=("
+                                  "SELECT administrator_id from (SELECT ao.administrator_id from api_organization ao "
+                                  "inner join api_organizationuser aou on ao.id = aou.organization_id where aou.user_id='{0}' and aou.status='active' "
+                                  "union SELECT '{0}') x limit 1) and cara_calls_left > 0;",
         "UPDATE_CARA_ERROR_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left+1) where user_id='{0}'",
         "REFILL_USER_USAGE_QUOTA": "UPDATE api_usage credits "
                                    "SET api_calls_left=(CASE WHEN credits.api_calls_left + arul.api_limit > (2 * arul.api_limit) THEN (2 * arul.api_limit) "
@@ -106,24 +110,33 @@ class Constants:
                                        "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
                                        "select count(id) as searches, date_trunc('day', logged_time at TIME ZONE '{0}')::date "
                                        "as tz_date from api_catv_history where logged_time at TIME ZONE '{0}' >= "
-                                       "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and user_id={2} group by tz_date) "
-                                       "x(searches, tz_date) on ts.d = x.tz_date",
+                                       "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and user_id in "
+                                       "(SELECT aou.user_id from api_organization ao "
+                                       "inner join api_organizationuser aou on ao.id=aou.organization_id "
+                                       "where ao.administrator_id={2} and aou.status='active' "
+                                       "UNION SELECT {2}) group by tz_date) x(searches, tz_date) on ts.d = x.tz_date",
         "SELECT_CARA_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
                                        "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
                                        "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
                                        "select count(id) as searches, date_trunc('day', query_time)::date "
                                        "as tz_date from cara_search_history where query_time >= "
                                        "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
-                                       "id=(select uid from api_user where id={2}) group by tz_date) "
-                                       "x(searches, tz_date) on ts.d = x.tz_date",
+                                       "id in (select uid from api_user where id in "
+                                       "(SELECT aou.user_id from api_organization ao "
+                                       "inner join api_organizationuser aou on ao.id=aou.organization_id "
+                                       "where ao.administrator_id={2} and aou.status='active' "
+                                       "UNION SELECT {2})) group by tz_date) x(searches, tz_date) on ts.d = x.tz_date",
         "SELECT_ICF_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
                                        "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
                                        "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
                                        "select count(id) as searches, date_trunc('day', logged_time at TIME ZONE '{0}')::date "
                                        "as tz_date from api_icf_history where logged_time at TIME ZONE '{0}' >= "
                                        "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
-                                       "api_key=(select api_key from api_key where user_id={2}) group by tz_date) "
-                                       "x(searches, tz_date) on ts.d = x.tz_date",
+                                       "api_key in (select api_key from api_key where user_id in "
+                                       "(SELECT aou.user_id from api_organization ao "
+                                       "inner join api_organizationuser aou on ao.id=aou.organization_id "
+                                       "where ao.administrator_id={2} and aou.status='active' "
+                                       "UNION SELECT {2})) group by tz_date) x(searches, tz_date) on ts.d = x.tz_date",
         "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, "
                                  "api_limit, (last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as "
                                  "next_renewal_on from api_usage ausage inner join api_user auser on "
@@ -158,7 +171,7 @@ class Constants:
         "INSERT_USER_CATV_PATH_SEARCH": "INSERT INTO api_catv_path_history(user_id,address_from,address_to,depth, "
                                         "from_date,to_date,logged_time,token_type,min_tx_amount, "
                                         "limit_address_tx_count, token_address) "
-                                        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);",
+                                        "VALUES('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}');",
         "SELECT_USER_CATV_PATH": "select 0 as id, address_from, address_to, "
                                  "(CASE WHEN token_address='0x0000000000000000000000000000000000000000' THEN null "
                                  "WHEN token_address='' THEN null ELSE token_address END) as token_address, "

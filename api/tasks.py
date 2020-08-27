@@ -78,9 +78,9 @@ class CatvHistoryTask(Task):
         with connections['default'].cursor() as cursor:
             if not from_history:
                 for query, data in zip(query_list, query_data):
-                    cursor.execute(query, data)
+                    cursor.execute(query.format(*data))
             else:
-                cursor.execute(query_list[0], query_data[0])
+                cursor.execute(query_list[0].format(*query_data[0]))
         return True
 
 
@@ -234,9 +234,9 @@ class CatvPathHistoryTask(Task):
         with connections['default'].cursor() as cursor:
             if not from_history:
                 for query, data in zip(query_list, query_data):
-                    cursor.execute(query, data)
+                    cursor.execute(query.format(*data))
             else:
-                cursor.execute(query_list[0], query_data[0])
+                cursor.execute(query_list[0].format(*query_data[0]))
         return True
 
 
