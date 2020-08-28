@@ -90,7 +90,7 @@ class Listener_Indicator:
         current_end_time = current_start_time + time_interval
 
         # Query trdb for new indicators
-        query = "select id, pattern, updated from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC') and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 5"
+        query = "select id, pattern, updated, pattern_subtype  from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC' or pattern_subtype = 'LTC' or pattern_subtype = 'TRX') and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 5"
         try:
            new_indicators = self.__trdb_api.get_query(query)
         except Exception as e:
@@ -279,10 +279,14 @@ class Listener_Indicator:
                                              dumps(x).encode('utf-8'))
                     #indicator[2] = indicator[2].strftime("%Y-%m-%d %H:%M:%S")
                     blockchain = ""
-                    if str(indicator[1]).startswith('0x'):
+                    if str(indicator[3]) == 'ETH':
                         blockchain = 'eth'
-                    else:
+                    elif str(indicator[3]) == 'BTC':
                         blockchain = 'btc'
+                    elif str(indicator[3]) == 'LTC':
+                        blockchain = 'ltc'
+                    else:
+                        blockchain = 'trx'
                     data = {'id': indicator[0],
                             'address': indicator[1],
                             'updated_time': indicator[2].strftime("%Y-%m-%d %H:%M:%S"),
