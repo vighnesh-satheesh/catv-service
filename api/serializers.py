@@ -540,6 +540,9 @@ class ICFPostSerializer(serializers.ModelSerializer):
         if request is None or request.user is None or request.auth is None:
             raise exceptions.NotAllowedError()
         user = request.user
+        org_details = user.organization_set.filter(organizationuser__status=models.OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            raise exceptions.NotAllowedError(detail='Only organization admins are allowed to create or regenerate API keys')
         if request.method == 'POST':
             obj = models.Key.objects.filter(user=user.pk)
             if obj.exists() == True:

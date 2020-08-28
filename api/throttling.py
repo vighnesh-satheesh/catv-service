@@ -5,7 +5,7 @@ from rest_framework.throttling import (
 )
 from rest_framework.exceptions import Throttled
 
-from .models import Usage
+from .models import Usage, OrganizationUserStatus
 
 
 class EmailVerificationThrottle(UserRateThrottle):
@@ -38,8 +38,14 @@ class IndicatorPostThrottle(UserRateThrottle):
 
 class CatvUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):
-        usage_details = Usage.objects.values('catv_calls_left', 'last_renewal_at').\
-                            filter(user_id=request.user.id)[0:1]
+        org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            usage_details = Usage.objects.values('catv_calls_left', 'last_renewal_at').\
+                                filter(user=org.administrator)[0:1]
+        else:
+            usage_details = Usage.objects.values('catv_calls_left', 'last_renewal_at').\
+                                filter(user_id=request.user.id)[0:1]
 
         if usage_details and usage_details[0]['catv_calls_left'] > 0:
             return True
@@ -111,7 +117,13 @@ class UserAuthenticationRateThrottle(SimpleRateThrottle):
 
 class CaraUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):
-        usage_details = Usage.objects.values('cara_calls_left', 'last_renewal_at').\
+        org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            usage_details = Usage.objects.values('catv_calls_left', 'last_renewal_at').\
+                                filter(user=org.administrator)[0:1]
+        else:
+            usage_details = Usage.objects.values('cara_calls_left', 'last_renewal_at').\
                             filter(user_id=request.user.id)[0:1]
 
         if usage_details and usage_details[0]['cara_calls_left'] > 0:

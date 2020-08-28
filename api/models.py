@@ -242,7 +242,6 @@ class IndicatorPatternSubtype(Enum):
 
     # other
     OTHER = 'other'
-    PHONE = 'phone'
 
     @classmethod
     def cryptoaddr_subtypes(cls):
@@ -590,6 +589,9 @@ class User(models.Model):
     def status_indexing(self):
         if self.status is not None:
             return self.status.value
+    
+    def __str__(self):
+        return self.email
 
 
 class RoleUsageLimit(models.Model):
@@ -1131,6 +1133,16 @@ class Organization(models.Model):
         indexes = [
             models.Index(fields=['administrator', ]),
         ]
+    
+    def __str__(self):
+        return self.name
+    
+    def delete(self, *args, **kwargs):
+        self.users.update(
+            role=Role.objects.get(role_name=UserRoles.COMMUNITY.value),
+            permission=UserPermission.USER.value
+        )
+        super().delete(*args, **kwargs)
 
     @property
     def pending_invites(self):
@@ -1143,6 +1155,24 @@ class OrganizationUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     status = EnumField(OrganizationUserStatus, max_length=50)
+    
+    def __str__(self):
+        return self.user.email
+    
+    def save(self, *args, **kwargs):
+        if not self.pk and self.status == OrganizationUserStatus.ACTIVE:
+            User.objects.filter(id=self.user.id).update(
+                role=self.organization.administrator.role,
+                permission=self.organization.administrator.permission
+            )
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        User.objects.filter(id=self.user.id).update(
+            role=Role.objects.get(role_name=UserRoles.COMMUNITY.value),
+            permission=UserPermission.USER.value
+        )
+        super().delete(*args, **kwargs)
 
 
 class OrganizationInvites(models.Model):
