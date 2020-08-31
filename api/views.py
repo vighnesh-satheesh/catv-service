@@ -1089,6 +1089,10 @@ class GuestSearchView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         query = self.request.query_params.get("q", None)
+        search_type = self.request.query_params.get("type", "indicator")
+        
+        if search_type not in ["case", "indicator"]:
+            search_type = "indicator"
         if query is None:
             raise exceptions.ValidationError("Search query is required.")
 
@@ -1097,19 +1101,22 @@ class GuestSearchView(generics.ListAPIView):
                 "Search query cannot exceed 1024 characters.")
 
         if len(query) < 3:
-            raise exceptions.ValidationError(
-                "Search query should contain at least 3 characters.")
+            raise exceptions.ValidationError("Search query should contain at least 3 characters.")
+        
+        if search_type == "case":
+            serializer_cls = CaseListSerializer
+        else:
+            serializer_cls = IndicatorListSerializer
 
         if api_settings.SWITCH_ES_SEARCH:
-            search_results = self.get_indicator_queryset_es(query)
+            search_results = self.get_queryset_es(query, search_type)
             return APIResponse({
                 "data": {
-                    "items": search_results.get("results", [])
+                    "items": search_results.get("results", [])[:20]
                 }
             })
         else:
-            serializer_cls = IndicatorListSerializer
-            queryset = self.get_queryset()
+            queryset = self.get_queryset(query, search_type)
             serializer = serializer_cls(queryset, many=True)
 
             return APIResponse({
@@ -1140,11 +1147,28 @@ class GuestSearchView(generics.ListAPIView):
             filter_queries).distinct('id').order_by('-pk')[:20]
 
         return objs
-
-    def get_queryset(self):
-        query = self.request.query_params.get("q", None)
-        return self.get_indicator_queryset(query)
-
+    
+    def get_case_queryset(self, query):
+        filter_queries = Q(title__ilike=query)
+        filter_queries |= Q(detail__ilike=query)
+        return Case.objects.filter(filter_queries).order_by('-pk')[:20]
+    
+    def get_case_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+        query_string_drf, query_string_raw = utils.build_query_string_filter(filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key, index='cases')
+        
+    def get_queryset(self, query, search_type):
+        if search_type == "case":
+            return self.get_case_queryset(query)
+        else:
+            return self.get_indicator_queryset(query)
+    
+    def get_queryset_es(self, query, search_type):
+        if search_type == "case":
+            return self.get_case_queryset_es(query)
+        else:
+            return self.get_indicator_queryset_es(query)
 
 class SearchView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)

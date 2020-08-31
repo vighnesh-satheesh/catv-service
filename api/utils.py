@@ -347,13 +347,13 @@ def build_query_string_filter(query_obj):
     return query_string_drf, query_string_raw
 
 
-def es_serialized_search(query_string, page, order_key):
+def es_serialized_search(query_string, page, order_key, index='indicators'):
     headers = {
         'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
     }
 
     es_serializer_req = requests.get(
-        url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?{query_string}'
+        url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/{index}/?{query_string}'
         f'&ordering={order_key}&page={page}',
         headers=headers
     )
