@@ -167,6 +167,8 @@ class Listener_Indicator:
                 data = [value for value in data.values()][0]
                 current_offset += len(data)
                 number_records += len(data)
+                print("Data: ", data)
+                print("Length: ", len(data))
                 for item in data:
                     str_timestamp = datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime(
                         '%Y-%m-%d %H:%M:%S')
@@ -218,9 +220,11 @@ class Listener_Indicator:
                         if (TimeDiff / 60) < 12:
                             update_error_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(1, user, dict_item["address"])
                             self.__trdb_api.update_query_format(update_error_query)
+                    print("Deleting report for address: ", dict_item["address"])
                     cara_report_delete_query = Constants.QUERIES['CARA_REPORT_DELETE_QUERY'].format(
                         dict_item["address"])
                     self.__trdb_api.update_query_format(cara_report_delete_query)
+                    print("Inserting report for address: ", dict_item["address"])
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     self.__trdb_api.insertdict_query(cara_report_insert_query, data_dict)
             if number_records >= max_records:
