@@ -120,7 +120,7 @@ class LoginSerializer(serializers.Serializer):
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {
             "api_key": None, "expire_datetime": None}
-        print(f"User wallet balance is {bal} UPP tokens")
+        print(f"User {user.email} wallet balance is {bal} UPP tokens")
         if int(bal) < int(api_settings.MAB_USER_UPGRADE) \
             and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
             community_role = models.Role.objects.get(role_name=models.UserRoles.COMMUNITY.value)
