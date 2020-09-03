@@ -486,22 +486,29 @@ class CaseView(generics.ListCreateAPIView):
             org_admin = Organization.objects.filter(
                 administrator=current_user).values_list('id', flat=True)
             member_orgs = OrganizationUser.objects.filter(
-                user=current_user).values_list('organization_id', flat=True)
+                user=current_user, status=OrganizationUserStatus.ACTIVE).values_list('organization_id', flat=True)
             if org_admin:
-                user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
-                                                                                                         flat=True))
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__in=org_admin, status=OrganizationUserStatus.ACTIVE).\
+                        values_list('user_id', flat=True)
+                )
                 user_list.append(current_user.id)
             elif member_orgs:
-                user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
-                                                                                             flat=True))
-                user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
-                                 values_list('user_id', flat=True))
+                user_list.extend(
+                    Organization.objects.filter(pk__in=member_orgs).\
+                        values_list('administrator', flat=True)
+                )
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__administrator__in=user_list).\
+                        values_list('user_id', flat=True)
+                )
 
             if user_list:
                 return self.model.objects.filter(Q(owner__in=user_list) | Q(reporter__in=user_list)).\
                     distinct('id').order_by(key)
             else:
-                return self.model.objects.none()
+                return self.model.objects.filter(Q(owner=current_user) | Q(reporter=current_user)).\
+                    distinct('id').order_by(key)
 
         return self.model.objects.distinct('id').order_by(key)
 

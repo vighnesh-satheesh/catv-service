@@ -162,9 +162,6 @@ class LoginSerializer(serializers.Serializer):
         elif org_user:
             organization_id = str(org_user[0].organization.uid)
             is_admin = org_user[0].is_admin
-        elif user.role.role_name == models.UserRoles.ORG.value or \
-                user.role.role_name == models.UserRoles.ORG_TRIAL.value:
-            is_admin = True
         return organization_id, is_admin
 
     def validate_email(self, email):
@@ -2348,6 +2345,9 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
 
         if request.method == "POST":
             try:
+                role_perm = models.RolePermission.objects.get(action__codename='create_org', role=request.user.role)
+                if not role_perm.allowed:
+                    raise exceptions.NotAllowedError("You do not have permission to create organizations")
                 data["uid"] = request.data["uid"]
                 data["name"] = request.data["name"]
                 image = request.data.get("image", None)
@@ -2355,6 +2355,8 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
                     data["image"] = ""
             except KeyError:
                 raise exceptions.ValidationError("Missing input fields")
+            except models.RolePermission.DoesNotExist:
+                raise exceptions.ValidationError("Role matching permission missing")
         return data
 
     def create(self, validated_data):
