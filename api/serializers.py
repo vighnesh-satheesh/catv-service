@@ -112,14 +112,17 @@ class LoginSerializer(serializers.Serializer):
         if user.address != "" and user.address is not None:
             web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
             address_c = web3_client.toChecksumAddress(api_settings.TOKEN_ADDRESS)
+            user_address = web3_client.toChecksumAddress(user.address)
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = web3_client.eth.contract(address_c, abi=token_abi)
             bal = (token_upp.call().balanceOf(
-                user.address)) / 1000000000000000000
+                user_address))/1000000000000000000
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {
             "api_key": None, "expire_datetime": None}
-        if bal < api_settings.MAB_USER_UPGRADE and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
+        print(f"User {user.email} wallet balance is {bal} UPP tokens")
+        if int(bal) < int(api_settings.MAB_USER_UPGRADE) \
+            and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
             community_role = models.Role.objects.get(role_name=models.UserRoles.COMMUNITY.value)
             role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(community_role.id)
             UserRoleUpdateTask().delay(user_id=user.id, new_role=community_role.role_name)
@@ -775,7 +778,10 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         pattern_type = data.get("pattern_type")
         pattern_subtype = data.get("pattern_subtype", None)
         validates.validate_pattern_type_subtype(pattern_type, pattern_subtype)
-
+        if pattern_type == models.IndicatorPatternType.CRYPTOADDR \
+            and pattern_subtype == models.IndicatorPatternSubtype.ETH:
+            data["pattern"] = validates.get_validated_checksum_addr(
+                data["pattern"], api_settings.MAINNET_URL)
         security_category = data.get("security_category")
         security_tags = data.get("security_tags", None)
         vector = data.get("vector", None)
@@ -1202,7 +1208,7 @@ class CasePostSerializer(serializers.ModelSerializer):
     def validate_files(self, data):
         return data
 
-    def validate_inidcators(self, data):  # TODO: more specific error message.
+    def validate_indicators(self, data):  # TODO: more specific error message.
         return data
 
     def validate_related_case(self, data):
