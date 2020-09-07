@@ -29,9 +29,17 @@ class BloxyAPIInterface:
             api_url = settings.BLOXY_ETH_DIST_ENDPOINT if chain == 'ETH' else self._distribution_endpoint
             depth = depth_limit
         
+        updated_chain_map = {
+            'trx': 'tron',
+            'xrp': 'ripple'
+        }
+        
         updated_chain = chain.lower()
-        if updated_chain == 'trx':
-            updated_chain = 'tron'
+        if updated_chain in updated_chain_map.keys():
+            updated_chain = updated_chain_map[updated_chain]
+        
+        if updated_chain == 'ripple':
+            api_url = api_url.replace('coinpath', 'ripple:sentinel')
 
         payload = {'key': self._key, 'address': address, 'depth_limit': depth,
                    'from_date': from_time, 'till_date': till_time, 'snapshot_time': from_time if source else till_time,

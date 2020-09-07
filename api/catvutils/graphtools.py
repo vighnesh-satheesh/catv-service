@@ -487,9 +487,15 @@ def reverse_source_depth(result):
     for item_dict in result:
         item_dict.update((k, int(v) * -1) for k, v in item_dict.items() if k == "depth")
 
+def add_missing_keys(result, mode):
+    prefix_missing = 'sent_' if mode == 1 else 'received_'
+    for item_dict in result:
+        item_dict["amount"] = item_dict[f"{prefix_missing}amount"]
 
-def generate_nodes_edges(result, mode, build_lossy_graph):
+def generate_nodes_edges(result, mode, build_lossy_graph, token_type='ETH'):
     keys = list(result[0].keys())
+    if token_type.upper() == 'XRP':
+        add_missing_keys(result, mode)
     nc, volume_count = assign_nodes(result, mode)
     edge_dict = assign_edges(result, mode, nc.get_node_enum())
     if mode == -1:
