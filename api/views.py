@@ -1242,10 +1242,9 @@ class SearchView(generics.ListAPIView):
         if query.isdigit():
             case_filter_queries = Q(id=int(query))
             indicator_filter_queries = Q(id=int(query))
-        if len(query) > 1 and case_filter_queries is None:
+        if len(query) > 1:
             case_filter_queries |= Q(title__ilike=query)
-        elif len(query) > 1 and case_filter_queries is not None:
-            case_filter_queries |= Q(title__ilike=query)
+            case_filter_queries |= Q(detail__ilike=query)
 
         if len(query) > 1:
             indicator_filter_queries = Q(indicator__pattern__ilike=query)
