@@ -1923,6 +1923,10 @@ class CATVView(APIView):
             CatvTokens.LTC.value: {
                 CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
+            },
+            CatvTokens.BCH.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
             }
         }
         utils_map = {
