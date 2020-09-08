@@ -2390,6 +2390,8 @@ class CARAHistory(generics.ListAPIView):
         blockchain = [x[2] for x in history]
         reports = []
         errors = []
+        risk_scores = []
+        ground_truths = []
         for add, t in zip(search, time):
             report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(
                 add, t)
@@ -2397,15 +2399,22 @@ class CARAHistory(generics.ListAPIView):
                 new_cursor.execute(report_query)
                 add_report = new_cursor.fetchmany(1)
                 if add_report is not None:
+                    print("Report:", add_report)
                     report = [x[0] for x in add_report]
                     error = [x[1] for x in add_report]
+                    risk_score = [x[2] for x in add_report]
+                    ground_truth = [x[3] for x in add_report]
                     reports.extend(list(report))
                     errors.extend(list(error))
+                    risk_scores.extend(list(risk_score))
+                    ground_truths.extend(list(ground_truth))
         data = {'history': search,
                 'time': time,
                 'blockchain': blockchain,
                 'reports': reports,
-                'errors': errors}
+                'errors': errors,
+                'risk_score': risk_scores,
+                'ground_truth': ground_truths}
         return self.get_paginated_response(data)
 
     def get_paginated_response(self, data):
