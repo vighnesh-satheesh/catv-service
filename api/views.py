@@ -2399,7 +2399,6 @@ class CARAHistory(generics.ListAPIView):
                 new_cursor.execute(report_query)
                 add_report = new_cursor.fetchmany(1)
                 if add_report is not None:
-                    print("Report:", add_report)
                     report = [x[0] for x in add_report]
                     error = [x[1] for x in add_report]
                     risk_score = [x[2] for x in add_report]
