@@ -2435,6 +2435,7 @@ class CARAHistory(generics.ListAPIView):
         errors = []
         risk_scores = []
         ground_truths = []
+        ids = []
         for add, t in zip(search, time):
             report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(
                 add, t)
@@ -2446,17 +2447,20 @@ class CARAHistory(generics.ListAPIView):
                     error = [x[1] for x in add_report]
                     risk_score = [x[2] for x in add_report]
                     ground_truth = [x[3] for x in add_report]
+                    id = [x[4] for x in add_report]
                     reports.extend(list(report))
                     errors.extend(list(error))
                     risk_scores.extend(list(risk_score))
                     ground_truths.extend(list(ground_truth))
+                    ids.extend(list(id))
         data = {'history': search,
                 'time': time,
                 'blockchain': blockchain,
                 'reports': reports,
                 'errors': errors,
                 'risk_score': risk_scores,
-                'ground_truth': ground_truths}
+                'ground_truth': ground_truths,
+                'report_ids': ids}
         return self.get_paginated_response(data)
 
     def get_paginated_response(self, data):
