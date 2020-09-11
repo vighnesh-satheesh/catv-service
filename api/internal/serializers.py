@@ -104,7 +104,10 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         pattern_type = data.get("pattern_type")
         pattern_subtype = data.get("pattern_subtype", None)
         validates.validate_pattern_type_subtype(pattern_type, pattern_subtype)
-
+        if pattern_type == models.IndicatorPatternType.CRYPTOADDR \
+            and pattern_subtype == models.IndicatorPatternSubtype.ETH:
+            data["pattern"] = validates.get_validated_checksum_addr(
+                data["pattern"], api_settings.MAINNET_URL)
         security_category = data.get("security_category")
         security_tags = data.get("security_tags", None)
         vector = data.get("vector", None)
@@ -198,7 +201,7 @@ class CasePostSerializer(serializers.ModelSerializer):
     def validate_files(self, data):
         return data
 
-    def validate_inidcators(self, data):  # TODO: more specific error message.
+    def validate_indicators(self, data):  # TODO: more specific error message.
         return data
 
     def __upload_files(self, files):
