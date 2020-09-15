@@ -177,11 +177,11 @@ def create_edge(id, tx, node_enum):
     edge = {
         'id': id,
         'arrows': 'to',
-        'sum': tx['amount'],
+        'sum': abs(tx['amount']),
         'from': node_enum[tx['sender']],
         'to': node_enum[tx['receiver']],
         'data': [{
-            'amount': tx['amount'],
+            'amount': abs(tx['amount']),
             'tx_hash': tx['tx_hash'],
             'depth': tx['depth'],
             'tx_time': '{} {}'.format(tx['tx_time'].split("T")[0], tx['tx_time'].split("T")[1][:5]) if len(tx['tx_time'].split("T")) > 1 else tx['tx_time']
@@ -218,12 +218,12 @@ def assign_edges(result, mode, node_enum):
     for item in result:
         try:
             edge_dict[(item['sender'], item['receiver'])]['data'].append({
-                'amount': item['amount'],
+                'amount': abs(item['amount']),
                 'tx_hash': item['tx_hash'],
                 'depth': item['depth'],
                 'tx_time': '{} {}'.format(item['tx_time'].split("T")[0], item['tx_time'].split("T")[1][:5]) if len(item['tx_time'].split("T")) > 1 else item['tx_time']
             })
-            edge_dict[(item['sender'], item['receiver'])]['sum'] += item['amount']
+            edge_dict[(item['sender'], item['receiver'])]['sum'] += abs(item['amount'])
             if 'depth' not in edge_dict[(item['sender'], item['receiver'])]:
                 edge_dict[(item['sender'], item['receiver'])]['depth'] = item['depth']
         except KeyError:
@@ -310,9 +310,9 @@ def assign_nodes(result, mode):
             annotation=item.get(outer + '_annotation', ''),
             type=item.get(outer + '_type', 'Wallet'),
             depth=item_depth,
-            balance=item.get(outer + '_balance', 0),
-            amount_in=item.get(outer + '_amount_in', 0),
-            amount_out=item.get(outer + '_amount_out', 0),
+            balance=abs(item.get(outer + '_balance', 0)),
+            amount_in=abs(item.get(outer + '_amount_in', 0)),
+            amount_out=abs(item.get(outer + '_amount_out', 0)),
         )
         if mode == -1:
             temp_node.level += 1
