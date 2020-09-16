@@ -230,7 +230,7 @@ class Listener_Indicator:
                         if "regular-interval-txs" in pattern.keys():
                             p2 = "regular-interval-txs"+str(pattern["regular-interval-txs"])
                             if pattern_string != "":
-                                pattern_string = pattern_string+","+p2
+                                pattern_string = pattern_string+"|"+p2
                                 patterns = patterns+",regular-interval-txs"
                             else:
                                 pattern_string = pattern_string+p2
@@ -238,7 +238,7 @@ class Listener_Indicator:
                         if "dormant status" in pattern.keys():
                             p2 = "dormant status[" + pattern["dormant status"] + "]"
                             if pattern_string != "":
-                                pattern_string = pattern_string+","+p2
+                                pattern_string = pattern_string+"|"+p2
                                 patterns = patterns+",dormant status"
                             else:
                                 pattern_string = pattern_string+p2
@@ -246,7 +246,7 @@ class Listener_Indicator:
                         if "large balance" in pattern.keys():
                             p2 = "large balance["+str(pattern["large balance"])+"]"
                             if pattern_string != "":
-                                pattern_string = pattern_string+","+p2
+                                pattern_string = pattern_string+"|"+p2
                                 patterns = patterns+",large balance"
                             else:
                                 pattern_string = pattern_string+p2
@@ -254,7 +254,7 @@ class Listener_Indicator:
                         if "high-value-tx" in pattern.keys():
                             p2 = "high-value-tx"+str(pattern["high-value-tx"])
                             if pattern_string != "":
-                                pattern_string = pattern_string+","+p2
+                                pattern_string = pattern_string+"|"+p2
                                 patterns = patterns+",high-value-tx"
                             else:
                                 pattern_string = pattern_string+p2
@@ -286,7 +286,7 @@ class Listener_Indicator:
                         if "single-recent-tx" in tx_funds.keys():
                             f2 = "single-recent-tx"+str(tx_funds["single-recent-tx"])
                             if funds_string != "":
-                                funds_string = funds_string + "," + f2
+                                funds_string = funds_string + "|" + f2
                                 funds = funds+",single-recent-tx"
                             else:
                                 funds_string = funds_string + f2
@@ -294,7 +294,7 @@ class Listener_Indicator:
                         if "miner-funds" in tx_funds.keys():
                             f2 = "miner-funds"+str(tx_funds["miner-funds"])
                             if funds_string != "":
-                                funds_string = funds_string + "," + f2
+                                funds_string = funds_string + "|" + f2
                                 funds = funds+",miner-funds"
                             else:
                                 funds_string = funds_string + f2
@@ -302,7 +302,7 @@ class Listener_Indicator:
                         if "swift-fund-movements" in tx_funds.keys():
                             f2 = "swift-fund-movements" + str(tx_funds["swift-fund-movements"])
                             if funds_string != "":
-                                funds_string = funds_string + "," + f2
+                                funds_string = funds_string + "|" + f2
                                 funds = funds+",swift-fund-movements"
                             else:
                                 funds_string = funds_string + f2
@@ -310,7 +310,7 @@ class Listener_Indicator:
                         if "single in-out tx" in tx_funds.keys():
                             f2 = "single in-out tx" + str(tx_funds["single in-out tx"])
                             if funds_string != "":
-                                funds_string = funds_string + "," + f2
+                                funds_string = funds_string + "|" + f2
                                 funds = funds+",single in-out tx"
                             else:
                                 funds_string = funds_string + f2
@@ -319,7 +319,7 @@ class Listener_Indicator:
                         if "porn" in direct_links.keys():
                             l2 = "porn" + str(direct_links["porn"])
                             if links_string != "":
-                                links_string = links_string + "," + l2
+                                links_string = links_string + "|" + l2
                                 links = links+",porn"
                             else:
                                 links_string = links_string + l2
@@ -327,7 +327,7 @@ class Listener_Indicator:
                         if "gambling" in direct_links.keys():
                             l2 = "gambling" + str(direct_links["gambling"])
                             if links_string != "":
-                                links_string = links_string + "," + l2
+                                links_string = links_string + "|" + l2
                                 links = links+",gambling"
                             else:
                                 links_string = links_string + l2
@@ -336,7 +336,7 @@ class Listener_Indicator:
                         if "malware" in activity.keys():
                             a2 = "malware" + str(activity["malware"])
                             if activity_string != "":
-                                activity_string = activity_string + "," + a2
+                                activity_string = activity_string + "|" + a2
                                 activities = activities+",malware"
                             else:
                                 activity_string = activity_string + a2
@@ -344,7 +344,7 @@ class Listener_Indicator:
                         if "scam" in activity.keys():
                             a2 = "scam" + str(activity["scam"])
                             if activity_string != "":
-                                activity_string = activity_string + "," + a2
+                                activity_string = activity_string + "|" + a2
                                 activities = activities + ",scam"
                             else:
                                 activity_string = activity_string + a2
@@ -352,7 +352,7 @@ class Listener_Indicator:
                         if "phish" in activity.keys():
                             a2 = "phish" + str(activity["phish"])
                             if activity_string != "":
-                                activity_string = activity_string + "," + a2
+                                activity_string = activity_string + "|" + a2
                                 activities = activities + ",phish"
                             else:
                                 activity_string = activity_string + a2
@@ -360,7 +360,7 @@ class Listener_Indicator:
                         if "hack" in activity.keys():
                             a2 = "hack" + str(activity["hack"])
                             if activity_string != "":
-                                activity_string = activity_string + "," + a2
+                                activity_string = activity_string + "|" + a2
                                 activities = activities + ",hack"
                             else:
                                 activity_string = activity_string + a2
@@ -368,7 +368,7 @@ class Listener_Indicator:
                         if "darkweb" in activity.keys():
                             a2 = "darkweb" + str(activity["darkweb"])
                             if activity_string != "":
-                                activity_string = activity_string + "," + a2
+                                activity_string = activity_string + "|" + a2
                                 activities = activities + ",darkweb"
                             else:
                                 activity_string = activity_string + a2
