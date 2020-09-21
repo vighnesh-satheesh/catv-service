@@ -605,6 +605,7 @@ class RoleUsageLimit(models.Model):
     catv_limit = models.IntegerField(null=True, default=5)
     cara_limit = models.IntegerField(null=True, default=5)
     org_invite_limit = models.IntegerField(null=True, default=0)
+    max_api_keys = models.IntegerField(null=True, default=1)
 
     class Meta:
         db_table = 'api_role_usage_limit'

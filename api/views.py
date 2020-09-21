@@ -1602,7 +1602,7 @@ class UserDetailView(APIView):
 
     def get(self, request, pk=None):
         obj = self.get_object(pk)
-        serializer = UserDetailSerializer(obj)
+        serializer = UserDetailSerializer(obj, context={"request": request})
         data = serializer.data
         return APIResponse({
             "data": {
@@ -1661,21 +1661,33 @@ class IcfView(APIView):
         if not obj.exists():
             raise exceptions.ICFNotFound()
 
-        return obj[0]
+        return obj
 
     def get(self, request, pk=None):
         obj = self.get_object(request)
-        serializer = ICFDetailSerializer(obj)
+        serializer = ICFDetailSerializer(obj, many=True)
+        max_api_keys = request.user.role.usage_role.get().max_api_keys
         data = serializer.data
         return APIResponse({
             "data": {
-                "api": data
+                "api": data,
+                "max_api_keys": max_api_keys
             }
         })
 
     def put(self, request, pk=None):
         obj = self.get_object(request)
-        serializer = ICFPostSerializer(obj, data=request.data, context={"request": request})
+        matching_obj = None
+        for key_entry in obj:
+            if str(key_entry.uid) == pk:
+                matching_obj = key_entry
+                break
+
+        if not matching_obj:
+            raise exceptions.ICFNotFound()
+
+        serializer = ICFPostSerializer(
+            matching_obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         data = serializer.data
