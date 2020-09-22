@@ -115,10 +115,19 @@ class IndicatorDocumentView(BaseDocumentViewSet):
                 LOOKUP_QUERY_GTE,
                 LOOKUP_QUERY_LTE
             ]
+        },
+        'updated': {
+            'field': 'updated',
+            'lookups': [
+                LOOKUP_FILTER_RANGE,
+                LOOKUP_QUERY_GTE,
+                LOOKUP_QUERY_LTE
+            ]
         }
     }
     ordering_fields = {
         'id': 'id',
         'created': 'created',
+        'updated': 'updated'
     }
     ordering = ('-id',)

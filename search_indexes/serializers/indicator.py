@@ -28,6 +28,7 @@ class IndicatorDocumentSerializer(serializers.Serializer):
     cases = serializers.SerializerMethodField()
     annotations = serializers.CharField(read_only=True)
     latest_case = serializers.SerializerMethodField()
+    updated = serializers.SerializerMethodField()
 
     class Meta(object):
 
@@ -47,6 +48,7 @@ class IndicatorDocumentSerializer(serializers.Serializer):
             'created',
             'cases',
             'annotations',
+            'updated'
         )
 
     def get_uid(self, obj):
@@ -68,3 +70,8 @@ class IndicatorDocumentSerializer(serializers.Serializer):
         if obj.latest_case and obj.latest_case.hex:
             return uuid.UUID(obj.latest_case.hex)
         return None
+
+    def get_updated(self, obj):
+        if obj.updated:
+            updated_datetime = parse_datetime(obj.updated)
+            return format(updated_datetime, 'U')
