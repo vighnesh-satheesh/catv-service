@@ -191,25 +191,13 @@ class Listener_Indicator:
                                      "0", "0",
                                      "0", "0", "0", "",
                                      "", "", datetime.datetime.now(datetime.timezone.utc), error,
-                                     "", "")
+                                     "", "", "", "", "", "", "")
                         error_user_query = Constants.QUERIES['CARA_ERROR_USER'].format(dict_item["address"])
                         error_users = self.__trdb_api.get_query(error_user_query)
                         if error_users is not None:
                             users = [x[0] for x in error_users]
                             qtime = [x[1] for x in error_users]
                     else:
-                        #for pattern in dict_item["distinct_transaction_patterns"]:
-                         #   if pattern != '[' and pattern != ']' and pattern != "'":
-                          #      pat = pat+pattern
-                       # for link in dict_item["direct_links_to_malicious_activities"]:
-                        #    if link != '{' and link != '}' and link != "'" and link != ':' and link != '1' and link != '0':
-                         #       links = links+link
-                        #for activity in dict_item["illegit_activity_links"]:
-                         #   if activity != '{' and activity != '}' and activity != "'" and activity != ':' and activity != '1' and activity != '0':
-                          #      act = act+activity
-                        #for funds in dict_item["tx_interfere_with_funds"]:
-                         #   if funds != '{' and funds != '}' and funds != "'" and funds != ':' and funds != '1' and funds != '0':
-                          #      fun = fun + funds
                         pattern = ast.literal_eval(dict_item["distinct_transaction_patterns"])
                         blacklist_address = ast.literal_eval(dict_item["num_blacklisted_addr_contacted"])
                         direct_links = ast.literal_eval(dict_item["illegit_activity_links"])
@@ -374,11 +362,6 @@ class Listener_Indicator:
                                 activity_string = activity_string + a2
                                 activities = activities + "darkweb"
 
-                        print("Pattern:", pattern_string)
-                        print("link:", links_string)
-                        print("activity:", activity_string)
-                        print("funds:", funds_string)
-                        print("Blacklisted:", blacklist_address)
                         data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],len(dict_item["num_blacklisted_addr_contacted"]) - 2,patterns,links,activities,datetime.datetime.now(datetime.timezone.utc),error,dict_item["ground_truth_label"],funds, str(dict_item["num_blacklisted_addr_contacted"]), pattern_string, activity_string, links_string, funds_string)
                     for time2, user in zip(qtime, users):
                         TimeDiff = (ntime - time2).total_seconds()
@@ -386,9 +369,11 @@ class Listener_Indicator:
                         if (TimeDiff / 60) < 12:
                             update_error_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(1, user, dict_item["address"])
                             self.__trdb_api.update_query_format(update_error_query)
+
+                    # removing delete query call
                     cara_report_delete_query = Constants.QUERIES['CARA_REPORT_DELETE_QUERY'].format(
                         dict_item["address"])
-                    self.__trdb_api.update_query_format(cara_report_delete_query)
+                  #  self.__trdb_api.update_query_format(cara_report_delete_query)
 
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     self.__trdb_api.insertdict_query(cara_report_insert_query, data_dict)

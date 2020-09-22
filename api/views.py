@@ -2382,10 +2382,11 @@ class CARA(APIView):
         else:
             data = (user, address, time, blockchain)
         if force:
+            # removing delete history call
             cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(
                 address, user)
-            with connection.cursor() as cursor:
-                cursor.execute(cara_history_delete_query)
+           # with connection.cursor() as cursor:
+              #  cursor.execute(cara_history_delete_query)
         cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
         with connection.cursor() as cursor:
             cursor.execute(cara_history_insert_query, data)
@@ -2436,9 +2437,11 @@ class CARAHistory(generics.ListAPIView):
         risk_scores = []
         ground_truths = []
         ids = []
+        addr_list = []
+        report_times = []
         for add, t in zip(search, time):
             report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(
-                add, t)
+                add, t, user, t + datetime.timedelta(minutes=10))
             with connections['readonly'].cursor() as new_cursor:
                 new_cursor.execute(report_query)
                 add_report = new_cursor.fetchmany(1)
@@ -2448,11 +2451,33 @@ class CARAHistory(generics.ListAPIView):
                     risk_score = [x[2] for x in add_report]
                     ground_truth = [x[3] for x in add_report]
                     id = [x[4] for x in add_report]
+                    report_time =[x[5] for x in add_report]
                     reports.extend(list(report))
                     errors.extend(list(error))
                     risk_scores.extend(list(risk_score))
                     ground_truths.extend(list(ground_truth))
                     ids.extend(list(id))
+                    addr_list.extend(list(add))
+                    report_times.extend(list(report_time))
+            if not add_report:
+                report_query = Constants.QUERIES['CARA_REPORT_ORPHAN'].format(add, t)
+                with connections['readonly'].cursor() as new_cursor:
+                    new_cursor.execute(report_query)
+                    add_report = new_cursor.fetchmany(1)
+                    if add_report is not None:
+                        report = [x[0] for x in add_report]
+                        error = [x[1] for x in add_report]
+                        risk_score = [x[2] for x in add_report]
+                        ground_truth = [x[3] for x in add_report]
+                        id = [x[4] for x in add_report]
+                        report_time = [x[5] for x in add_report]
+                        reports.extend(list(report))
+                        errors.extend(list(error))
+                        risk_scores.extend(list(risk_score))
+                        ground_truths.extend(list(ground_truth))
+                        ids.extend(list(id))
+                        addr_list.extend(list(add))
+                        report_times.extend(list(report_time))
         data = {'history': search,
                 'time': time,
                 'blockchain': blockchain,
@@ -2460,7 +2485,9 @@ class CARAHistory(generics.ListAPIView):
                 'errors': errors,
                 'risk_score': risk_scores,
                 'ground_truth': ground_truths,
-                'report_ids': ids}
+                'report_ids': ids,
+                'report_time': report_times,
+                'in_progress': len(search) - len(reports)}
         return self.get_paginated_response(data)
 
     def get_paginated_response(self, data):
