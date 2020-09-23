@@ -2502,7 +2502,8 @@ class CARAReport(APIView):
 
     def get(self, request):
         address = self.request.GET.get('address')
-        report_query = Constants.QUERIES['CARA_REPORT_QUERY'].format(address)
+        id = self.request.GET.get('id')
+        report_query = Constants.QUERIES['CARA_REPORT_QUERY'].format(address, id)
         case_query = Constants.QUERIES['SELECT_CASE_BY_PATTERN'].format(address)
         with connections['readonly'].cursor() as cursor:
             cursor.execute(report_query)
