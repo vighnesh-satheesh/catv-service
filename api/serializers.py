@@ -1203,7 +1203,7 @@ class CasePostSerializer(serializers.ModelSerializer):
         required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
     rich_text_detail = serializers.CharField(
         required=False, max_length=api_settings.CASE_DETAIL_MAX_LEN)
-    reporter_info = serializers.CharField(
+    reporter_info = serializers.EmailField(
         required=False, allow_blank=True, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
     ico = serializers.PrimaryKeyRelatedField(
         queryset=models.ICO.objects.all(), required=False)
@@ -1246,13 +1246,24 @@ class CasePostSerializer(serializers.ModelSerializer):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
         related_data = validated_data.pop("related_case", [])
+        reporter_info = validated_data.get("reporter_info", None)
+        is_anonymous = hasattr(self.context["request"].user, "is_anonymous")
+        possible_user = None
+        if is_anonymous:
+            if reporter_info:
+                possible_user = models.User.objects.filter(email__iexact=reporter_info).first()
+            else:
+                possible_user = models.User.objects.filter(nickname='Public Anonymous Report').first()
         try:
             with transaction.atomic():
                 if related_data:
                     related_case = models.RelatedCase.objects.create(related=related_data)
                     if related_case:
                         validated_data["related_case"] = related_case
-                case = models.Case.objects.create(**validated_data)
+                if possible_user:
+                    case = models.Case.objects.create(**validated_data, reporter=possible_user)
+                else:
+                    case = models.Case.objects.create(**validated_data)
                 m2m_bulk = []
                 indicator_bulk = []
                 new_indicators = []
@@ -1262,12 +1273,12 @@ class CasePostSerializer(serializers.ModelSerializer):
                             uid=indi["uid"])
                         indicator_bulk.append(indicator)
                     else:
-                        if not hasattr(self.context["request"].user, "is_anonymous"):
+                        if possible_user:
+                            indi["user"] = possible_user
+                        elif is_anonymous:
+                            indi["reporter_info"] = reporter_info or None
+                        else:
                             indi["user"] = self.context["request"].user
-                        reporter_info = validated_data.get(
-                            "reporter_info", None)
-                        if not reporter_info:
-                            indi["reporter_info"] = reporter_info
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR,
                                                     models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(
