@@ -1,5 +1,7 @@
 import ast
 import json
+import socket
+import requests
 
 from django.conf import settings
 
@@ -19,6 +21,8 @@ from api.scheduler.CARA_db import DB_api
 from web3 import Web3
 from operator import itemgetter
 from django.db import connection
+import api.utils as utils
+from api.settings import api_settings
 
 
 class Listener_Indicator:
@@ -27,25 +31,28 @@ class Listener_Indicator:
         # Need to encrypt these files and decrypt only upon processing
         self.__trdb_api = ""
         self.__local_db_api = ""
-        self.__aws_batch_client = "" #boto3.client('batch', region_name='ap-southeast-1')
+        self.__aws_batch_client = ""  # boto3.client('batch', region_name='ap-southeast-1')
 
     def connect_to_dbs(self):
         # Need to encrypt these files and decrypt only upon processing
-        self.__trdb_api = DB_api(cfg.TRDB_HOST, cfg.TRDB_USERNAME, cfg.TRDB_PASSWORD, cfg.TRDB_DBNAME, cfg.TRDB_PORT, cfg.TRDB_SSL_MODE)
-        self.__local_db_api = DB_api(cfg.LOCAL_HOST, cfg.LOCAL_USERNAME, cfg.LOCAL_PASSWORD, cfg.LOCAL_DBNAME, cfg.LOCAL_PORT, cfg.LOCAL_SSL_MODE)
+        self.__trdb_api = DB_api(cfg.TRDB_HOST, cfg.TRDB_USERNAME, cfg.TRDB_PASSWORD, cfg.TRDB_DBNAME, cfg.TRDB_PORT,
+                                 cfg.TRDB_SSL_MODE)
+        self.__local_db_api = DB_api(cfg.LOCAL_HOST, cfg.LOCAL_USERNAME, cfg.LOCAL_PASSWORD, cfg.LOCAL_DBNAME,
+                                     cfg.LOCAL_PORT, cfg.LOCAL_SSL_MODE)
         self.__aws_batch_client = boto3.client('batch', region_name='ap-southeast-1')
 
     def get_info_of_last_checked_trdb_indicator(self):
 
         query = "select * from portal_listener_parameters"
         try:
-           previous_indicator_info = self.__local_db_api.get_query(query)
+            previous_indicator_info = self.__local_db_api.get_query(query)
         except Exception as e:
-           print("Error getting previous indicator:",str(e))
-           return None
+            print("Error getting previous indicator:", str(e))
+            return None
 
         if not previous_indicator_info:  # Initially at state zero, the local_db is empty
-            columns_of_portal_listener_parameters = ('last_indicator_id', 'last_indicator_time', 'last_execution_start_time', 'last_execution_end_time')
+            columns_of_portal_listener_parameters = (
+            'last_indicator_id', 'last_indicator_time', 'last_execution_start_time', 'last_execution_end_time')
 
             # Get the first row of api_indicator
             query = Constants.QUERIES["SELECT_LATEST_INDICATOR"]
@@ -56,7 +63,9 @@ class Listener_Indicator:
                 previous_indicator_info.extend((datetime.datetime.now(), datetime.datetime.now()))
 
                 # Insert first value into local db
-                values = (str(previous_indicator_info[0]), "timestamp '" + str(previous_indicator_info[1]) + "'","timestamp '" + str(previous_indicator_info[2]) + "'","timestamp '" + str(previous_indicator_info[3]) + "'")
+                values = (str(previous_indicator_info[0]), "timestamp '" + str(previous_indicator_info[1]) + "'",
+                          "timestamp '" + str(previous_indicator_info[2]) + "'",
+                          "timestamp '" + str(previous_indicator_info[3]) + "'")
                 query = "insert into portal_listener_parameters (%s) values (%s)"
                 self.__local_db_api.insert_query(query, columns_of_portal_listener_parameters, values)
             else:
@@ -77,7 +86,7 @@ class Listener_Indicator:
 
             if Web3.isAddress(addr) is True:
                 dict_new_indicator[addr] = {'id': id, 'updated_time': updated_time}
-        #print(new_indicators)
+        # print(new_indicators)
         sorted(dict_new_indicator, key=itemgetter(2))
         return dict_new_indicator
 
@@ -88,48 +97,79 @@ class Listener_Indicator:
         current_start_time = previous_indicator_info[1]
         current_start_id = previous_indicator_info[0]
         current_end_time = current_start_time + time_interval
+        print("start-time:", datetime.datetime.timestamp(current_start_time))
+        print("end-time:", datetime.datetime.timestamp(current_end_time))
 
         # Query trdb for new indicators
-        query = "select id, pattern, updated, pattern_subtype from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC' or pattern_subtype = 'LTC') and updated > timestamp '" + str(current_start_time) + "' and updated <= timestamp '" + str(current_end_time) + "' order by updated asc limit 5"
+        query = "select id, pattern, updated, pattern_subtype from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC' or pattern_subtype = 'LTC') and updated > timestamp '" + str(
+            current_start_time) + "' and updated <= timestamp '" + str(
+            current_end_time) + "' order by updated asc limit 5"
+
         try:
-           new_indicators = self.__trdb_api.get_query(query)
+            es_start_time = current_start_time.strftime('%Y-%m-%dT%H:%M:%S')
+            es_end_time = current_end_time.strftime('%Y-%m-%dT%H:%M:%S')
+            headers = {
+                'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
+            }
+            es_serializer_req = requests.Request('GET',
+                                                 url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?pattern_subtype__in=ETH__BTC__TRX__LTC'
+                                                 f'&updated__gte={es_start_time}&updated__lte={es_end_time}&ordering=updated',
+                                                 headers=headers)
+            async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
+            result = async_req_caller.execute_request_pool()
+            print("esresult:", result.get("results", []))
+            es_result = result.get("results", [])
+            for indicator in es_result:
+                updated = datetime.datetime.fromtimestamp(int(indicator['updated']))
+                data = {'id': indicator['id'],
+                        'address': indicator['pattern'],
+                        'updated_time': updated.strftime("%Y-%m-%d %H:%M:%S"),
+                        'blockchain': indicator['pattern_subtype']
+                        }
+                print("data es:", data)
+            new_indicators = es_result
         except Exception as e:
-           print("Error getting new indicators:",str(e))
-           new_indicators = None
-           new_indicator_info = [current_start_id,current_start_time] # Since there is an error, we should not be incrementing the time
-           return new_indicators, new_indicator_info
+            print("Error getting new indicators:", str(e))
+            new_indicators = None
+            new_indicator_info = [current_start_id,
+                                  current_start_time]  # Since there is an error, we should not be incrementing the time
+            return new_indicators, new_indicator_info
 
         # Query last row of trdb to see the latest indicator added
         query = Constants.QUERIES["SELECT_LATEST_INDICATOR"]
         try:
             last_indicator_info = self.__trdb_api.get_query(query)
         except Exception as e:
-            print("Error getting last indicator info from TRDB:",str(e))
+            print("Error getting last indicator info from TRDB:", str(e))
             new_indicators = None
-            new_indicator_info = [current_start_id, current_start_time]  # Since there is an error, we should not be incrementing the time
-            return new_indicators,new_indicator_info
+            new_indicator_info = [current_start_id,
+                                  current_start_time]  # Since there is an error, we should not be incrementing the time
+            return new_indicators, new_indicator_info
 
         last_indicator_info = list(last_indicator_info[0]) if len(last_indicator_info) == 1 else None
 
         # No new indicators in the new time frame
-        if not new_indicators:
+        if len(new_indicators) == 0:
             new_indicators = None
             new_indicator_info = [current_start_id]
             last_new_indicator_time = current_end_time
         else:
-            new_indicator_info = [new_indicators[len(new_indicators) - 1][0]]
-            last_new_indicator_time = new_indicators[len(new_indicators) - 1][2]
-            #new_indicators = self.convert_list_to_dict_with_validation_of_addresses(new_indicators)
+            new_indicator_info = [new_indicators[len(new_indicators) - 1]['id']]
+            last_new_indicator_time = new_indicators[len(new_indicators) - 1]['updated']
+            # new_indicators = self.convert_list_to_dict_with_validation_of_addresses(new_indicators)
             print("Last new indicator time:", last_new_indicator_time)
 
         # If error in last indicator values
         if not last_indicator_info:
             new_indicators = None
-            new_indicator_info = [current_start_id,current_start_time]  # Since there is an error, we should not be incrementing the time
+            new_indicator_info = [current_start_id,
+                                  current_start_time]  # Since there is an error, we should not be incrementing the time
         else:
             last_indicator_time = last_indicator_info[1]
-            #new_indicator_info.append(current_end_time) if current_end_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
-            new_indicator_info.append(last_new_indicator_time) if last_new_indicator_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
+            # new_indicator_info.append(current_end_time) if current_end_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
+            new_indicator_info.append(
+                last_new_indicator_time) if str(last_new_indicator_time) < str(last_indicator_time) else new_indicator_info.append(
+                last_indicator_time)
 
         return new_indicators, new_indicator_info
 
@@ -140,7 +180,7 @@ class Listener_Indicator:
 
         self.__local_db_api.update_query(query, new_indicator_info)
 
-    def check_for_reports(self, max_records,current_offset):
+    def check_for_reports(self, max_records, current_offset):
         kafka_broker_1 = settings.KAFKA_BROKER_1
         kafka_broker_2 = settings.KAFKA_BROKER_2
         kafka_broker_3 = settings.KAFKA_BROKER_3
@@ -155,7 +195,7 @@ class Listener_Indicator:
         start_offset = [value for key, value in consumer.beginning_offsets(assigned_partition).items()][0]
         end_offset = [value for key, value in consumer.end_offsets(assigned_partition).items()][0]
         # Placing the start offset for poll() function
-        #current_offset = 0
+        # current_offset = 0
         consumer.seek(list(assigned_partition)[0], current_offset)
         number_records = 0
         if current_offset < start_offset:
@@ -173,8 +213,8 @@ class Listener_Indicator:
                     datetime_timestamp = datetime.datetime.strptime(str_timestamp, "%Y-%m-%d %H:%M:%S")
                     if datetime_timestamp > datetime.datetime(year=2019, month=7, day=25):
                         print("timestamp:%s value=%s" % (
-                        datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime('%Y-%m-%d %H:%M:%S'),
-                        item.value.decode('utf-8')))
+                            datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime('%Y-%m-%d %H:%M:%S'),
+                            item.value.decode('utf-8')))
                     dict_item = ast.literal_eval(item.value.decode('utf-8'))
                     pat = ""
                     links = ""
@@ -212,120 +252,120 @@ class Listener_Indicator:
                         funds_string = ""
                         funds = ""
                         if "accumulate-funds" in pattern.keys():
-                            p2 = "accumulate-funds"+str(pattern["accumulate-funds"])
-                            pattern_string = pattern_string+p2
+                            p2 = "accumulate-funds" + str(pattern["accumulate-funds"])
+                            pattern_string = pattern_string + p2
                             patterns = patterns + "accumulate-funds"
                         if "regular-interval-txs" in pattern.keys():
-                            p2 = "regular-interval-txs"+str(pattern["regular-interval-txs"])
+                            p2 = "regular-interval-txs" + str(pattern["regular-interval-txs"])
                             if pattern_string != "":
-                                pattern_string = pattern_string+"|"+p2
-                                patterns = patterns+",regular-interval-txs"
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",regular-interval-txs"
                             else:
-                                pattern_string = pattern_string+p2
-                                patterns = patterns+"regular-interval-txs"
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "regular-interval-txs"
                         if "dormant status" in pattern.keys():
                             p2 = "dormant status[" + pattern["dormant status"] + "]"
                             if pattern_string != "":
-                                pattern_string = pattern_string+"|"+p2
-                                patterns = patterns+",dormant status"
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",dormant status"
                             else:
-                                pattern_string = pattern_string+p2
-                                patterns = patterns+"dormant status"
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "dormant status"
                         if "large balance" in pattern.keys():
-                            p2 = "large balance["+str(pattern["large balance"])+"]"
+                            p2 = "large balance[" + str(pattern["large balance"]) + "]"
                             if pattern_string != "":
-                                pattern_string = pattern_string+"|"+p2
-                                patterns = patterns+",large balance"
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",large balance"
                             else:
-                                pattern_string = pattern_string+p2
-                                patterns = patterns+"large balance"
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "large balance"
                         if "high-value-tx" in pattern.keys():
-                            p2 = "high-value-tx"+str(pattern["high-value-tx"])
+                            p2 = "high-value-tx" + str(pattern["high-value-tx"])
                             if pattern_string != "":
-                                pattern_string = pattern_string+"|"+p2
-                                patterns = patterns+",high-value-tx"
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",high-value-tx"
                             else:
-                                pattern_string = pattern_string+p2
-                                patterns = patterns+"high-value-tx"
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "high-value-tx"
                         if "Abnormal Relaying" in pattern.keys():
                             if patterns != "":
-                                patterns = patterns+",Abnormal Relaying"
+                                patterns = patterns + ",Abnormal Relaying"
                             else:
-                                patterns = patterns+"Abnormal Relaying"
+                                patterns = patterns + "Abnormal Relaying"
                         if "Abnormal Mixing" in pattern.keys():
                             if patterns != "":
-                                patterns = patterns+",Abnormal Mixing"
+                                patterns = patterns + ",Abnormal Mixing"
                             else:
-                                patterns = patterns+"Abnormal Mixing"
+                                patterns = patterns + "Abnormal Mixing"
                         if "Relaying and Mixing" in pattern.keys():
                             if patterns != "":
-                                patterns = patterns+",Relaying and Mixing"
+                                patterns = patterns + ",Relaying and Mixing"
                             else:
-                                patterns = patterns+"Relaying and Mixing"
+                                patterns = patterns + "Relaying and Mixing"
                         if "Tumbling" in pattern.keys():
                             if patterns != "":
-                                patterns = patterns+",Tumbling"
+                                patterns = patterns + ",Tumbling"
                             else:
-                                patterns = patterns+"Tumbling"
+                                patterns = patterns + "Tumbling"
                         # Now for funds
                         if "excessive in-out tx" in tx_funds.keys():
-                            f2 = "excessive in-out tx["+str(tx_funds["excessive in-out tx"])+"]"
+                            f2 = "excessive in-out tx[" + str(tx_funds["excessive in-out tx"]) + "]"
                             funds_string = funds_string + f2
                         if "single-recent-tx" in tx_funds.keys():
-                            f2 = "single-recent-tx"+str(tx_funds["single-recent-tx"])
+                            f2 = "single-recent-tx" + str(tx_funds["single-recent-tx"])
                             if funds_string != "":
                                 funds_string = funds_string + "|" + f2
-                                funds = funds+",single-recent-tx"
+                                funds = funds + ",single-recent-tx"
                             else:
                                 funds_string = funds_string + f2
-                                funds = funds+"single-recent-tx"
+                                funds = funds + "single-recent-tx"
                         if "miner-funds" in tx_funds.keys():
-                            f2 = "miner-funds"+str(tx_funds["miner-funds"])
+                            f2 = "miner-funds" + str(tx_funds["miner-funds"])
                             if funds_string != "":
                                 funds_string = funds_string + "|" + f2
-                                funds = funds+",miner-funds"
+                                funds = funds + ",miner-funds"
                             else:
                                 funds_string = funds_string + f2
-                                funds = funds+"miner-funds"
+                                funds = funds + "miner-funds"
                         if "swift-fund-movements" in tx_funds.keys():
                             f2 = "swift-fund-movements" + str(tx_funds["swift-fund-movements"])
                             if funds_string != "":
                                 funds_string = funds_string + "|" + f2
-                                funds = funds+",swift-fund-movements"
+                                funds = funds + ",swift-fund-movements"
                             else:
                                 funds_string = funds_string + f2
-                                funds = funds+"swift-fund-movements"
+                                funds = funds + "swift-fund-movements"
                         if "single in-out tx" in tx_funds.keys():
                             f2 = "single in-out tx" + str(tx_funds["single in-out tx"])
                             if funds_string != "":
                                 funds_string = funds_string + "|" + f2
-                                funds = funds+",single in-out tx"
+                                funds = funds + ",single in-out tx"
                             else:
                                 funds_string = funds_string + f2
-                                funds = funds+"single in-out tx"
+                                funds = funds + "single in-out tx"
                         # now links
                         if "porn" in direct_links.keys():
                             l2 = "porn" + str(direct_links["porn"])
                             if links_string != "":
                                 links_string = links_string + "|" + l2
-                                links = links+",porn"
+                                links = links + ",porn"
                             else:
                                 links_string = links_string + l2
-                                links = links+"porn"
+                                links = links + "porn"
                         if "gambling" in direct_links.keys():
                             l2 = "gambling" + str(direct_links["gambling"])
                             if links_string != "":
                                 links_string = links_string + "|" + l2
-                                links = links+",gambling"
+                                links = links + ",gambling"
                             else:
                                 links_string = links_string + l2
-                                links = links+"gambling"
+                                links = links + "gambling"
                         # now activities
                         if "malware" in activity.keys():
                             a2 = "malware" + str(activity["malware"])
                             if activity_string != "":
                                 activity_string = activity_string + "|" + a2
-                                activities = activities+",malware"
+                                activities = activities + ",malware"
                             else:
                                 activity_string = activity_string + a2
                                 activities = activities + "malware"
@@ -362,25 +402,33 @@ class Listener_Indicator:
                                 activity_string = activity_string + a2
                                 activities = activities + "darkweb"
 
-                        data_dict = (dict_item["address"],dict_item["risk_score"],dict_item["analysis_start_time"],dict_item["analysis_end_time"],dict_item["total_amt"],dict_item["estimated_mal_amt"],dict_item["total_tx"],dict_item["estimated_mal_tx"],len(dict_item["num_blacklisted_addr_contacted"]) - 2,patterns,links,activities,datetime.datetime.now(datetime.timezone.utc),error,dict_item["ground_truth_label"],funds, str(dict_item["num_blacklisted_addr_contacted"]), pattern_string, activity_string, links_string, funds_string)
+                        data_dict = (dict_item["address"], dict_item["risk_score"], dict_item["analysis_start_time"],
+                                     dict_item["analysis_end_time"], dict_item["total_amt"],
+                                     dict_item["estimated_mal_amt"], dict_item["total_tx"],
+                                     dict_item["estimated_mal_tx"],
+                                     len(dict_item["num_blacklisted_addr_contacted"]) - 2, patterns, links, activities,
+                                     datetime.datetime.now(datetime.timezone.utc), error,
+                                     dict_item["ground_truth_label"], funds,
+                                     str(dict_item["num_blacklisted_addr_contacted"]), pattern_string, activity_string,
+                                     links_string, funds_string)
                     for time2, user in zip(qtime, users):
                         TimeDiff = (ntime - time2).total_seconds()
                         print(TimeDiff / 60)
                         if (TimeDiff / 60) < 12:
-                            update_error_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(1, user, dict_item["address"])
+                            update_error_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(1, user,
+                                                                                                 dict_item["address"])
                             self.__trdb_api.update_query_format(update_error_query)
 
                     # removing delete query call
                     cara_report_delete_query = Constants.QUERIES['CARA_REPORT_DELETE_QUERY'].format(
                         dict_item["address"])
-                  #  self.__trdb_api.update_query_format(cara_report_delete_query)
+                    #  self.__trdb_api.update_query_format(cara_report_delete_query)
 
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     self.__trdb_api.insertdict_query(cara_report_insert_query, data_dict)
             if number_records >= max_records:
                 break
         return current_offset
-
 
     def check_for_new_cases(self):
 
@@ -389,28 +437,26 @@ class Listener_Indicator:
 
         # Connect to trdb and local db
         try:
-           self.connect_to_dbs()
+            self.connect_to_dbs()
         except Exception as e:
-           print("Error connecting to dbs:",str(e))
-           return None
+            print("Error connecting to dbs:", str(e))
+            return None
 
         kafka_offset_query = Constants.QUERIES['KAFKA_LISTENER_PARAMS']
         offset = self.__trdb_api.getone_query(kafka_offset_query)
-        #with connection.cursor() as cursor:
-         #   cursor.execute(kafka_offset_query)
-          #  offset = cursor.fetchone()
+        # with connection.cursor() as cursor:
+        #   cursor.execute(kafka_offset_query)
+        #  offset = cursor.fetchone()
 
-        result = self.check_for_reports(100,offset[0])
+        result = self.check_for_reports(100, offset[0])
         offset_update_query = Constants.QUERIES['KAFKA_OFFSET_UPDATE'].format(result)
         self.__trdb_api.update_query_format(offset_update_query)
-        #with connection.cursor() as cursor:
-         #   cursor.execute(offset_update_query)
-
+        # with connection.cursor() as cursor:
+        #   cursor.execute(offset_update_query)
 
         # Need to get time and id of previous indicator
         previous_indicator_info = self.get_info_of_last_checked_trdb_indicator()
         print("Previous:", str(previous_indicator_info))
-
 
         if previous_indicator_info is None:  # There is error in portal listener table or trdb portal table
             print("Error no previous indicator:")
@@ -420,28 +466,35 @@ class Listener_Indicator:
         new_indicators, new_indicator_info = self.get_indicators_from_time(previous_indicator_info)
         # Check for duplicate addresses based on policy and submit them as jobs to aws batch using boto3 client api
         if new_indicators is not None:
-            #sorted(new_indicators,key=itemgetter(2))
+            # sorted(new_indicators,key=itemgetter(2))
             number_new_indicators = len(new_indicators)
             if number_new_indicators != 0:
                 for indicator in new_indicators:
-                    #print(indicator)
+                    # print(indicator)
                     kafka_broker_1 = settings.KAFKA_BROKER_1
                     kafka_broker_2 = settings.KAFKA_BROKER_2
                     kafka_broker_3 = settings.KAFKA_BROKER_3
                     producer = KafkaProducer(bootstrap_servers=[kafka_broker_1, kafka_broker_2, kafka_broker_3],
                                              value_serializer=lambda x:
                                              dumps(x).encode('utf-8'))
-                    #indicator[2] = indicator[2].strftime("%Y-%m-%d %H:%M:%S")
+                    # indicator[2] = indicator[2].strftime("%Y-%m-%d %H:%M:%S")
                     blockchain = ""
-                    if str(indicator[3]) == 'ETH':
+                    if str(indicator['pattern_subtype']) == 'ETH':
                         blockchain = 'eth'
-                    elif str(indicator[3]) == 'BTC':
+                    elif str(indicator['pattern_subtype']) == 'BTC':
                         blockchain = 'btc'
-                    else:
+                    elif str(indicator['pattern_subtype']) == 'LTC':
                         blockchain = 'ltc'
-                    data = {'id': indicator[0],
-                            'address': indicator[1],
-                            'updated_time': indicator[2].strftime("%Y-%m-%d %H:%M:%S"),
+                    elif str(indicator['pattern_subtype']) == 'TRX':
+                        blockchain = 'trx'
+                    elif str(indicator['pattern_subtype']) == 'XRP':
+                        blockchain = 'xrp'
+                    else:
+                        blockchain = 'bch'
+                    updated = datetime.datetime.fromtimestamp(int(indicator['updated']))
+                    data = {'id': indicator['id'],
+                            'address': indicator['pattern'],
+                            'updated_time': updated.strftime("%Y-%m-%d %H:%M:%S"),
                             'blockchain': blockchain
                             }
                     print(data)
@@ -459,20 +512,16 @@ class Listener_Indicator:
         # Update values into portal_listener_parameters table
         query = "update portal_listener_parameters set last_indicator_id = %s, last_indicator_time = %s, last_execution_start_time = %s, last_execution_end_time = %s"
         try:
-           self.update_indicator_info(query, new_indicator_info)
+            self.update_indicator_info(query, new_indicator_info)
         except Exception as e:
-           print("Error updating portal parameters in the end:",str(e))
-           return None
+            print("Error updating portal parameters in the end:", str(e))
+            return None
 
         # Close db connections
         try:
-           self.__local_db_api.close()
-           self.__trdb_api.close()
+            self.__local_db_api.close()
+            self.__trdb_api.close()
         except Exception as e:
-           print("Error closing db connections:",str(e))
+            print("Error closing db connections:", str(e))
 
         return number_new_indicators
-
-
-
-
