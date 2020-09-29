@@ -1,5 +1,7 @@
 Hi {{ nickname }},
 
+{{case_exp}}
+
 {{ link }}
 
 Best regards,
