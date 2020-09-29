@@ -42,10 +42,10 @@ class CatvUsageExceededThrottle(BaseThrottle):
         org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
         if org_details.count():
             org = org_details.all()[0]
-            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at').\
+            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at_y').\
                                 filter(user=org.administrator)[0:1]
         else:
-            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at').\
+            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at_y').\
                                 filter(user_id=request.user.id)[0:1]
 
         if usage_details and usage_details[0]['catv_calls_left_y'] > 0:
@@ -121,10 +121,10 @@ class CaraUsageExceededThrottle(BaseThrottle):
         org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
         if org_details.count():
             org = org_details.all()[0]
-            usage_details = Usage.objects.values('cara_calls_left_y', 'last_renewal_at').\
+            usage_details = Usage.objects.values('cara_calls_left_y', 'last_renewal_at_y').\
                                 filter(user=org.administrator)[0:1]
         else:
-            usage_details = Usage.objects.values('cara_calls_left_y', 'last_renewal_at').\
+            usage_details = Usage.objects.values('cara_calls_left_y', 'last_renewal_at_y').\
                             filter(user_id=request.user.id)[0:1]
 
         if usage_details and usage_details[0]['cara_calls_left_y'] > 0:
