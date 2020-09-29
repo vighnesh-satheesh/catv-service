@@ -285,6 +285,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     created = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
 
     class Meta:
         model = models.User
@@ -308,6 +309,12 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     def get_role(self, obj):
         return obj.role.display_name
+
+    def get_email(self, obj):
+        request = self.context.get("request", None)
+        if request and (request.user == obj or request.user.role.role_name == models.UserRoles.SUPERSENTINEL.value):
+            return obj.email
+        return None
 
 
 class UserPostSerializer(serializers.ModelSerializer):
@@ -554,13 +561,14 @@ class ICFPostSerializer(serializers.ModelSerializer):
         user = request.user
         org_details = user.organization_set.filter(organizationuser__status=models.OrganizationUserStatus.ACTIVE)
         if org_details.count():
-            raise exceptions.NotAllowedError(detail='Only organization admins are allowed to create or regenerate API keys')
+            raise exceptions.NotAllowedError(detail='Only organization admins are allowed to create or regenerate '
+                                                    'API keys')
         if request.method == 'POST':
             obj = models.Key.objects.filter(user=user.pk)
-            if obj.exists() == True:
-                raise exceptions.ICFAlreadyExist()
+            if obj.count() == user.role.usage_role.get().max_api_keys:
+                raise exceptions.ICFAlreadyExist(detail=f"You are only allowed a maximum of {obj.count()} API key(s)")
             data["user"] = user
-            data["expire_datetime"] = timezone.now() + relativedelta(years=+1)
+            data["expire_datetime"] = timezone.now() + relativedelta(years=+99)
         return data
 
     def create(self, validated_data):
@@ -580,7 +588,7 @@ class ICFPostSerializer(serializers.ModelSerializer):
                 obj.api_key = new_key
                 break
         if obj.expire_datetime.date() < timezone.now().date():
-            obj.expire_datetime = timezone.now() + relativedelta(years=+1)
+            obj.expire_datetime = timezone.now() + relativedelta(years=+99)
         obj.save()
         return obj
 

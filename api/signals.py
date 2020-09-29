@@ -55,7 +55,11 @@ def assign_usage_quota(sender, instance, created, **kwargs):
             with transaction.atomic():
                 Usage.objects.create(user=current_user, api_calls_left=user_role.api_limit,
                                      catv_calls_left=user_role.catv_limit, cara_calls_left=user_role.cara_limit,
-                                     last_renewal_at=now())
+                                     last_renewal_at=now(), api_calls=0, catv_calls=0, cara_calls=0,
+                                     api_calls_left_y=user_role.api_limit_y - user_role.api_limit,
+                                     catv_calls_left_y=user_role.catv_limit_y - user_role.catv_limit,
+                                     cara_calls_left_y=user_role.cara_limit_y - user_role.cara_limit,
+                                     last_renewal_at_y=now())
                 Key.objects.create(user=current_user, expire_datetime=now() + relativedelta(years=+1))
         except RoleUsageLimit.DoesNotExist:
             pass

@@ -36,30 +36,40 @@ class Constants:
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
                                     "distribution_depth,transaction_limit,from_date,to_date,logged_time,token_type) "
                                     "VALUES('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}');",
-        "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls_left=(catv_calls_left-1) where user_id=("
+        "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls=catv_calls+1, catv_calls_left=(CASE WHEN catv_calls_left > 0 THEN catv_calls_left-1 ELSE 0), "
+                                  "catv_calls_left_y=(CASE WHEN catv_calls_left > 0 THEN catv_calls_left_y ELSE catv_calls_left_y-1) where user_id=("
                                   "SELECT administrator_id from (SELECT ao.administrator_id from api_organization ao "
                                   "inner join api_organizationuser aou on ao.id = aou.organization_id where aou.user_id='{0}' and aou.status='active' "
-                                  "union SELECT '{0}') x limit 1) and catv_calls_left > 0;",
-        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left-1) where user_id=("
+                                  "union SELECT '{0}') x limit 1) and catv_calls_left_y > 0;",
+        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls=cara_calls+1, cara_calls_left=(CASE WHEN cara_calls_left > 0 THEN cara_calls_left-1 ELSE 0), "
+                                  "cara_calls_left_y=(CASE WHEN cara_calls_left > 0 THEN cara_calls_left_y ELSE cara_calls_left_y-1) where user_id=("
                                   "SELECT administrator_id from (SELECT ao.administrator_id from api_organization ao "
                                   "inner join api_organizationuser aou on ao.id = aou.organization_id where aou.user_id='{0}' and aou.status='active' "
-                                  "union SELECT '{0}') x limit 1) and cara_calls_left > 0;",
+                                  "union SELECT '{0}') x limit 1) and cara_calls_left_y > 0;",
         "UPDATE_CARA_ERROR_USAGE": "UPDATE api_usage SET cara_calls_left=(cara_calls_left+1) where user_id='{0}'",
         "REFILL_USER_USAGE_QUOTA": "UPDATE api_usage credits "
-                                   "SET api_calls_left=(CASE WHEN credits.api_calls_left + arul.api_limit > (2 * arul.api_limit) THEN (2 * arul.api_limit) "
-                                   "ELSE credits.api_calls_left + arul.api_limit END), "
-                                   "catv_calls_left=(CASE WHEN credits.catv_calls_left + arul.catv_limit > (2 * arul.catv_limit) THEN (2 * arul.catv_limit) "
-                                   "ELSE credits.catv_calls_left + arul.catv_limit END), "
-                                   "cara_calls_left=(CASE WHEN credits.cara_calls_left + arul.cara_limit > (2 * arul.cara_limit) THEN (2 * arul.cara_limit) "
-                                   "ELSE credits.cara_calls_left + arul.cara_limit END), last_renewal_at=now() "
+                                   "SET api_calls_left=credits.api_calls_left + arul.api_limit, "
+                                   "catv_calls_left=credits.catv_calls_left + arul.catv_limit, "
+                                   "cara_calls_left=credits.cara_calls_left + arul.cara_limit, last_renewal_at=now(), "
+                                   "api_calls=0, catv_calls=0, cara_calls=0, "
+                                   "api_calls_left_y=credits.api_calls_left_y - arul.api_limit,"
+                                   "catv_calls_left_y=credits.catv_calls_left_y - arul.catv_limit, "
+                                   "cara_calls_left_y=credits.cara_calls_left_y - arul.cara_limit "
                                    "FROM api_user au, api_role_usage_limit arul "
                                    "WHERE credits.user_id = au.id AND arul.role_id = au.role_id AND "
                                    "DATE_PART('day', now() - credits.last_renewal_at) > 30;",
         "INSERT_USER_USAGE_QUOTA": "INSERT INTO api_usage(user_id,api_calls_left,catv_calls_left,cara_calls_left, "
-                                   "last_renewal_at) select %s,api_limit,catv_limit,cara_limit,now() "
+                                   "last_renewal_at,api_calls,catv_calls,cara_calls,api_calls_left_y,catv_calls_left_y,"
+                                   "cara_calls_left_y,last_renewal_at_y) "
+                                   "select %s,api_limit,catv_limit,cara_limit,now(),0,0,0, "
+                                   "api_limit_y-api_limit,catv_limit_y-catv_limit,cara_limit_y-cara_limit,now() "
                                    "from api_role_usage_limit where role_id=%s;",
-        "UPDATE_USER_USAGE_QUOTA": "UPDATE api_usage au set api_calls_left=t.api_limit,catv_calls_left=t.catv_limit, "
-                                   "cara_calls_left=t.cara_limit,last_renewal_at=now() from api_role_usage_limit t "
+        "UPDATE_USER_USAGE_QUOTA": "UPDATE api_usage au set api_calls_left=t.api_limit, catv_calls_left=t.catv_limit, "
+                                   "cara_calls_left=t.cara_limit, last_renewal_at=now(), api_calls=0, catv_calls=0, "
+                                   "cara_calls=0, api_calls_left_y=t.api_limit_y-t.api_limit, "
+                                   "catv_calls_left_y=t.catv_limit_y-t.catv_limit, "
+                                   "cara_calls_left_y=t.cara_limit_y-t.cara_limit, last_renewal_at_y=now() "
+                                   "FROM api_role_usage_limit t "
                                    "where t.role_id=%s and au.user_id=%s;",
         "SELECT_INDICATORS_WITHIN_DATE": "SELECT id, uid, security_category, pattern, created, security_tags, "
                                          "pattern_type, pattern_subtype FROM api_indicator where created > %s "
@@ -141,8 +151,9 @@ class Constants:
                                        "inner join api_organizationuser aou on ao.id=aou.organization_id "
                                        "where ao.administrator_id={2} and aou.status='active' "
                                        "UNION SELECT {2})) group by tz_date) x(searches, tz_date) on ts.d = x.tz_date",
-        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit, cara_limit, "
-                                 "api_limit, (last_renewal_at at TIME ZONE '{0}' + INTERVAL '31 DAYS')::date as "
+        "SELECT_CREDIT_DETAILS": "SELECT catv_calls_left, cara_calls_left, api_calls_left, catv_limit_y, cara_limit_y, "
+                                 "api_limit_y, api_calls_left_y, catv_calls_left_y, cara_calls_left_y, "
+                                 "(last_renewal_at_y at TIME ZONE '{0}' + INTERVAL '1 YEAR')::date as "
                                  "next_renewal_on from api_usage ausage inner join api_user auser on "
                                  "ausage.user_id=auser.id inner join api_role_usage_limit arul on "
                                  "auser.role_id=arul.role_id where ausage.user_id={1};",
@@ -199,6 +210,17 @@ class Constants:
         "EXPIRE_UPGRADE_CHALLENGE": "UPDATE api_user_upgrade set status='expired', updated=now() where (DATE_PART('day', "
                                     "now()::timestamp - created::timestamp) * 24 + DATE_PART('hour', "
                                     "now()::timestamp - created::timestamp)) >= 168;",
+        "REFILL_USER_USAGE_QUOTA_Y": "UPDATE api_usage credits "
+                                     "SET api_calls_left=arul.api_limit, "
+                                     "catv_calls_left=arul.catv_limit, "
+                                     "cara_calls_left=arul.cara_limit, last_renewal_at=now(), "
+                                     "api_calls=0, catv_calls=0, cara_calls=0, "
+                                     "api_calls_left_y=arul.api_limit_y - arul.api_limit,"
+                                     "catv_calls_left_y=arul.catv_limit_y- arul.catv_limit, "
+                                     "cara_calls_left_y=arul.cara_limit_y - arul.cara_limit, last_renewal_at_y=now() "
+                                     "FROM api_user au, api_role_usage_limit arul "
+                                     "WHERE credits.user_id = au.id AND arul.role_id = au.role_id AND "
+                                     "DATE_PART('year', AGE(now(), credits.last_renewal_at_y)) = 1;",
     }
     CACHE_KEY = {
         "LEFT_PANEL_VALUES": "left_panel_values",

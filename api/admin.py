@@ -116,7 +116,11 @@ class UserForm(forms.ModelForm):
                     usage_role_object.api_calls_left = user_role.api_limit
                     usage_role_object.catv_calls_left = user_role.catv_limit
                     usage_role_object.cara_calls_left = user_role.cara_limit
+                    usage_role_object.api_calls_left_y = user_role.api_limit_y - user_role.api_limit
+                    usage_role_object.catv_calls_left_y = user_role.catv_limit_y - user_role.catv_limit
+                    usage_role_object.cara_calls_left_y = user_role.cara_limit_y - user_role.cara_limit
                     usage_role_object.last_renewal_at = timezone.now()
+                    usage_role_object.last_renewal_at_y = timezone.now()
                     usage_role_object.save()
 
                 org_invites = OrganizationInvites.objects.select_related('organization').\
