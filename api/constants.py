@@ -102,15 +102,19 @@ class Constants:
         "CARA_USER_ID": "SELECT id from api_user where uid = '{0}'",
         "INSERT_CARA_REPORT": "INSERT INTO cara_report(address,risk_score,analysis_start_time,analysis_end_time,"
                               "total_amt,estimated_mal_amt,total_tx,estimated_mal_tx,num_blacklisted_addr_contacted,"
-                              "distinct_transaction_patterns,direct_links_to_malicious_activities,illegit_activity_links,report_generated_time,error,ground_truth_label,tx_interfere_with_funds)"
-                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s)",
+                              "distinct_transaction_patterns,direct_links_to_malicious_activities,illegit_activity_links,"
+                              "report_generated_time,error,ground_truth_label,tx_interfere_with_funds,blacklisted_addr_list,"
+                              "distinct_tx_patterns_details,illegit_activity_links_details,mal_activities_details,tx_interfere_with_funds_details)"
+                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s, %s, %s, %s, %s, %s)",
         "KAFKA_LISTENER_PARAMS": "SELECT kafka_offset from kafka_listener_parameters where id=1",
         "KAFKA_OFFSET_UPDATE": "UPDATE kafka_listener_parameters set kafka_offset={0} where id=1",
-        "CARA_REPORT_ADDRESS_GENERATED": "SELECT address, error from cara_report where address='{0}' and report_generated_time > '{1}'",
+        "CARA_REPORT_ADDRESS_GENERATED": "SELECT cr.address, cr.error, cr.risk_score, cr.ground_truth_label, cr.id, cr.report_generated_time from cara_report as cr JOIN cara_search_history as cs on cs.address = cr.address where cr.address='{0}' and cr.report_generated_time > '{1}' and cs.id = '{2}' and cr.report_generated_time < '{3}' and cs.query_time < cr.report_generated_time",
+        "CARA_REPORT_ORPHAN": "SELECT address, error, risk_score, ground_truth_label, id, report_generated_time from cara_report where address='{0}' and report_generated_time > '{1}'",
         "CARA_REPORT_QUERY": "SELECT cr.id, cr.address, cr.risk_score, cr.analysis_end_time, cr.total_amt, cr.estimated_mal_amt, cr.estimated_mal_tx, cr.distinct_transaction_patterns,"
                              "cr.direct_links_to_malicious_activities, cr.illegit_activity_links, cr.error, cr.ground_truth_label, cr.num_blacklisted_addr_contacted, cr.tx_interfere_with_funds,"
-                             "cs.blockchain from cara_report as cr JOIN cara_search_history as cs on cr.address = cs.address"
-                             " where cr.address='{0}'",
+                             "cs.blockchain, cr.blacklisted_addr_list, cr.distinct_tx_patterns_details, cr.illegit_activity_links_details, cr.mal_activities_details,"
+                             "cr.tx_interfere_with_funds_details from cara_report as cr JOIN cara_search_history as cs on cr.address = cs.address"
+                             " where cr.address='{0}' and cr.id='{1}' and cr.report_generated_time > cs.query_time",
         "CARA_REPORT_DELETE_QUERY": "DELETE from cara_report where address='{0}'",
         "SELECT_USER_CATV_HISTORY": "select 0 as id, wallet_address, token_address, source_depth, distribution_depth, "
                                     "transaction_limit, from_date, to_date from vw_catv_history where row_num = 1 and "
