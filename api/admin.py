@@ -95,7 +95,7 @@ class UserForm(forms.ModelForm):
             if user.status == UserStatus.EMAIL_CONFIRMED and m.status == UserStatus.APPROVED:
                 api_key_object, is_created = Key.objects.get_or_create(user=user)
                 if is_created:
-                    api_key_object.expire_datetime = timezone.now() + relativedelta(years=+1)
+                    api_key_object.expire_datetime = timezone.now() + relativedelta(years=+99)
                     api_key_object.save()
 
                 e = Email()
