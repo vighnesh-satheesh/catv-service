@@ -60,7 +60,7 @@ def assign_usage_quota(sender, instance, created, **kwargs):
                                      catv_calls_left_y=user_role.catv_limit_y - user_role.catv_limit,
                                      cara_calls_left_y=user_role.cara_limit_y - user_role.cara_limit,
                                      last_renewal_at_y=now())
-                Key.objects.create(user=current_user, expire_datetime=now() + relativedelta(years=+1))
+                Key.objects.create(user=current_user, expire_datetime=now() + relativedelta(years=+99))
         except RoleUsageLimit.DoesNotExist:
             pass
 
