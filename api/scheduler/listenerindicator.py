@@ -233,32 +233,186 @@ class Listener_Indicator:
                                      "0", "0",
                                      "0", "0", "0", "",
                                      "", "", datetime.datetime.now(datetime.timezone.utc), error,
-                                     "", "")
+                                     "", "", "", "", "", "", "")
                         error_user_query = Constants.QUERIES['CARA_ERROR_USER'].format(dict_item["address"])
                         error_users = self.__trdb_api.get_query(error_user_query)
                         if error_users is not None:
                             users = [x[0] for x in error_users]
                             qtime = [x[1] for x in error_users]
                     else:
-                        for pattern in dict_item["distinct_transaction_patterns"]:
-                            if pattern != '[' and pattern != ']' and pattern != "'":
-                                pat = pat + pattern
-                        for link in dict_item["direct_links_to_malicious_activities"]:
-                            if link != '{' and link != '}' and link != "'" and link != ':' and link != '1' and link != '0':
-                                links = links + link
-                        for activity in dict_item["illegit_activity_links"]:
-                            if activity != '{' and activity != '}' and activity != "'" and activity != ':' and activity != '1' and activity != '0':
-                                act = act + activity
-                        for funds in dict_item["tx_interfere_with_funds"]:
-                            if funds != '{' and funds != '}' and funds != "'" and funds != ':' and funds != '1' and funds != '0':
-                                fun = fun + funds
-                        print(pat)
+                        pattern = ast.literal_eval(dict_item["distinct_transaction_patterns"])
+                        blacklist_address = ast.literal_eval(dict_item["num_blacklisted_addr_contacted"])
+                        direct_links = ast.literal_eval(dict_item["illegit_activity_links"])
+                        activity = ast.literal_eval(dict_item["direct_links_to_malicious_activities"])
+                        tx_funds = ast.literal_eval(dict_item["tx_interfere_with_funds"])
+                        pattern_string = ""
+                        patterns = ""
+                        links_string = ""
+                        links = ""
+                        activity_string = ""
+                        activities = ""
+                        funds_string = ""
+                        funds = ""
+                        if "accumulate-funds" in pattern.keys():
+                            p2 = "accumulate-funds" + str(pattern["accumulate-funds"])
+                            pattern_string = pattern_string + p2
+                            patterns = patterns + "accumulate-funds"
+                        if "regular-interval-txs" in pattern.keys():
+                            p2 = "regular-interval-txs" + str(pattern["regular-interval-txs"])
+                            if pattern_string != "":
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",regular-interval-txs"
+                            else:
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "regular-interval-txs"
+                        if "dormant status" in pattern.keys():
+                            p2 = "dormant status[" + pattern["dormant status"] + "]"
+                            if pattern_string != "":
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",dormant status"
+                            else:
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "dormant status"
+                        if "large balance" in pattern.keys():
+                            p2 = "large balance[" + str(pattern["large balance"]) + "]"
+                            if pattern_string != "":
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",large balance"
+                            else:
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "large balance"
+                        if "high-value-tx" in pattern.keys():
+                            p2 = "high-value-tx" + str(pattern["high-value-tx"])
+                            if pattern_string != "":
+                                pattern_string = pattern_string + "|" + p2
+                                patterns = patterns + ",high-value-tx"
+                            else:
+                                pattern_string = pattern_string + p2
+                                patterns = patterns + "high-value-tx"
+                        if "Abnormal Relaying" in pattern.keys():
+                            if patterns != "":
+                                patterns = patterns + ",Abnormal Relaying"
+                            else:
+                                patterns = patterns + "Abnormal Relaying"
+                        if "Abnormal Mixing" in pattern.keys():
+                            if patterns != "":
+                                patterns = patterns + ",Abnormal Mixing"
+                            else:
+                                patterns = patterns + "Abnormal Mixing"
+                        if "Relaying and Mixing" in pattern.keys():
+                            if patterns != "":
+                                patterns = patterns + ",Relaying and Mixing"
+                            else:
+                                patterns = patterns + "Relaying and Mixing"
+                        if "Tumbling" in pattern.keys():
+                            if patterns != "":
+                                patterns = patterns + ",Tumbling"
+                            else:
+                                patterns = patterns + "Tumbling"
+                        # Now for funds
+                        if "excessive in-out tx" in tx_funds.keys():
+                            f2 = "excessive in-out tx[" + str(tx_funds["excessive in-out tx"]) + "]"
+                            funds_string = funds_string + f2
+                        if "single-recent-tx" in tx_funds.keys():
+                            f2 = "single-recent-tx" + str(tx_funds["single-recent-tx"])
+                            if funds_string != "":
+                                funds_string = funds_string + "|" + f2
+                                funds = funds + ",single-recent-tx"
+                            else:
+                                funds_string = funds_string + f2
+                                funds = funds + "single-recent-tx"
+                        if "miner-funds" in tx_funds.keys():
+                            f2 = "miner-funds" + str(tx_funds["miner-funds"])
+                            if funds_string != "":
+                                funds_string = funds_string + "|" + f2
+                                funds = funds + ",miner-funds"
+                            else:
+                                funds_string = funds_string + f2
+                                funds = funds + "miner-funds"
+                        if "swift-fund-movements" in tx_funds.keys():
+                            f2 = "swift-fund-movements" + str(tx_funds["swift-fund-movements"])
+                            if funds_string != "":
+                                funds_string = funds_string + "|" + f2
+                                funds = funds + ",swift-fund-movements"
+                            else:
+                                funds_string = funds_string + f2
+                                funds = funds + "swift-fund-movements"
+                        if "single in-out tx" in tx_funds.keys():
+                            f2 = "single in-out tx" + str(tx_funds["single in-out tx"])
+                            if funds_string != "":
+                                funds_string = funds_string + "|" + f2
+                                funds = funds + ",single in-out tx"
+                            else:
+                                funds_string = funds_string + f2
+                                funds = funds + "single in-out tx"
+                        # now links
+                        if "porn" in direct_links.keys():
+                            l2 = "porn" + str(direct_links["porn"])
+                            if links_string != "":
+                                links_string = links_string + "|" + l2
+                                links = links + ",porn"
+                            else:
+                                links_string = links_string + l2
+                                links = links + "porn"
+                        if "gambling" in direct_links.keys():
+                            l2 = "gambling" + str(direct_links["gambling"])
+                            if links_string != "":
+                                links_string = links_string + "|" + l2
+                                links = links + ",gambling"
+                            else:
+                                links_string = links_string + l2
+                                links = links + "gambling"
+                        # now activities
+                        if "malware" in activity.keys():
+                            a2 = "malware" + str(activity["malware"])
+                            if activity_string != "":
+                                activity_string = activity_string + "|" + a2
+                                activities = activities + ",malware"
+                            else:
+                                activity_string = activity_string + a2
+                                activities = activities + "malware"
+                        if "scam" in activity.keys():
+                            a2 = "scam" + str(activity["scam"])
+                            if activity_string != "":
+                                activity_string = activity_string + "|" + a2
+                                activities = activities + ",scam"
+                            else:
+                                activity_string = activity_string + a2
+                                activities = activities + "scam"
+                        if "phish" in activity.keys():
+                            a2 = "phish" + str(activity["phish"])
+                            if activity_string != "":
+                                activity_string = activity_string + "|" + a2
+                                activities = activities + ",phish"
+                            else:
+                                activity_string = activity_string + a2
+                                activities = activities + "phish"
+                        if "hack" in activity.keys():
+                            a2 = "hack" + str(activity["hack"])
+                            if activity_string != "":
+                                activity_string = activity_string + "|" + a2
+                                activities = activities + ",hack"
+                            else:
+                                activity_string = activity_string + a2
+                                activities = activities + "hack"
+                        if "darkweb" in activity.keys():
+                            a2 = "darkweb" + str(activity["darkweb"])
+                            if activity_string != "":
+                                activity_string = activity_string + "|" + a2
+                                activities = activities + ",darkweb"
+                            else:
+                                activity_string = activity_string + a2
+                                activities = activities + "darkweb"
+
                         data_dict = (dict_item["address"], dict_item["risk_score"], dict_item["analysis_start_time"],
                                      dict_item["analysis_end_time"], dict_item["total_amt"],
                                      dict_item["estimated_mal_amt"], dict_item["total_tx"],
-                                     dict_item["estimated_mal_tx"], dict_item["num_blacklisted_addr_contacted"], pat,
-                                     links, act, datetime.datetime.now(datetime.timezone.utc), error,
-                                     dict_item["ground_truth_label"], fun)
+                                     dict_item["estimated_mal_tx"],
+                                     len(dict_item["num_blacklisted_addr_contacted"]) - 2, patterns, links, activities,
+                                     datetime.datetime.now(datetime.timezone.utc), error,
+                                     dict_item["ground_truth_label"], funds,
+                                     str(dict_item["num_blacklisted_addr_contacted"]), pattern_string, activity_string,
+                                     links_string, funds_string)
                     for time2, user in zip(qtime, users):
                         TimeDiff = (ntime - time2).total_seconds()
                         print(TimeDiff / 60)
@@ -266,10 +420,12 @@ class Listener_Indicator:
                             update_error_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(1, user,
                                                                                                  dict_item["address"])
                             self.__trdb_api.update_query_format(update_error_query)
-                    print("Deleting report for address: ", dict_item["address"])
+
+                    # removing delete query call
+                    # print("Deleting report for address: ", dict_item["address"])
                     cara_report_delete_query = Constants.QUERIES['CARA_REPORT_DELETE_QUERY'].format(
                         dict_item["address"])
-                    self.__trdb_api.update_query_format(cara_report_delete_query)
+                    # self.__trdb_api.update_query_format(cara_report_delete_query)
                     print("Inserting report for address: ", dict_item["address"])
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     self.__trdb_api.insertdict_query(cara_report_insert_query, data_dict)
