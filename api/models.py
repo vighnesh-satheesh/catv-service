@@ -351,6 +351,8 @@ class CatvTokens(Enum):
     BTC = 'BTC'
     TRON = 'TRX'
     LTC = 'LTC'
+    BCH = 'BCH'
+    XRP = 'XRP'
 
 
 class CatvSearchType(Enum):
