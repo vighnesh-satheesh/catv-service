@@ -154,7 +154,7 @@ class Listener_Indicator:
             last_new_indicator_time = current_end_time
         else:
             new_indicator_info = [new_indicators[len(new_indicators) - 1]['id']]
-            last_new_indicator_time = datetime.datetime.fromtimestamp(new_indicators[len(new_indicators) - 1]['updated'])
+            last_new_indicator_time = datetime.datetime.fromtimestamp(int(new_indicators[len(new_indicators) - 1]['updated']))
             # new_indicators = self.convert_list_to_dict_with_validation_of_addresses(new_indicators)
             print("Last new indicator time:", last_new_indicator_time)
 
