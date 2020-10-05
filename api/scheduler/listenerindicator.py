@@ -101,10 +101,9 @@ class Listener_Indicator:
         print("end-time:", datetime.datetime.timestamp(current_end_time))
 
         # Query trdb for new indicators
-        query = "select id, pattern, updated, pattern_subtype from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC' or pattern_subtype = 'LTC') and updated > timestamp '" + str(
+        query = "select id, pattern, updated, pattern_subtype  from api_indicator where (pattern_subtype = 'ETH' or pattern_subtype = 'BTC' or pattern_subtype = 'LTC' or pattern_subtype = 'TRX') and updated > timestamp '" + str(
             current_start_time) + "' and updated <= timestamp '" + str(
             current_end_time) + "' order by updated asc limit 5"
-
         try:
             es_start_time = current_start_time.strftime('%Y-%m-%dT%H:%M:%S')
             es_end_time = current_end_time.strftime('%Y-%m-%dT%H:%M:%S')
@@ -155,7 +154,7 @@ class Listener_Indicator:
             last_new_indicator_time = current_end_time
         else:
             new_indicator_info = [new_indicators[len(new_indicators) - 1]['id']]
-            last_new_indicator_time = new_indicators[len(new_indicators) - 1]['updated']
+            last_new_indicator_time = datetime.datetime.fromtimestamp(int(new_indicators[len(new_indicators) - 1]['updated']))
             # new_indicators = self.convert_list_to_dict_with_validation_of_addresses(new_indicators)
             print("Last new indicator time:", last_new_indicator_time)
 
@@ -168,12 +167,14 @@ class Listener_Indicator:
             last_indicator_time = last_indicator_info[1]
             # new_indicator_info.append(current_end_time) if current_end_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
             new_indicator_info.append(
-                last_new_indicator_time) if str(last_new_indicator_time) < str(last_indicator_time) else new_indicator_info.append(
+                last_new_indicator_time) if str(last_new_indicator_time) < str(
+                last_indicator_time) else new_indicator_info.append(
                 last_indicator_time)
 
         return new_indicators, new_indicator_info
 
     def update_indicator_info(self, query, new_indicator_info):
+        print("New Info:", new_indicator_info)
         new_indicator_info = (AsIs(str(new_indicator_info[0])), AsIs("timestamp '" + str(new_indicator_info[1]) + "'"),
                               AsIs("timestamp '" + str(new_indicator_info[2]) + "'"),
                               AsIs("timestamp '" + str(new_indicator_info[3]) + "'"))
@@ -207,6 +208,8 @@ class Listener_Indicator:
                 data = [value for value in data.values()][0]
                 current_offset += len(data)
                 number_records += len(data)
+                print("Data: ", data)
+                print("Length: ", len(data))
                 for item in data:
                     str_timestamp = datetime.datetime.fromtimestamp(item.timestamp / 1000.0).strftime(
                         '%Y-%m-%d %H:%M:%S')
@@ -420,10 +423,11 @@ class Listener_Indicator:
                             self.__trdb_api.update_query_format(update_error_query)
 
                     # removing delete query call
+                    # print("Deleting report for address: ", dict_item["address"])
                     cara_report_delete_query = Constants.QUERIES['CARA_REPORT_DELETE_QUERY'].format(
                         dict_item["address"])
-                    #  self.__trdb_api.update_query_format(cara_report_delete_query)
-
+                    # self.__trdb_api.update_query_format(cara_report_delete_query)
+                    print("Inserting report for address: ", dict_item["address"])
                     cara_report_insert_query = Constants.QUERIES['INSERT_CARA_REPORT']
                     self.__trdb_api.insertdict_query(cara_report_insert_query, data_dict)
             if number_records >= max_records:

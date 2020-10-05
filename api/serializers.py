@@ -157,7 +157,7 @@ class LoginSerializer(serializers.Serializer):
         org_admin = models.Organization.objects.filter(
             administrator=user).annotate(is_admin=Value(True, BooleanField()))[:1]
         org_user = models.OrganizationUser.objects.filter(user=user).select_related('organization'). \
-                       annotate(is_admin=Value(False, BooleanField()))[:1]
+            annotate(is_admin=Value(False, BooleanField()))[:1]
         org_user = list(org_user)
         if org_admin:
             organization_id = str(org_admin[0].uid)
@@ -1070,10 +1070,6 @@ class RelatedCaseSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         return models.RelatedCase.objects.create(**validated_data)
 
-   # def get_uid(self, obj):
-
-
-
 
 class CaseSimpleListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus)
@@ -1217,7 +1213,8 @@ class CasePostSerializer(serializers.ModelSerializer):
         queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
-    related_case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), allow_null=True, required=False)
+    related_case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), allow_null=True,
+                                                      required=False)
 
     class Meta:
         model = models.Case
@@ -1477,7 +1474,6 @@ class CaseDetailSerializer(NonNullModelSerializer):
     created = serializers.SerializerMethodField()
     trdb = serializers.SerializerMethodField()
     related_case = serializers.SerializerMethodField()
-    #case = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
@@ -1590,13 +1586,6 @@ class CaseDetailSerializer(NonNullModelSerializer):
             }
         return None
 
-   # def get_related_cases(self, obj):
-   #     indicators = models.CaseIndicator.objects.filter(
-   #         case=obj).values('indicator')
-   #     related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk'). \
-   #         order_by('-pk')
-   #     rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
-   #     return rc_serialized.data
 
     def get_related_case(self, obj):
         if obj.related_case_id:
@@ -1607,12 +1596,12 @@ class CaseDetailSerializer(NonNullModelSerializer):
             if case:
                 ser.data['uid'] = case.uid
                 ser.data['title'] = case.title
-                new_dict = {'uid': case.uid, 'title': case.title, 'created': time.mktime(case.created.timetuple()), 'status': case.status.value}
+                new_dict = {'uid': case.uid, 'title': case.title, 'created': time.mktime(case.created.timetuple()),
+                            'status': case.status.value}
                 new_dict.update(ser.data)
                 return new_dict
         else:
             return {}
-
 
 
 
@@ -1729,10 +1718,11 @@ class CasePatchSerializer(NonNullModelSerializer):
                 ind_list = models.Indicator.objects.exclude(
                     pattern_type='filehash').filter(pattern=ind.pattern)
                 if ind_list.all().count() == 1:
-                    indicator_points = IndicatorPointsSerializer(
-                        data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
-                    indicator_points.is_valid(raise_exception=True)
-                    indicator_points.save()
+                    if instance.reporter:
+                        indicator_points = IndicatorPointsSerializer(
+                            data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
+                        indicator_points.is_valid(raise_exception=True)
+                        indicator_points.save()
                     i = i + 1
             if instance.reporter:
                 instance.reporter.points = int(instance.reporter.points or 0) + (10 * i)
@@ -1763,8 +1753,8 @@ class CasePatchSerializer(NonNullModelSerializer):
                     utils.TRDB_CLIENT.push_case("deactivateCase", data)
 
                 if validated_data["status"] == models.CaseStatus.RELEASED or \
-                        (instance.status == models.CaseStatus.RELEASED and
-                         validated_data["status"] == models.CaseStatus.REJECTED):
+                    (instance.status == models.CaseStatus.RELEASED and
+                     validated_data["status"] == models.CaseStatus.REJECTED):
                     c = UppwardCache()
                     indicators = instance.indicators.all()
                     for indicator in indicators:
@@ -2452,7 +2442,7 @@ class InvitationSerializer(serializers.Serializer):
                 raise exceptions.AuthenticationCheckError()
 
             org = models.Organization.objects.get(uid=uid, administrator=user)
-            already_invited = models.OrganizationInvites.objects. \
+            already_invited = models.OrganizationInvites.objects.\
                 filter(email=data['email'], organization=org, status=models.OrganizationInviteStatus.EMAIL_SENT).count()
 
             if already_invited:

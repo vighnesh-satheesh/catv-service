@@ -1686,6 +1686,7 @@ class UserDetailView(APIView):
             traceback.print_exc()
             raise exceptions.ValidationError("invalid data")
 
+
 class IcfView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsAuthenticated, permissions.APIKeyPermission,)
@@ -2240,25 +2241,16 @@ class ValidateAddress(APIView):
     model = RewardSetting
 
     def get(self, request, pk=None, pattern=None):
-
-        settings_obj = self.model.objects.filter(id=1)
-        serializer = RewardSettingSerializer(
-            settings_obj, context={"request": request}, many=True)
-        data = serializer.data
         try:
-            print('before connect')
-            web3 = Web3(Web3.HTTPProvider(settings.REWARDS_URL))
-            print('connected:', web3.isConnected())
-            #token_address = web3.toChecksumAddress(data[0].get('token_address'))
-            # token_address = web3.toChecksumAddress(data[0].get('token_address'))
+            settings_obj = self.model.objects.filter(id=1)
+            serializer = RewardSettingSerializer(settings_obj, context={"request": request}, many=True)
+            data = serializer.data
+            token_address = w3.toChecksumAddress(data[0].get('token_address'))
             abi = data[0].get('token_abi')
             token_abi = json.loads(abi)
-            token = web3.eth.contract(web3.toChecksumAddress(settings.TOKEN_ADDRESS), abi=token_abi)
-            print('token:', token)
-            print('before bal')
-            bal = token.call().balanceOf(web3.toChecksumAddress(self.request.GET.get('address')))
-            print(bal)
-            print('after bal')
+            token = w3.eth.contract(w3.toChecksumAddress(token_address), abi=token_abi)
+            address = w3.toChecksumAddress(self.request.GET.get('address'))
+            bal = token.call().balanceOf(address)
             if (bal >= (data[0].get('min_token') * 1000000000000000000)):
                 return APIResponse({
                     "data": "success"
@@ -2270,10 +2262,10 @@ class ValidateAddress(APIView):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            #print(e.__str__())
             return APIResponse({
                 "data": "error"
             })
+
 
 
 class SwapData(APIView):
@@ -2304,10 +2296,9 @@ class ExchangeTokenView(APIView):
         print("Connected:", web3.isConnected())
         address = '0xf5c12631E452495149B5F8f0d9718C0211835DC1'
 
-        abi = json.loads("[{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"approvalList\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"getApprovalList\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"internalType\":\"struct SwapContract.Approval[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"giveApproval\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"}]")
+        abi =json.loads("[{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"approvalList\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"getApprovalList\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"internalType\":\"struct SwapContract.Approval[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"giveApproval\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"}]")
         contract = web3.eth.contract(address=address, abi=abi)
-        print("test", contract.functions.swap(
-            '0xda9ae949FefC0136bD1e584fa156b9Dd3379eF56', 1000).call())
+        print("test", contract.functions.swap('0xda9ae949FefC0136bD1e584fa156b9Dd3379eF56', 1000).call())
         print("test2", contract.functions.getApprovalList().call()[0])
 
         return APIResponse({
@@ -2316,11 +2307,9 @@ class ExchangeTokenView(APIView):
 
     def post(self, request):
         data = request.data
-        dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL',
-                     datetime.datetime.now(datetime.timezone.utc), data['upp'])
+        dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL', datetime.datetime.now(datetime.timezone.utc), data['upp'])
         insert_swap_history_query = Constants.QUERIES['INSERT_SWAP_HISTORY_QUERY']
-        update_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY'].format(
-            data['sp_amount'], data['user_id'])
+        update_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY'].format(data['sp_amount'], data['user_id'])
         try:
             with connection.cursor() as cursor:
                 cursor.execute(insert_swap_history_query, dataQuery)
@@ -2339,7 +2328,6 @@ class ExchangeTokenView(APIView):
                                   attachment=None,
                                   sender=e.EMAIL_SENDER["NO-REPLY"],
                                   recipient=[user.email])
-
             return APIResponse({
                 "resp": "success"
             })
@@ -2467,7 +2455,7 @@ class CARAHistory(generics.ListAPIView):
                     risk_score = [x[2] for x in add_report]
                     ground_truth = [x[3] for x in add_report]
                     id = [x[4] for x in add_report]
-                    report_time =[x[5] for x in add_report]
+                    report_time = [x[5] for x in add_report]
                     reports.extend(list(report))
                     errors.extend(list(error))
                     risk_scores.extend(list(risk_score))
@@ -2475,25 +2463,25 @@ class CARAHistory(generics.ListAPIView):
                     ids.extend(list(id))
                     addr_list.extend(list(add))
                     report_times.extend(list(report_time))
-            if not add_report:
-                report_query = Constants.QUERIES['CARA_REPORT_ORPHAN'].format(add, t)
-                with connections['readonly'].cursor() as new_cursor:
-                    new_cursor.execute(report_query)
-                    add_report = new_cursor.fetchmany(1)
-                    if add_report is not None:
-                        report = [x[0] for x in add_report]
-                        error = [x[1] for x in add_report]
-                        risk_score = [x[2] for x in add_report]
-                        ground_truth = [x[3] for x in add_report]
-                        id = [x[4] for x in add_report]
-                        report_time = [x[5] for x in add_report]
-                        reports.extend(list(report))
-                        errors.extend(list(error))
-                        risk_scores.extend(list(risk_score))
-                        ground_truths.extend(list(ground_truth))
-                        ids.extend(list(id))
-                        addr_list.extend(list(add))
-                        report_times.extend(list(report_time))
+                if not add_report:
+                    report_query = Constants.QUERIES['CARA_REPORT_ORPHAN'].format(add, t)
+                    with connections['readonly'].cursor() as new_cursor:
+                        new_cursor.execute(report_query)
+                        add_report = new_cursor.fetchmany(1)
+                        if add_report is not None:
+                            report = [x[0] for x in add_report]
+                            error = [x[1] for x in add_report]
+                            risk_score = [x[2] for x in add_report]
+                            ground_truth = [x[3] for x in add_report]
+                            id = [x[4] for x in add_report]
+                            report_time = [x[5] for x in add_report]
+                            reports.extend(list(report))
+                            errors.extend(list(error))
+                            risk_scores.extend(list(risk_score))
+                            ground_truths.extend(list(ground_truth))
+                            ids.extend(list(id))
+                            addr_list.extend(list(add))
+                            report_times.extend(list(report_time))
         data = {'history': search,
                 'time': time,
                 'blockchain': blockchain,
@@ -2664,6 +2652,28 @@ class OrganizationDetailView(APIView):
             }
         })
 
+    def patch(self, request, uid):
+        organization = self.get_object(uid)
+        orguser_serializer = OrganizationUserPostSerializer(data=request.data, context={"request": request})
+        orguser_serializer.is_valid(raise_exception=True)
+        validated_data = orguser_serializer.data
+        if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user)
+            orguser.status =  validated_data['status']
+            orguser.save()
+        elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user,
+                                                   status=OrganizationUserStatus.PENDING.value)
+            orguser.status = OrganizationUserStatus.ACTIVE.value
+            orguser.save()
+        return APIResponse({
+            "data": {
+                "uid": organization.uid
+            }
+        })
+
     def delete(self, request, uid=None):
         organization = self.get_object(uid)
         current_user = request.user
@@ -2753,10 +2763,9 @@ class InvitationView(APIView):
                                         target={
                                             "uid": str(org.uid),
                                             "title": "has added you to the organization {}, please review and accept "
-                                                     "the invitation".format(
-                                                         org.name),
+                                                     "the invitation".format(org.name),
                                             "type": "organization"
-            })
+                                        })
         return APIResponse({
             "data": "Successfully invited"
         })

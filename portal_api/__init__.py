@@ -100,7 +100,7 @@ class AppInit:
             'prdportal.sentinelportal.com',
             'prdportal.prdsentinelportal.com',
             'stgsearch.sentinelprotocol.io',
-            'search.sentinelprotocol.io',            
+            'search.sentinelprotocol.io',
             'search.stgsentinelportal.com',
             'search.prdsentinelportal.com'
         ])

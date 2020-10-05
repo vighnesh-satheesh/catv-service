@@ -243,3 +243,4 @@ class ProxyPasswordAuthentication(APIView):
         return APIResponse({
             "data": data
         })
+
