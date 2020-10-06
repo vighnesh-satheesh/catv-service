@@ -123,6 +123,14 @@ class IndicatorDocumentView(BaseDocumentViewSet):
                 LOOKUP_QUERY_GTE,
                 LOOKUP_QUERY_LTE
             ]
+        },
+        'id': {
+            'field': 'id',
+            'lookups': [
+                LOOKUP_FILTER_RANGE,
+                LOOKUP_QUERY_GTE,
+                LOOKUP_QUERY_LTE
+            ]
         }
     }
     ordering_fields = {
