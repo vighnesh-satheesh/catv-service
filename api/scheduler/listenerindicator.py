@@ -112,7 +112,7 @@ class Listener_Indicator:
             }
             es_serializer_req = requests.Request('GET',
                                                  url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?pattern_subtype__in=ETH__BTC__TRX__LTC'
-                                                 f'&updated__gte={es_start_time}&updated__lte={es_end_time}&ordering=updated',
+                                                 f'&updated__gte={es_start_time}&updated__lte={es_end_time}&id__gte={current_start_id}&ordering=updated',
                                                  headers=headers)
             async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
             result = async_req_caller.execute_request_pool()
