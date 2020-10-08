@@ -1314,6 +1314,7 @@ class CatvRequestStatus(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+    labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
 
     class Meta:
         db_table = 'api_catv_request_status'
@@ -1424,3 +1425,16 @@ class RoleInfo(models.Model):
     org_access = models.BooleanField(default=False)
     role = models.ForeignKey(
         Role, null=False, blank=False, on_delete=models.CASCADE, related_name='info_role')
+
+
+class CaraSearchHistory(models.Model):
+    id = models.UUIDField(primary_key=True)
+    address = models.CharField(max_length=200)
+    query_time = models.DateTimeField()
+    error_generated = models.IntegerField(blank=True, null=True)
+    blockchain = models.CharField(max_length=10, blank=True, null=True)
+    labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
+
+    class Meta:
+        db_table = 'cara_search_history'
+        managed = False

@@ -41,7 +41,7 @@ from .models import (
     CatvSearchType, CatvRequestStatus, CatvTaskStatusType,
     UserIndicator, IndicatorPoint, CatvResult,
     Role, RoleUsageLimit, UserRoles,
-    UserUpgrade, UpgradeVerifyStatus
+    UserUpgrade, UpgradeVerifyStatus, CaraSearchHistory
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -3003,3 +3003,40 @@ class UserUpgradeView(APIView):
             if isinstance(e, exceptions.NotAllowedError):
                 raise e
             raise exceptions.ValidationError(detail="Something went wrong while validating transaction")
+
+
+class CATVRequestDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, request, pk):
+        try:
+            obj = CatvRequestStatus.objects.get(uid=pk)
+            if obj.user != request.user:
+                raise exceptions.NotAllowedError(detail="You are only allowed to add labels to your requests")
+            return obj
+        except CatvRequestStatus.DoesNotExist:
+            raise exceptions.FileNotFound(detail="No matching request exists")
+
+    def get(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        serializer = CATVRequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })
+
+    def patch(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        new_labels = request.data.get('labels', [])
+        obj.labels = new_labels
+        obj.save()
+        serializer = CATVRequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })

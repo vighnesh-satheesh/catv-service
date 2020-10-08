@@ -2601,13 +2601,14 @@ class CATVRequestListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CatvTaskStatusType)
     created = serializers.SerializerMethodField()
     token_address = serializers.SerializerMethodField()
+    labels = serializers.ListField(child=serializers.CharField(), required=False, read_only=True)
 
     class Meta:
         model = models.CatvRequestStatus
         fields = ("id", "uid", "created", "status", "wallet_address",
-                  "address_type", "date_range", "depth", "token_address")
+                  "address_type", "date_range", "depth", "token_address", "labels")
         read_only_fields = ("id", "uid", "created", "status", "wallet_address",
-                            "address_type", "date_range", "depth", "token_address")
+                            "address_type", "date_range", "depth", "token_address", "labels")
         
     def get_wallet_address(self, obj):
         if obj.params:
