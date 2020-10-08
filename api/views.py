@@ -2374,8 +2374,14 @@ class CARAHistory(generics.ListAPIView):
     def get(self, request):
         user = self.request.GET.get('user')
         page = self.request.GET.get('page', 1)
+        selected = self.request.GET.get('selected')
         page = int(page)
-        history_query = Constants.QUERIES['CARA_HISTORY_USER'].format(user)
+        if selected == 'Failed':
+            history_query = Constants.QUERIES['CARA_HISTORY_FAILED_USER'].format(user)
+        elif selected == 'Released':
+            history_query = Constants.QUERIES['CARA_HISTORY_RELEASED_USER'].format(user)
+        else:
+            history_query = Constants.QUERIES['CARA_HISTORY_USER'].format(user)
         error_count_query = Constants.QUERIES['CARA_ERROR_COUNT'].format(user)
         with connection.cursor() as cursor:
             cursor.execute(history_query)

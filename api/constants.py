@@ -81,6 +81,16 @@ class Constants:
         "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history(id, address, query_time, blockchain) VALUES(%s,%s,%s,%s);",
         "DELETE_ADDRESS_FROM_HISTORY": "DELETE from cara_search_history where address='{0}' and id='{1}'",
         "CARA_HISTORY_USER": "SELECT address, query_time, blockchain from cara_search_history where id = '{0}' order by query_time desc",
+        "CARA_HISTORY_FAILED_USER": "select cs.address,cs.query_time,cs.blockchain from cara_search_history cs where cs.id='56a8b9ef-21f7-4d24-90a6-821ea17db06d' and address in" 
+                                   "(select cr.address from cara_report cr "
+                                   "where cr.report_generated_time > cs.query_time and cr.error!=''"
+                                   "order by cr.report_generated_time)" 
+                                   "order by cs.query_time desc",
+        "CARA_HISTORY_RELEASED_USER": "select cs.address,cs.query_time,cs.blockchain from cara_search_history cs where cs.id='56a8b9ef-21f7-4d24-90a6-821ea17db06d' and address in"
+                                    "(select cr.address from cara_report cr "
+                                    "where cr.report_generated_time > cs.query_time and cr.error=''"
+                                    "order by cr.report_generated_time)"
+                                    "order by cs.query_time desc",
         "SWAP_HISTORY_USER": "SELECT req_time, status, sp_amount, upp from api_exchange_token where user_id = '{0}' and req_time >= '{1}' and req_time <= '{2}'",
         "CARA_ERROR_USER": "SELECT id, query_time from cara_search_history where address = '{0}'",
         "UPDATE_ERROR_REPORT": "UPDATE cara_search_history set error_generated='{0}' where id='{1}' and address='{2}'",
