@@ -108,12 +108,14 @@ class Listener_Indicator:
         try:
             es_start_time = current_start_time.strftime('%Y-%m-%dT%H:%M:%S')
             es_end_time = current_end_time.strftime('%Y-%m-%dT%H:%M:%S')
+            print("es-start:", es_start_time)
+            print("es-end:", es_end_time)
             headers = {
                 'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
             }
             es_serializer_req = requests.Request('GET',
                                                  url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?pattern_subtype__in=ETH__BTC__TRX__LTC'
-                                                 f'&updated__gte={es_start_time}&updated__lte={es_end_time}&id__gte={current_start_id}&ordering=updated',
+                                                 f'&updated__gte={es_start_time}&updated__lte={es_end_time}&id__gt={current_start_id}&ordering=updated',
                                                  headers=headers)
             async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
             result = async_req_caller.execute_request_pool()
@@ -147,6 +149,7 @@ class Listener_Indicator:
             return new_indicators, new_indicator_info
 
         last_indicator_info = list(last_indicator_info[0]) if len(last_indicator_info) == 1 else None
+        print("Last indicator info:", last_indicator_info)
 
         # No new indicators in the new time frame
         if len(new_indicators) == 0:
@@ -166,6 +169,8 @@ class Listener_Indicator:
                                   current_start_time]  # Since there is an error, we should not be incrementing the time
         else:
             last_indicator_time = last_indicator_info[1]
+            print("Last new indicator time:", last_new_indicator_time)
+            print("Last indicator time:", last_indicator_time)
             # new_indicator_info.append(current_end_time) if current_end_time < last_indicator_time else new_indicator_info.append(last_indicator_time)
             new_indicator_info.append(
                 last_new_indicator_time) if str(last_new_indicator_time) < str(last_indicator_time) else new_indicator_info.append(
