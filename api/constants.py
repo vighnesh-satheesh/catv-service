@@ -94,7 +94,8 @@ class Constants:
                                     "WHERE date_created > '{0}';",
         "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history(id, address, query_time, blockchain) VALUES(%s,%s,%s,%s);",
         "DELETE_ADDRESS_FROM_HISTORY": "DELETE from cara_search_history where address='{0}' and id='{1}'",
-        "CARA_HISTORY_USER": "SELECT address, query_time, blockchain from cara_search_history where id = '{0}' order by query_time desc",
+        "CARA_HISTORY_USER": "SELECT address, query_time, blockchain, labels, request_id from cara_search_history "
+                             "where id = '{0}' order by query_time desc",
         "SWAP_HISTORY_USER": "SELECT req_time, status, sp_amount, upp from api_exchange_token where user_id = '{0}' and req_time >= '{1}' and req_time <= '{2}'",
         "CARA_ERROR_USER": "SELECT id, query_time from cara_search_history where address = '{0}'",
         "UPDATE_ERROR_REPORT": "UPDATE cara_search_history set error_generated='{0}' where id='{1}' and address='{2}'",
