@@ -2593,6 +2593,7 @@ class UserIndicatorSerializer(NonNullModelSerializer):
         read_only_fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
                   "pattern_type", "security_tags", "created", "points", "status")
 
+
 class CATVRequestListSerializer(NonNullModelSerializer):
     wallet_address = serializers.SerializerMethodField()
     address_type = serializers.SerializerMethodField()
@@ -2651,3 +2652,21 @@ class CATVRequestListSerializer(NonNullModelSerializer):
         if obj.params:
             return obj.params.get("token_address", "")
         return ""
+
+
+class CARARequestListSerializer(NonNullModelSerializer):
+    request_id = serializers.IntegerField()
+    id = serializers.UUIDField()
+    address = serializers.CharField(max_length=200)
+    query_time = serializers.DateTimeField()
+    error_generated = serializers.IntegerField()
+    blockchain = serializers.SerializerMethodField()
+    labels = serializers.ListField(child=serializers.CharField(max_length=100), default=[])
+
+    class Meta:
+        model = models.CaraSearchHistory
+        fields = '__all__'
+        read_only_fields = ("request_id", "id", "address", "query_time", "error_generated", "blockchain", "labels",)
+
+    def get_blockchain(self, obj):
+        return obj.blockchain or models.IndicatorPatternSubtype.ETH.value

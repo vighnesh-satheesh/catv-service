@@ -106,6 +106,8 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^upgrade/?$', views.UserUpgradeView.as_view(), name='upgrade-plans'),
         url(r'^catv_requests/(?P<pk>[0-9a-z\-]+)/?$', views.CATVRequestDetailView.as_view(),
             name='catv-request-detail'),
+        url(r'^carahistory/(?P<pk>[0-9]+)/?$', views.CARARequestDetailView.as_view(),
+            name='cara-request-detail'),
 
     ]
 
