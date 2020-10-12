@@ -275,7 +275,7 @@ def assign_edges_btc(result, mode, node_enum):
     return edge_dict
 
 
-def assign_nodes(result, mode):
+def assign_nodes(result, mode, token_type='ETH'):
     # mode = 1: distribution
     # mode = -1: source
     nc = NodesCollection()
@@ -314,7 +314,7 @@ def assign_nodes(result, mode):
             amount_in=abs(item.get(outer + '_amount_in', 0)),
             amount_out=abs(item.get(outer + '_amount_out', 0)),
         )
-        if mode == -1:
+        if mode == -1 and token_type.upper() != 'ETH':
             temp_node.level += 1
         nc.add_node(temp_node)
         try:
@@ -496,10 +496,13 @@ def generate_nodes_edges(result, mode, build_lossy_graph, token_type='ETH'):
     keys = list(result[0].keys())
     if token_type.upper() == 'XRP':
         add_missing_keys(result, mode)
-    nc, volume_count = assign_nodes(result, mode)
+    nc, volume_count = assign_nodes(result, mode, token_type)
     edge_dict = assign_edges(result, mode, nc.get_node_enum())
     if mode == -1:
-        reverse_source_depth(result)
+        if token_type.upper() == 'ETH':
+            depth_shift_for_source(result)
+        else:
+            reverse_source_depth(result)
     tx_count = len(result)
     limited_edges = {}
     limited_nodes = []
