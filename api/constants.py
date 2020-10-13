@@ -94,13 +94,14 @@ class Constants:
                                     "WHERE date_created > '{0}';",
         "INSERT_CARA_HISTORY": "INSERT INTO cara_search_history(id, address, query_time, blockchain) VALUES(%s,%s,%s,%s);",
         "DELETE_ADDRESS_FROM_HISTORY": "DELETE from cara_search_history where address='{0}' and id='{1}'",
-        "CARA_HISTORY_USER": "SELECT address, query_time, blockchain from cara_search_history where id = '{0}' order by query_time desc",
-        "CARA_HISTORY_FAILED_USER": "select cs.address,cs.query_time,cs.blockchain from cara_search_history cs where cs.id='{0}' and address in" 
+        "CARA_HISTORY_USER": "SELECT address, query_time, blockchain, labels, request_id from cara_search_history "
+                             "where id = '{0}' order by query_time desc",
+        "CARA_HISTORY_FAILED_USER": "select cs.address,cs.query_time,cs.blockchain, labels, request_id from cara_search_history cs where cs.id='{0}' and address in" 
                                    "(select cr.address from cara_report cr "
                                    "where cr.report_generated_time > cs.query_time and cr.error!=''"
                                    "order by cr.report_generated_time)" 
                                    "order by cs.query_time desc",
-        "CARA_HISTORY_RELEASED_USER": "select cs.address,cs.query_time,cs.blockchain from cara_search_history cs where cs.id='{0}' and address in"
+        "CARA_HISTORY_RELEASED_USER": "select cs.address,cs.query_time,cs.blockchain, labels, request_id from cara_search_history cs where cs.id='{0}' and address in"
                                     "(select cr.address from cara_report cr "
                                     "where cr.report_generated_time > cs.query_time and cr.error=''"
                                     "order by cr.report_generated_time)"
