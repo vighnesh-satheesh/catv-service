@@ -242,7 +242,6 @@ class IndicatorPatternSubtype(Enum):
 
     # other
     OTHER = 'other'
-    PHONE = 'phone'
 
     @classmethod
     def cryptoaddr_subtypes(cls):
@@ -351,6 +350,8 @@ class CatvTokens(Enum):
     BTC = 'BTC'
     TRON = 'TRX'
     LTC = 'LTC'
+    BCH = 'BCH'
+    XRP = 'XRP'
 
 
 class CatvSearchType(Enum):
@@ -592,6 +593,9 @@ class User(models.Model):
     def status_indexing(self):
         if self.status is not None:
             return self.status.value
+    
+    def __str__(self):
+        return self.email
 
 
 class RoleUsageLimit(models.Model):
@@ -601,6 +605,10 @@ class RoleUsageLimit(models.Model):
     catv_limit = models.IntegerField(null=True, default=5)
     cara_limit = models.IntegerField(null=True, default=5)
     org_invite_limit = models.IntegerField(null=True, default=0)
+    max_api_keys = models.IntegerField(null=True, default=1)
+    api_limit_y = models.IntegerField(null=False, default=5)
+    catv_limit_y = models.IntegerField(null=False, default=5)
+    cara_limit_y = models.IntegerField(null=False, default=5)
 
     class Meta:
         db_table = 'api_role_usage_limit'
@@ -1096,7 +1104,14 @@ class Usage(models.Model):
     api_calls_left = models.IntegerField(default=0)
     catv_calls_left = models.IntegerField(default=0)
     cara_calls_left = models.IntegerField(default=0)
+    api_calls_left_y = models.IntegerField(default=0)
+    catv_calls_left_y = models.IntegerField(default=0)
+    cara_calls_left_y = models.IntegerField(default=0)
+    api_calls = models.IntegerField(default=0)
+    catv_calls = models.IntegerField(default=0)
+    cara_calls = models.IntegerField(default=0)
     last_renewal_at = models.DateTimeField(null=True)
+    last_renewal_at_y = models.DateTimeField(null=True)
 
     class Meta:
         indexes = [
@@ -1133,6 +1148,16 @@ class Organization(models.Model):
         indexes = [
             models.Index(fields=['administrator', ]),
         ]
+    
+    def __str__(self):
+        return self.name
+    
+    def delete(self, *args, **kwargs):
+        self.users.update(
+            role=Role.objects.get(role_name=UserRoles.COMMUNITY.value),
+            permission=UserPermission.USER.value
+        )
+        super().delete(*args, **kwargs)
 
     @property
     def pending_invites(self):
@@ -1145,6 +1170,24 @@ class OrganizationUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     status = EnumField(OrganizationUserStatus, max_length=50)
+    
+    def __str__(self):
+        return self.user.email
+    
+    def save(self, *args, **kwargs):
+        if not self.pk and self.status == OrganizationUserStatus.ACTIVE:
+            User.objects.filter(id=self.user.id).update(
+                role=self.organization.administrator.role,
+                permission=self.organization.administrator.permission
+            )
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        User.objects.filter(id=self.user.id).update(
+            role=Role.objects.get(role_name=UserRoles.COMMUNITY.value),
+            permission=UserPermission.USER.value
+        )
+        super().delete(*args, **kwargs)
 
 
 class OrganizationInvites(models.Model):
@@ -1271,6 +1314,7 @@ class CatvRequestStatus(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
+    labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
 
     class Meta:
         db_table = 'api_catv_request_status'
@@ -1381,3 +1425,17 @@ class RoleInfo(models.Model):
     org_access = models.BooleanField(default=False)
     role = models.ForeignKey(
         Role, null=False, blank=False, on_delete=models.CASCADE, related_name='info_role')
+
+
+class CaraSearchHistory(models.Model):
+    id = models.UUIDField(primary_key=False)
+    address = models.CharField(max_length=200)
+    query_time = models.DateTimeField()
+    error_generated = models.IntegerField(blank=True, null=True)
+    blockchain = models.CharField(max_length=10, blank=True, null=True)
+    labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
+    request_id = models.AutoField(primary_key=True)
+
+    class Meta:
+        db_table = 'cara_search_history'
+        managed = False

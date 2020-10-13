@@ -177,11 +177,11 @@ def create_edge(id, tx, node_enum):
     edge = {
         'id': id,
         'arrows': 'to',
-        'sum': tx['amount'],
+        'sum': abs(tx['amount']),
         'from': node_enum[tx['sender']],
         'to': node_enum[tx['receiver']],
         'data': [{
-            'amount': tx['amount'],
+            'amount': abs(tx['amount']),
             'tx_hash': tx['tx_hash'],
             'depth': tx['depth'],
             'tx_time': '{} {}'.format(tx['tx_time'].split("T")[0], tx['tx_time'].split("T")[1][:5]) if len(tx['tx_time'].split("T")) > 1 else tx['tx_time']
@@ -218,12 +218,12 @@ def assign_edges(result, mode, node_enum):
     for item in result:
         try:
             edge_dict[(item['sender'], item['receiver'])]['data'].append({
-                'amount': item['amount'],
+                'amount': abs(item['amount']),
                 'tx_hash': item['tx_hash'],
                 'depth': item['depth'],
                 'tx_time': '{} {}'.format(item['tx_time'].split("T")[0], item['tx_time'].split("T")[1][:5]) if len(item['tx_time'].split("T")) > 1 else item['tx_time']
             })
-            edge_dict[(item['sender'], item['receiver'])]['sum'] += item['amount']
+            edge_dict[(item['sender'], item['receiver'])]['sum'] += abs(item['amount'])
             if 'depth' not in edge_dict[(item['sender'], item['receiver'])]:
                 edge_dict[(item['sender'], item['receiver'])]['depth'] = item['depth']
         except KeyError:
@@ -275,7 +275,7 @@ def assign_edges_btc(result, mode, node_enum):
     return edge_dict
 
 
-def assign_nodes(result, mode):
+def assign_nodes(result, mode, token_type='ETH'):
     # mode = 1: distribution
     # mode = -1: source
     nc = NodesCollection()
@@ -310,11 +310,11 @@ def assign_nodes(result, mode):
             annotation=item.get(outer + '_annotation', ''),
             type=item.get(outer + '_type', 'Wallet'),
             depth=item_depth,
-            balance=item.get(outer + '_balance', 0),
-            amount_in=item.get(outer + '_amount_in', 0),
-            amount_out=item.get(outer + '_amount_out', 0),
+            balance=abs(item.get(outer + '_balance', 0)),
+            amount_in=abs(item.get(outer + '_amount_in', 0)),
+            amount_out=abs(item.get(outer + '_amount_out', 0)),
         )
-        if mode == -1:
+        if mode == -1 and token_type.upper() != 'ETH':
             temp_node.level += 1
         nc.add_node(temp_node)
         try:
@@ -487,13 +487,22 @@ def reverse_source_depth(result):
     for item_dict in result:
         item_dict.update((k, int(v) * -1) for k, v in item_dict.items() if k == "depth")
 
+def add_missing_keys(result, mode):
+    prefix_missing = 'sent_' if mode == 1 else 'received_'
+    for item_dict in result:
+        item_dict["amount"] = item_dict[f"{prefix_missing}amount"]
 
-def generate_nodes_edges(result, mode, build_lossy_graph):
+def generate_nodes_edges(result, mode, build_lossy_graph, token_type='ETH'):
     keys = list(result[0].keys())
-    nc, volume_count = assign_nodes(result, mode)
+    if token_type.upper() == 'XRP':
+        add_missing_keys(result, mode)
+    nc, volume_count = assign_nodes(result, mode, token_type)
     edge_dict = assign_edges(result, mode, nc.get_node_enum())
     if mode == -1:
-        reverse_source_depth(result)
+        if token_type.upper() == 'ETH':
+            depth_shift_for_source(result)
+        else:
+            reverse_source_depth(result)
     tx_count = len(result)
     limited_edges = {}
     limited_nodes = []

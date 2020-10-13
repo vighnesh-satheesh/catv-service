@@ -10,7 +10,10 @@ from django.db.models import Q
 from requests import Request
 
 from .exceptions import CaseFilterError
-from .models import UserPermission, User
+from .models import (
+    UserPermission, User, Organization,
+    OrganizationUser, OrganizationUserStatus
+)
 from .settings import api_settings
 from .utils import build_query_string_filter, AsyncAPICaller
 
@@ -51,6 +54,34 @@ class CaseSearchES:
                 case_filter &= (Q(status__in=["released", "confirmed"]))
         elif cate == "my":
             case_filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
+        elif cate == 'org':
+            user_list = []
+            org_admin = Organization.objects.filter(
+                administrator=self.request.user.pk).values_list('id', flat=True)
+            member_orgs = OrganizationUser.objects.filter(
+                user=self.request.user.pk, status=OrganizationUserStatus.ACTIVE).values_list('organization_id', flat=True)
+            if org_admin:
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__in=org_admin, status=OrganizationUserStatus.ACTIVE).\
+                        values_list('user_id', flat=True)
+                )
+                user_list.append(self.request.user.pk)
+            elif member_orgs:
+                user_list.extend(
+                    Organization.objects.filter(pk__in=member_orgs).\
+                        values_list('administrator', flat=True)
+                )
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__administrator__in=user_list).\
+                        values_list('user_id', flat=True)
+                )
+            if user_list:
+                for user in user_list:
+                    case_filter &= Q(owner__in=user)
+                    case_filter &= Q(reporter__in=user)
+            else:
+                case_filter &= Q(owner__in=self.request.user.pk)
+                case_filter &= Q(reporter__in=self.request.user.pk)
         return case_filter
     
     def __get_es_results(self, query_list, order_key, page):

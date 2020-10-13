@@ -26,6 +26,7 @@ class CaseDocumentSerializer(serializers.Serializer):
     reporter = serializers.SerializerMethodField()
     owned_by = serializers.SerializerMethodField()
     indicators = serializers.SerializerMethodField()
+    detail = serializers.CharField()
 
     class Meta(object):
 
@@ -39,7 +40,8 @@ class CaseDocumentSerializer(serializers.Serializer):
             'status',
             'reporter',
             'owned_by',
-            'indicators'
+            'indicators',
+            'detail'
         )
 
     def get_uid(self, obj):

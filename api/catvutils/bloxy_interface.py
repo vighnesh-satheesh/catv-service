@@ -23,20 +23,31 @@ class BloxyAPIInterface:
     def get_transactions(self, address, tx_limit, limit, depth_limit=2, from_time=datetime(2015, 1, 1, 0, 0), till_time=datetime.now(),
                          token_address=None, source=True, chain='ETH'):
         if source:
-            api_url = self._source_endpoint
+            api_url = settings.BLOXY_ETH_SRC_ENDPOINT if chain == 'ETH' else self._source_endpoint
             depth = depth_limit
         else:
-            api_url = self._distribution_endpoint
+            api_url = settings.BLOXY_ETH_DIST_ENDPOINT if chain == 'ETH' else self._distribution_endpoint
             depth = depth_limit
         
+        updated_chain_map = {
+            'trx': 'tron',
+            'xrp': 'ripple'
+        }
+        
         updated_chain = chain.lower()
-        if updated_chain == 'trx':
-            updated_chain = 'tron'
+        if updated_chain in updated_chain_map.keys():
+            updated_chain = updated_chain_map[updated_chain]
+        
+        if updated_chain == 'ripple':
+            api_url = api_url.replace('coinpath', 'ripple:sentinel')
 
         payload = {'key': self._key, 'address': address, 'depth_limit': depth,
-                   'from_time': from_time, 'till_time': till_time, 'snapshot_time': from_time if source else till_time,
+                   'from_date': from_time, 'till_date': till_time, 'snapshot_time': from_time if source else till_time,
                    'limit_address_tx_count': tx_limit, 'limit': limit, 'chain': updated_chain}
         if token_address:
-            payload['token'] = token_address
+            if chain == 'ETH':
+                payload['token_address'] = token_address
+            else:
+                payload['token'] = token_address
         r = self.call_bloxy_api(api_url, payload)
         return r

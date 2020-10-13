@@ -33,6 +33,8 @@ if settings.EXPOSE_INTERNAL_API:
             name='internal-catv'),
         url(r'^internal/proxy_token/?$',
             views_internal.ProxyAuthentication.as_view(), name='proxy-api-token'),
+        url(r'^internal/proxy_auth/?$', 
+            views_internal.ProxyPasswordAuthentication.as_view(), name='proxy-pwd-auth')
     ]
 
 if settings.EXPOSE_GENERAL_API:
@@ -102,6 +104,10 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^catv_requests/?$', views.CATVRequestsView.as_view(), name='catv-requests'),
         url(r'^catv_report/(?P<pk>[0-9a-z\-]+)/?$', views.CATVReportView.as_view(), name='catv-report'),
         url(r'^upgrade/?$', views.UserUpgradeView.as_view(), name='upgrade-plans'),
+        url(r'^catv_requests/(?P<pk>[0-9a-z\-]+)/?$', views.CATVRequestDetailView.as_view(),
+            name='catv-request-detail'),
+        url(r'^carahistory/(?P<pk>[0-9]+)/?$', views.CARARequestDetailView.as_view(),
+            name='cara-request-detail'),
 
     ]
 

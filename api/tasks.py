@@ -78,9 +78,9 @@ class CatvHistoryTask(Task):
         with connections['default'].cursor() as cursor:
             if not from_history:
                 for query, data in zip(query_list, query_data):
-                    cursor.execute(query, data)
+                    cursor.execute(query.format(*data))
             else:
-                cursor.execute(query_list[0], query_data[0])
+                cursor.execute(query_list[0].format(*query_data[0]))
         return True
 
 
@@ -234,9 +234,9 @@ class CatvPathHistoryTask(Task):
         with connections['default'].cursor() as cursor:
             if not from_history:
                 for query, data in zip(query_list, query_data):
-                    cursor.execute(query, data)
+                    cursor.execute(query.format(*data))
             else:
-                cursor.execute(query_list[0], query_data[0])
+                cursor.execute(query_list[0].format(*query_data[0]))
         return True
 
 
@@ -312,7 +312,12 @@ class UserRoleUpdateTask(Task):
             Usage.objects.filter(user_id=user_id).update(
                 api_calls_left=new_role_usage.api_limit,
                 catv_calls_left=new_role_usage.catv_limit,
-                cara_calls_left=new_role_usage.cara_limit
+                cara_calls_left=new_role_usage.cara_limit,
+                api_calls=0, catv_calls=0, cara_calls=0,
+                api_calls_left_y=new_role_usage.api_limit_y - new_role_usage.api_limit,
+                catv_calls_left_y=new_role_usage.catv_limit_y - new_role_usage.catv_limit,
+                cara_calls_left_y=new_role_usage.cara_limit_y - new_role_usage.cara_limit,
+                last_renewal_at_y=now()
             )
         return True
 
@@ -320,6 +325,14 @@ class UserRoleUpdateTask(Task):
 class CheckUserUpgradeTask(Task):
     def run(self, *args, **kwargs):
         query = Constants.QUERIES['EXPIRE_UPGRADE_CHALLENGE']
+        with connections['default'].cursor() as cursor:
+            cursor.execute(query)
+        return True
+
+
+class RefillCreditsYearlyTask(Task):
+    def run(self, *args, **kwargs):
+        query = Constants.QUERIES['REFILL_USER_USAGE_QUOTA_Y']
         with connections['default'].cursor() as cursor:
             cursor.execute(query)
         return True
@@ -334,3 +347,4 @@ tasks.register(CheckDeleteInvitesTask)
 tasks.register(CatvPathHistoryTask)
 tasks.register(UserRoleUpdateTask)
 tasks.register(CheckUserUpgradeTask)
+tasks.register(RefillCreditsYearlyTask)

@@ -131,12 +131,12 @@ class TrackingResults:
         if not self._skip_source:
             source_result = self._async_source_result.get()
             if source_result:
-                self._async_source_graph = pool.apply_async(generate_nodes_edges, (source_result, -1, build_lossy_graph))
+                self._async_source_graph = pool.apply_async(generate_nodes_edges, (source_result, -1, build_lossy_graph, self.chain))
 
         if not self._skip_dist:
             dist_result = self._async_dist_result.get()
             if dist_result:
-                self._async_dist_graph = pool.apply_async(generate_nodes_edges, (dist_result, 1, build_lossy_graph))
+                self._async_dist_graph = pool.apply_async(generate_nodes_edges, (dist_result, 1, build_lossy_graph, self.chain))
         pool.close()
         pool.join()
 

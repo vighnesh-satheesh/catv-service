@@ -1,11 +1,12 @@
-from datetime import timedelta, datetime
+from datetime import datetime
 
+from dateutil.relativedelta import relativedelta
 from rest_framework.throttling import (
     BaseThrottle, AnonRateThrottle, UserRateThrottle
 )
 from rest_framework.exceptions import Throttled
 
-from .models import Usage
+from .models import Usage, OrganizationUserStatus
 
 
 class EmailVerificationThrottle(UserRateThrottle):
@@ -38,13 +39,19 @@ class IndicatorPostThrottle(UserRateThrottle):
 
 class CatvUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):
-        usage_details = Usage.objects.values('catv_calls_left', 'last_renewal_at').\
-                            filter(user_id=request.user.id)[0:1]
+        org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at_y').\
+                                filter(user=org.administrator)[0:1]
+        else:
+            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at_y').\
+                                filter(user_id=request.user.id)[0:1]
 
-        if usage_details and usage_details[0]['catv_calls_left'] > 0:
+        if usage_details and usage_details[0]['catv_calls_left_y'] > 0:
             return True
 
-        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at'] + timedelta(days=30), '%Y-%m-%d')
+        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at_y'] + relativedelta(years=+1), '%Y-%m-%d')
         raise Throttled(detail=("You have exhausted your CATV usage credits. "
                                 "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
 
@@ -111,13 +118,19 @@ class UserAuthenticationRateThrottle(SimpleRateThrottle):
 
 class CaraUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):
-        usage_details = Usage.objects.values('cara_calls_left', 'last_renewal_at').\
+        org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            usage_details = Usage.objects.values('cara_calls_left_y', 'last_renewal_at_y').\
+                                filter(user=org.administrator)[0:1]
+        else:
+            usage_details = Usage.objects.values('cara_calls_left_y', 'last_renewal_at_y').\
                             filter(user_id=request.user.id)[0:1]
 
-        if usage_details and usage_details[0]['cara_calls_left'] > 0:
+        if usage_details and usage_details[0]['cara_calls_left_y'] > 0:
             return True
 
-        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at'] + timedelta(days=30), '%Y-%m-%d')
+        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at'] + relativedelta(years=+1), '%Y-%m-%d')
         raise Throttled(detail=("You have exhausted your CARA usage credits. "
                                 "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
 

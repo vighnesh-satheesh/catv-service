@@ -4,7 +4,9 @@ from django_elasticsearch_dsl_drf.constants import (
     LOOKUP_QUERY_CONTAINS,
     LOOKUP_FILTER_RANGE,
     LOOKUP_QUERY_GTE,
-    LOOKUP_QUERY_LTE
+    LOOKUP_QUERY_LTE,
+    LOOKUP_QUERY_GT,
+    LOOKUP_QUERY_LT
 )
 from django_elasticsearch_dsl_drf.filter_backends import (
     IdsFilterBackend,
@@ -113,12 +115,35 @@ class IndicatorDocumentView(BaseDocumentViewSet):
             'lookups': [
                 LOOKUP_FILTER_RANGE,
                 LOOKUP_QUERY_GTE,
-                LOOKUP_QUERY_LTE
+                LOOKUP_QUERY_LTE,
+                LOOKUP_QUERY_GT,
+                LOOKUP_QUERY_LT
+            ]
+        },
+        'updated': {
+            'field': 'updated',
+            'lookups': [
+                LOOKUP_FILTER_RANGE,
+                LOOKUP_QUERY_GTE,
+                LOOKUP_QUERY_LTE,
+                LOOKUP_QUERY_GT,
+                LOOKUP_QUERY_LT
+            ]
+        },
+        'id': {
+            'field': 'id',
+            'lookups': [
+                LOOKUP_FILTER_RANGE,
+                LOOKUP_QUERY_GTE,
+                LOOKUP_QUERY_LTE,
+                LOOKUP_QUERY_GT,
+                LOOKUP_QUERY_LT
             ]
         }
     }
     ordering_fields = {
         'id': 'id',
         'created': 'created',
+        'updated': 'updated'
     }
     ordering = ('-id',)

@@ -190,8 +190,17 @@ class CustomFilteringBackend(FilteringFilterBackend):
         """
         filter_query_params = self.get_filter_query_params(request, view)
         if getattr(view, "combine_fields", None):
-            excluded_query_params = {key: val for key, val in filter_query_params.items() if key in view.combine_fields}
-            included_query_params = {key: val for key, val in filter_query_params.items() if key not in view.combine_fields}
+            excluded_query_params = {}
+            included_query_params = {}
+            for key, val in filter_query_params.items():
+                found = False
+                for field in view.combine_fields:
+                    if field in key:
+                        found = True
+                        excluded_query_params[key] = val
+                        break
+                if not found:
+                    included_query_params[key] = val
         else:
             excluded_query_params = None
             included_query_params = filter_query_params

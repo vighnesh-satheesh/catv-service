@@ -112,14 +112,17 @@ class LoginSerializer(serializers.Serializer):
         if user.address != "" and user.address is not None:
             web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
             address_c = web3_client.toChecksumAddress(api_settings.TOKEN_ADDRESS)
+            user_address = web3_client.toChecksumAddress(user.address)
             token_abi = json.loads(reward_setting[0].get('token_abi'))
             token_upp = web3_client.eth.contract(address_c, abi=token_abi)
             bal = (token_upp.call().balanceOf(
-                user.address)) / 1000000000000000000
+                user_address))/1000000000000000000
         api_details = user.key_set.values('api_key', 'expire_datetime')
         api_details = api_details[0] if api_details else {
             "api_key": None, "expire_datetime": None}
-        if bal < api_settings.MAB_USER_UPGRADE and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
+        print(f"User {user.email} wallet balance is {bal} UPP tokens")
+        if int(bal) < int(api_settings.MAB_USER_UPGRADE) \
+            and user.role == models.Role.objects.get(role_name=models.UserRoles.COMMUNITY_VERIFIED.value):
             community_role = models.Role.objects.get(role_name=models.UserRoles.COMMUNITY.value)
             role_matrix, role_name = models.RolePermission.objects.get_permission_matrix(community_role.id)
             UserRoleUpdateTask().delay(user_id=user.id, new_role=community_role.role_name)
@@ -146,7 +149,7 @@ class LoginSerializer(serializers.Serializer):
                 "last_logged_out": user.last_logged_out,
                 "api_details": api_details
             }
-        }
+        }    
 
     def check_organization(self, user):
         organization_id = ''
@@ -154,7 +157,7 @@ class LoginSerializer(serializers.Serializer):
         org_admin = models.Organization.objects.filter(
             administrator=user).annotate(is_admin=Value(True, BooleanField()))[:1]
         org_user = models.OrganizationUser.objects.filter(user=user).select_related('organization'). \
-                       annotate(is_admin=Value(False, BooleanField()))[:1]
+            annotate(is_admin=Value(False, BooleanField()))[:1]
         org_user = list(org_user)
         if org_admin:
             organization_id = str(org_admin[0].uid)
@@ -162,9 +165,6 @@ class LoginSerializer(serializers.Serializer):
         elif org_user:
             organization_id = str(org_user[0].organization.uid)
             is_admin = org_user[0].is_admin
-        elif user.role.role_name == models.UserRoles.ORG.value or \
-                user.role.role_name == models.UserRoles.ORG_TRIAL.value:
-            is_admin = True
         return organization_id, is_admin
 
     def validate_email(self, email):
@@ -234,6 +234,18 @@ class LoginSerializer(serializers.Serializer):
         else:
             token = ""
         return token.key
+        
+    def internal_create_success_response(self, user, token):
+        class TokenObject:
+            def __init__(self, token):
+                self._obj = {'key': token}
+            def __getattr__(self, key):
+                try:
+                    return self._obj[key]
+                except KeyError:
+                    raise AttributeError(key)
+        token_obj = TokenObject(token)
+        return self.__create_success_response(user, token_obj)
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -273,6 +285,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
     created = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
 
     class Meta:
         model = models.User
@@ -296,6 +309,12 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     def get_role(self, obj):
         return obj.role.display_name
+
+    def get_email(self, obj):
+        request = self.context.get("request", None)
+        if request and (request.user == obj or request.user.role.role_name == models.UserRoles.SUPERSENTINEL.value):
+            return obj.email
+        return None
 
 
 class UserPostSerializer(serializers.ModelSerializer):
@@ -540,12 +559,16 @@ class ICFPostSerializer(serializers.ModelSerializer):
         if request is None or request.user is None or request.auth is None:
             raise exceptions.NotAllowedError()
         user = request.user
+        org_details = user.organization_set.filter(organizationuser__status=models.OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            raise exceptions.NotAllowedError(detail='Only organization admins are allowed to create or regenerate '
+                                                    'API keys')
         if request.method == 'POST':
             obj = models.Key.objects.filter(user=user.pk)
-            if obj.exists() == True:
-                raise exceptions.ICFAlreadyExist()
+            if obj.count() == user.role.usage_role.get().max_api_keys:
+                raise exceptions.ICFAlreadyExist(detail=f"You are only allowed a maximum of {obj.count()} API key(s)")
             data["user"] = user
-            data["expire_datetime"] = timezone.now() + relativedelta(years=+1)
+            data["expire_datetime"] = timezone.now() + relativedelta(years=+99)
         return data
 
     def create(self, validated_data):
@@ -565,7 +588,7 @@ class ICFPostSerializer(serializers.ModelSerializer):
                 obj.api_key = new_key
                 break
         if obj.expire_datetime.date() < timezone.now().date():
-            obj.expire_datetime = timezone.now() + relativedelta(years=+1)
+            obj.expire_datetime = timezone.now() + relativedelta(years=+99)
         obj.save()
         return obj
 
@@ -775,7 +798,10 @@ class IndicatorPostSerializer(NonNullModelSerializer):
         pattern_type = data.get("pattern_type")
         pattern_subtype = data.get("pattern_subtype", None)
         validates.validate_pattern_type_subtype(pattern_type, pattern_subtype)
-
+        if pattern_type == models.IndicatorPatternType.CRYPTOADDR \
+            and pattern_subtype == models.IndicatorPatternSubtype.ETH:
+            data["pattern"] = validates.get_validated_checksum_addr(
+                data["pattern"], api_settings.MAINNET_URL)
         security_category = data.get("security_category")
         security_tags = data.get("security_tags", None)
         vector = data.get("vector", None)
@@ -1044,10 +1070,6 @@ class RelatedCaseSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         return models.RelatedCase.objects.create(**validated_data)
 
-   # def get_uid(self, obj):
-
-
-
 
 class CaseSimpleListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CaseStatus)
@@ -1185,13 +1207,14 @@ class CasePostSerializer(serializers.ModelSerializer):
         required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
     rich_text_detail = serializers.CharField(
         required=False, max_length=api_settings.CASE_DETAIL_MAX_LEN)
-    reporter_info = serializers.CharField(
+    reporter_info = serializers.EmailField(
         required=False, allow_blank=True, allow_null=True, max_length=api_settings.CASE_REPORTER_MAX_LEN)
     ico = serializers.PrimaryKeyRelatedField(
         queryset=models.ICO.objects.all(), required=False)
     indicators = IndicatorPostSerializer(required=False, many=True)
     files = FileItemSerializer(required=False, many=True)
-    related_case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), allow_null=True, required=False)
+    related_case = serializers.PrimaryKeyRelatedField(queryset=models.Case.objects.all(), allow_null=True,
+                                                      required=False)
 
     class Meta:
         model = models.Case
@@ -1202,7 +1225,7 @@ class CasePostSerializer(serializers.ModelSerializer):
     def validate_files(self, data):
         return data
 
-    def validate_inidcators(self, data):  # TODO: more specific error message.
+    def validate_indicators(self, data):  # TODO: more specific error message.
         return data
 
     def validate_related_case(self, data):
@@ -1228,13 +1251,24 @@ class CasePostSerializer(serializers.ModelSerializer):
         indicators_data = validated_data.pop("indicators", [])
         files_data = validated_data.pop("files", [])
         related_data = validated_data.pop("related_case", [])
+        reporter_info = validated_data.get("reporter_info", None)
+        is_anonymous = hasattr(self.context["request"].user, "is_anonymous")
+        possible_user = None
+        if is_anonymous:
+            if reporter_info:
+                possible_user = models.User.objects.filter(email__iexact=reporter_info).first()
+            else:
+                possible_user = models.User.objects.filter(nickname='Public Anonymous Report').first()
         try:
             with transaction.atomic():
                 if related_data:
                     related_case = models.RelatedCase.objects.create(related=related_data)
                     if related_case:
                         validated_data["related_case"] = related_case
-                case = models.Case.objects.create(**validated_data)
+                if possible_user:
+                    case = models.Case.objects.create(**validated_data, reporter=possible_user)
+                else:
+                    case = models.Case.objects.create(**validated_data)
                 m2m_bulk = []
                 indicator_bulk = []
                 new_indicators = []
@@ -1244,12 +1278,12 @@ class CasePostSerializer(serializers.ModelSerializer):
                             uid=indi["uid"])
                         indicator_bulk.append(indicator)
                     else:
-                        if not hasattr(self.context["request"].user, "is_anonymous"):
+                        if possible_user:
+                            indi["user"] = possible_user
+                        elif is_anonymous:
+                            indi["reporter_info"] = reporter_info or None
+                        else:
                             indi["user"] = self.context["request"].user
-                        reporter_info = validated_data.get(
-                            "reporter_info", None)
-                        if not reporter_info:
-                            indi["reporter_info"] = reporter_info
                         if indi["pattern_type"] in [models.IndicatorPatternType.NETWORKADDR,
                                                     models.IndicatorPatternType.SOCIALMEDIA]:
                             indi["pattern_tree"] = Pattern.getMaterializedPathForInsert(
@@ -1440,7 +1474,6 @@ class CaseDetailSerializer(NonNullModelSerializer):
     created = serializers.SerializerMethodField()
     trdb = serializers.SerializerMethodField()
     related_case = serializers.SerializerMethodField()
-    #case = serializers.SerializerMethodField()
 
     class Meta:
         model = models.Case
@@ -1553,13 +1586,6 @@ class CaseDetailSerializer(NonNullModelSerializer):
             }
         return None
 
-   # def get_related_cases(self, obj):
-   #     indicators = models.CaseIndicator.objects.filter(
-   #         case=obj).values('indicator')
-   #     related_cases = models.Case.objects.exclude(pk=obj.id).filter(indicators__in=indicators).distinct('pk'). \
-   #         order_by('-pk')
-   #     rc_serialized = CaseSimpleListSerializer(related_cases, many=True)
-   #     return rc_serialized.data
 
     def get_related_case(self, obj):
         if obj.related_case_id:
@@ -1570,12 +1596,12 @@ class CaseDetailSerializer(NonNullModelSerializer):
             if case:
                 ser.data['uid'] = case.uid
                 ser.data['title'] = case.title
-                new_dict = {'uid': case.uid, 'title': case.title, 'created': time.mktime(case.created.timetuple()), 'status': case.status.value}
+                new_dict = {'uid': case.uid, 'title': case.title, 'created': time.mktime(case.created.timetuple()),
+                            'status': case.status.value}
                 new_dict.update(ser.data)
                 return new_dict
         else:
             return {}
-
 
 
 
@@ -1692,10 +1718,11 @@ class CasePatchSerializer(NonNullModelSerializer):
                 ind_list = models.Indicator.objects.exclude(
                     pattern_type='filehash').filter(pattern=ind.pattern)
                 if ind_list.all().count() == 1:
-                    indicator_points = IndicatorPointsSerializer(
-                        data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
-                    indicator_points.is_valid(raise_exception=True)
-                    indicator_points.save()
+                    if instance.reporter:
+                        indicator_points = IndicatorPointsSerializer(
+                            data={"user_id": instance.reporter.id, "indicator_id": ind.id, "points": True})
+                        indicator_points.is_valid(raise_exception=True)
+                        indicator_points.save()
                     i = i + 1
             if instance.reporter:
                 instance.reporter.points = int(instance.reporter.points or 0) + (10 * i)
@@ -1726,8 +1753,8 @@ class CasePatchSerializer(NonNullModelSerializer):
                     utils.TRDB_CLIENT.push_case("deactivateCase", data)
 
                 if validated_data["status"] == models.CaseStatus.RELEASED or \
-                        (instance.status == models.CaseStatus.RELEASED and
-                         validated_data["status"] == models.CaseStatus.REJECTED):
+                    (instance.status == models.CaseStatus.RELEASED and
+                     validated_data["status"] == models.CaseStatus.REJECTED):
                     c = UppwardCache()
                     indicators = instance.indicators.all()
                     for indicator in indicators:
@@ -2345,6 +2372,9 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
 
         if request.method == "POST":
             try:
+                role_perm = models.RolePermission.objects.get(action__codename='create_org', role=request.user.role)
+                if not role_perm.allowed:
+                    raise exceptions.NotAllowedError("You do not have permission to create organizations")
                 data["uid"] = request.data["uid"]
                 data["name"] = request.data["name"]
                 image = request.data.get("image", None)
@@ -2352,6 +2382,8 @@ class OrganizationPostSerializer(serializers.ModelSerializer):
                     data["image"] = ""
             except KeyError:
                 raise exceptions.ValidationError("Missing input fields")
+            except models.RolePermission.DoesNotExist:
+                raise exceptions.ValidationError("Role matching permission missing")
         return data
 
     def create(self, validated_data):
@@ -2410,7 +2442,7 @@ class InvitationSerializer(serializers.Serializer):
                 raise exceptions.AuthenticationCheckError()
 
             org = models.Organization.objects.get(uid=uid, administrator=user)
-            already_invited = models.OrganizationInvites.objects. \
+            already_invited = models.OrganizationInvites.objects.\
                 filter(email=data['email'], organization=org, status=models.OrganizationInviteStatus.EMAIL_SENT).count()
 
             if already_invited:
@@ -2561,6 +2593,7 @@ class UserIndicatorSerializer(NonNullModelSerializer):
         read_only_fields = ("id", "uid", "security_category", "pattern", "pattern_subtype",
                   "pattern_type", "security_tags", "created", "points", "status")
 
+
 class CATVRequestListSerializer(NonNullModelSerializer):
     wallet_address = serializers.SerializerMethodField()
     address_type = serializers.SerializerMethodField()
@@ -2569,13 +2602,14 @@ class CATVRequestListSerializer(NonNullModelSerializer):
     status = fields.EnumField(enum=models.CatvTaskStatusType)
     created = serializers.SerializerMethodField()
     token_address = serializers.SerializerMethodField()
+    labels = serializers.ListField(child=serializers.CharField(), required=False, read_only=True)
 
     class Meta:
         model = models.CatvRequestStatus
         fields = ("id", "uid", "created", "status", "wallet_address",
-                  "address_type", "date_range", "depth", "token_address")
+                  "address_type", "date_range", "depth", "token_address", "labels")
         read_only_fields = ("id", "uid", "created", "status", "wallet_address",
-                            "address_type", "date_range", "depth", "token_address")
+                            "address_type", "date_range", "depth", "token_address", "labels")
         
     def get_wallet_address(self, obj):
         if obj.params:
@@ -2618,3 +2652,21 @@ class CATVRequestListSerializer(NonNullModelSerializer):
         if obj.params:
             return obj.params.get("token_address", "")
         return ""
+
+
+class CARARequestListSerializer(NonNullModelSerializer):
+    request_id = serializers.IntegerField()
+    id = serializers.UUIDField()
+    address = serializers.CharField(max_length=200)
+    query_time = serializers.DateTimeField()
+    error_generated = serializers.IntegerField()
+    blockchain = serializers.SerializerMethodField()
+    labels = serializers.ListField(child=serializers.CharField(max_length=100), default=[])
+
+    class Meta:
+        model = models.CaraSearchHistory
+        fields = '__all__'
+        read_only_fields = ("request_id", "id", "address", "query_time", "error_generated", "blockchain", "labels",)
+
+    def get_blockchain(self, obj):
+        return obj.blockchain or models.IndicatorPatternSubtype.ETH.value

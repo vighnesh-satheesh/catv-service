@@ -4,8 +4,11 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
 
-from .models import Key, OrganizationUser, Notification, NotificationType,\
-    User, Usage, RoleUsageLimit, UserStatus
+from .models import (
+    Key, OrganizationUser, Notification, NotificationType,
+    User, Usage, RoleUsageLimit, UserStatus,
+    OrganizationUserStatus, Role, UserRoles, UserPermission
+)
 
 
 @receiver(post_save, sender=OrganizationUser)
@@ -19,6 +22,18 @@ def create_org_notification(sender, instance, created, **kwargs):
                                                      "the organization".format(instance.organization.name),
                                             "type": "organization"
                                     })
+    else:
+        if instance.status == OrganizationUserStatus.ACTIVE:
+            User.objects.filter(id=instance.user_id).update(
+                role=instance.organization.administrator.role,
+                permission=instance.organization.administrator.permission
+            )
+        elif instance.status == OrganizationUserStatus.INACTIVE:
+            User.objects.filter(id=instance.user_id).update(
+                role=Role.objects.get(role_name=UserRoles.COMMUNITY.value),
+                permission=UserPermission.USER.value
+            )
+            instance.delete()
 
 
 @receiver(post_save, sender=User)
@@ -40,8 +55,12 @@ def assign_usage_quota(sender, instance, created, **kwargs):
             with transaction.atomic():
                 Usage.objects.create(user=current_user, api_calls_left=user_role.api_limit,
                                      catv_calls_left=user_role.catv_limit, cara_calls_left=user_role.cara_limit,
-                                     last_renewal_at=now())
-                Key.objects.create(user=current_user, expire_datetime=now() + relativedelta(years=+1))
+                                     last_renewal_at=now(), api_calls=0, catv_calls=0, cara_calls=0,
+                                     api_calls_left_y=user_role.api_limit_y - user_role.api_limit,
+                                     catv_calls_left_y=user_role.catv_limit_y - user_role.catv_limit,
+                                     cara_calls_left_y=user_role.cara_limit_y - user_role.cara_limit,
+                                     last_renewal_at_y=now())
+                Key.objects.create(user=current_user, expire_datetime=now() + relativedelta(years=+99))
         except RoleUsageLimit.DoesNotExist:
             pass
 

@@ -41,7 +41,7 @@ from .models import (
     CatvSearchType, CatvRequestStatus, CatvTaskStatusType,
     UserIndicator, IndicatorPoint, CatvResult,
     Role, RoleUsageLimit, UserRoles,
-    UserUpgrade, UpgradeVerifyStatus
+    UserUpgrade, UpgradeVerifyStatus, CaraSearchHistory
 )
 from .serializers import (
     LoginSerializer, ChangePasswordSerializer,
@@ -60,7 +60,7 @@ from .serializers import (
     InvitationSerializer, SocialSerializer, CATVBTCSerializer,
     CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
     CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer,
-    CATVRequestListSerializer
+    CATVRequestListSerializer, CARARequestListSerializer
 )
 from .throttling import (
     SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
@@ -486,22 +486,29 @@ class CaseView(generics.ListCreateAPIView):
             org_admin = Organization.objects.filter(
                 administrator=current_user).values_list('id', flat=True)
             member_orgs = OrganizationUser.objects.filter(
-                user=current_user).values_list('organization_id', flat=True)
+                user=current_user, status=OrganizationUserStatus.ACTIVE).values_list('organization_id', flat=True)
             if org_admin:
-                user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
-                                                                                                         flat=True))
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__in=org_admin, status=OrganizationUserStatus.ACTIVE).\
+                        values_list('user_id', flat=True)
+                )
                 user_list.append(current_user.id)
             elif member_orgs:
-                user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
-                                                                                             flat=True))
-                user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
-                                 values_list('user_id', flat=True))
+                user_list.extend(
+                    Organization.objects.filter(pk__in=member_orgs).\
+                        values_list('administrator', flat=True)
+                )
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__administrator__in=user_list).\
+                        values_list('user_id', flat=True)
+                )
 
             if user_list:
                 return self.model.objects.filter(Q(owner__in=user_list) | Q(reporter__in=user_list)).\
                     distinct('id').order_by(key)
             else:
-                return self.model.objects.none()
+                return self.model.objects.filter(Q(owner=current_user) | Q(reporter=current_user)).\
+                    distinct('id').order_by(key)
 
         return self.model.objects.distinct('id').order_by(key)
 
@@ -1092,6 +1099,10 @@ class GuestSearchView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         query = self.request.query_params.get("q", None)
+        search_type = self.request.query_params.get("type", "indicator")
+        
+        if search_type not in ["case", "indicator"]:
+            search_type = "indicator"
         if query is None:
             raise exceptions.ValidationError("Search query is required.")
 
@@ -1100,19 +1111,22 @@ class GuestSearchView(generics.ListAPIView):
                 "Search query cannot exceed 1024 characters.")
 
         if len(query) < 3:
-            raise exceptions.ValidationError(
-                "Search query should contain at least 3 characters.")
+            raise exceptions.ValidationError("Search query should contain at least 3 characters.")
+        
+        if search_type == "case":
+            serializer_cls = CaseListSerializer
+        else:
+            serializer_cls = IndicatorListSerializer
 
         if api_settings.SWITCH_ES_SEARCH:
-            search_results = self.get_indicator_queryset_es(query)
+            search_results = self.get_queryset_es(query, search_type)
             return APIResponse({
                 "data": {
-                    "items": search_results.get("results", [])
+                    "items": search_results.get("results", [])[:20]
                 }
             })
         else:
-            serializer_cls = IndicatorListSerializer
-            queryset = self.get_queryset()
+            queryset = self.get_queryset(query, search_type)
             serializer = serializer_cls(queryset, many=True)
 
             return APIResponse({
@@ -1143,11 +1157,28 @@ class GuestSearchView(generics.ListAPIView):
             filter_queries).distinct('id').order_by('-pk')[:20]
 
         return objs
-
-    def get_queryset(self):
-        query = self.request.query_params.get("q", None)
-        return self.get_indicator_queryset(query)
-
+    
+    def get_case_queryset(self, query):
+        filter_queries = Q(title__ilike=query)
+        filter_queries |= Q(detail__ilike=query)
+        return Case.objects.filter(filter_queries).order_by('-pk')[:20]
+    
+    def get_case_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+        query_string_drf, query_string_raw = utils.build_query_string_filter(filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key, index='cases')
+        
+    def get_queryset(self, query, search_type):
+        if search_type == "case":
+            return self.get_case_queryset(query)
+        else:
+            return self.get_indicator_queryset(query)
+    
+    def get_queryset_es(self, query, search_type):
+        if search_type == "case":
+            return self.get_case_queryset_es(query)
+        else:
+            return self.get_indicator_queryset_es(query)
 
 class SearchView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -1264,10 +1295,9 @@ class SearchView(generics.ListAPIView):
         if query.isdigit():
             case_filter_queries = Q(id=int(query))
             indicator_filter_queries = Q(id=int(query))
-        if len(query) > 1 and case_filter_queries is None:
+        if len(query) > 1:
             case_filter_queries |= Q(title__ilike=query)
-        elif len(query) > 1 and case_filter_queries is not None:
-            case_filter_queries |= Q(title__ilike=query)
+            case_filter_queries |= Q(detail__ilike=query)
 
         if len(query) > 1:
             indicator_filter_queries = Q(indicator__pattern__ilike=query)
@@ -1616,7 +1646,7 @@ class UserDetailView(APIView):
 
     def get(self, request, pk=None):
         obj = self.get_object(pk)
-        serializer = UserDetailSerializer(obj)
+        serializer = UserDetailSerializer(obj, context={"request": request})
         data = serializer.data
         return APIResponse({
             "data": {
@@ -1656,6 +1686,7 @@ class UserDetailView(APIView):
             traceback.print_exc()
             raise exceptions.ValidationError("invalid data")
 
+
 class IcfView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsAuthenticated, permissions.APIKeyPermission,)
@@ -1665,26 +1696,42 @@ class IcfView(APIView):
         if request.user is None or request.auth is None:
             raise exceptions.AuthenticationCheckError()
         user = request.user
-        obj = self.model.objects.filter(user=user.pk).order_by("-pk")
+        org_details = user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            obj = self.model.objects.filter(user=org.administrator).order_by("-pk")
+        else:
+            obj = self.model.objects.filter(user=user).order_by("-pk")
         if not obj.exists():
             raise exceptions.ICFNotFound()
 
-        return obj[0]
+        return obj
 
     def get(self, request, pk=None):
         obj = self.get_object(request)
-        serializer = ICFDetailSerializer(obj)
+        serializer = ICFDetailSerializer(obj, many=True)
+        max_api_keys = request.user.role.usage_role.get().max_api_keys
         data = serializer.data
         return APIResponse({
             "data": {
-                "api": data
+                "api": data,
+                "max_api_keys": max_api_keys
             }
         })
 
     def put(self, request, pk=None):
         obj = self.get_object(request)
+        matching_obj = None
+        for key_entry in obj:
+            if str(key_entry.uid) == pk:
+                matching_obj = key_entry
+                break
+
+        if not matching_obj:
+            raise exceptions.ICFNotFound()
+
         serializer = ICFPostSerializer(
-            obj, data=request.data, context={"request": request})
+            matching_obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         data = serializer.data
@@ -1893,6 +1940,14 @@ class CATVView(APIView):
             CatvTokens.LTC.value: {
                 CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
+            },
+            CatvTokens.BCH.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
+            },
+            CatvTokens.XRP.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
             }
         }
         utils_map = {
@@ -2186,25 +2241,16 @@ class ValidateAddress(APIView):
     model = RewardSetting
 
     def get(self, request, pk=None, pattern=None):
-
-        settings_obj = self.model.objects.filter(id=1)
-        serializer = RewardSettingSerializer(
-            settings_obj, context={"request": request}, many=True)
-        data = serializer.data
         try:
-            print('before connect')
-            web3 = Web3(Web3.HTTPProvider(settings.REWARDS_URL))
-            print('connected:', web3.isConnected())
-            #token_address = web3.toChecksumAddress(data[0].get('token_address'))
-            # token_address = web3.toChecksumAddress(data[0].get('token_address'))
+            settings_obj = self.model.objects.filter(id=1)
+            serializer = RewardSettingSerializer(settings_obj, context={"request": request}, many=True)
+            data = serializer.data
+            token_address = w3.toChecksumAddress(data[0].get('token_address'))
             abi = data[0].get('token_abi')
             token_abi = json.loads(abi)
-            token = web3.eth.contract(web3.toChecksumAddress(settings.TOKEN_ADDRESS), abi=token_abi)
-            print('token:', token)
-            print('before bal')
-            bal = token.call().balanceOf(web3.toChecksumAddress(self.request.GET.get('address')))
-            print(bal)
-            print('after bal')
+            token = w3.eth.contract(w3.toChecksumAddress(token_address), abi=token_abi)
+            address = w3.toChecksumAddress(self.request.GET.get('address'))
+            bal = token.call().balanceOf(address)
             if (bal >= (data[0].get('min_token') * 1000000000000000000)):
                 return APIResponse({
                     "data": "success"
@@ -2216,10 +2262,10 @@ class ValidateAddress(APIView):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            #print(e.__str__())
             return APIResponse({
                 "data": "error"
             })
+
 
 
 class SwapData(APIView):
@@ -2250,10 +2296,9 @@ class ExchangeTokenView(APIView):
         print("Connected:", web3.isConnected())
         address = '0xf5c12631E452495149B5F8f0d9718C0211835DC1'
 
-        abi = json.loads("[{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"approvalList\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"getApprovalList\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"internalType\":\"struct SwapContract.Approval[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"giveApproval\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"}]")
+        abi =json.loads("[{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"approvalList\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"getApprovalList\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"internalType\":\"struct SwapContract.Approval[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"giveApproval\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"}]")
         contract = web3.eth.contract(address=address, abi=abi)
-        print("test", contract.functions.swap(
-            '0xda9ae949FefC0136bD1e584fa156b9Dd3379eF56', 1000).call())
+        print("test", contract.functions.swap('0xda9ae949FefC0136bD1e584fa156b9Dd3379eF56', 1000).call())
         print("test2", contract.functions.getApprovalList().call()[0])
 
         return APIResponse({
@@ -2262,11 +2307,9 @@ class ExchangeTokenView(APIView):
 
     def post(self, request):
         data = request.data
-        dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL',
-                     datetime.datetime.now(datetime.timezone.utc), data['upp'])
+        dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL', datetime.datetime.now(datetime.timezone.utc), data['upp'])
         insert_swap_history_query = Constants.QUERIES['INSERT_SWAP_HISTORY_QUERY']
-        update_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY'].format(
-            data['sp_amount'], data['user_id'])
+        update_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY'].format(data['sp_amount'], data['user_id'])
         try:
             with connection.cursor() as cursor:
                 cursor.execute(insert_swap_history_query, dataQuery)
@@ -2285,7 +2328,6 @@ class ExchangeTokenView(APIView):
                                   attachment=None,
                                   sender=e.EMAIL_SENDER["NO-REPLY"],
                                   recipient=[user.email])
-
             return APIResponse({
                 "resp": "success"
             })
@@ -2400,6 +2442,8 @@ class CARAHistory(generics.ListAPIView):
         search = [x[0] for x in history]
         time = [x[1] for x in history]
         blockchain = [x[2] for x in history]
+        labels = [x[3] for x in history]
+        request_ids = [x[4] for x in history]
         reports = []
         errors = []
         risk_scores = []
@@ -2419,7 +2463,7 @@ class CARAHistory(generics.ListAPIView):
                     risk_score = [x[2] for x in add_report]
                     ground_truth = [x[3] for x in add_report]
                     id = [x[4] for x in add_report]
-                    report_time =[x[5] for x in add_report]
+                    report_time = [x[5] for x in add_report]
                     reports.extend(list(report))
                     errors.extend(list(error))
                     risk_scores.extend(list(risk_score))
@@ -2427,35 +2471,39 @@ class CARAHistory(generics.ListAPIView):
                     ids.extend(list(id))
                     addr_list.extend(list(add))
                     report_times.extend(list(report_time))
-            if not add_report:
-                report_query = Constants.QUERIES['CARA_REPORT_ORPHAN'].format(add, t)
-                with connections['readonly'].cursor() as new_cursor:
-                    new_cursor.execute(report_query)
-                    add_report = new_cursor.fetchmany(1)
-                    if add_report is not None:
-                        report = [x[0] for x in add_report]
-                        error = [x[1] for x in add_report]
-                        risk_score = [x[2] for x in add_report]
-                        ground_truth = [x[3] for x in add_report]
-                        id = [x[4] for x in add_report]
-                        report_time = [x[5] for x in add_report]
-                        reports.extend(list(report))
-                        errors.extend(list(error))
-                        risk_scores.extend(list(risk_score))
-                        ground_truths.extend(list(ground_truth))
-                        ids.extend(list(id))
-                        addr_list.extend(list(add))
-                        report_times.extend(list(report_time))
-        data = {'history': search,
-                'time': time,
-                'blockchain': blockchain,
-                'reports': reports,
-                'errors': errors,
-                'risk_score': risk_scores,
-                'ground_truth': ground_truths,
-                'report_ids': ids,
-                'report_time': report_times,
-                'in_progress': len(search) - len(reports)}
+                if not add_report:
+                    report_query = Constants.QUERIES['CARA_REPORT_ORPHAN'].format(add, t)
+                    with connections['readonly'].cursor() as new_cursor:
+                        new_cursor.execute(report_query)
+                        add_report = new_cursor.fetchmany(1)
+                        if add_report is not None:
+                            report = [x[0] for x in add_report]
+                            error = [x[1] for x in add_report]
+                            risk_score = [x[2] for x in add_report]
+                            ground_truth = [x[3] for x in add_report]
+                            id = [x[4] for x in add_report]
+                            report_time = [x[5] for x in add_report]
+                            reports.extend(list(report))
+                            errors.extend(list(error))
+                            risk_scores.extend(list(risk_score))
+                            ground_truths.extend(list(ground_truth))
+                            ids.extend(list(id))
+                            addr_list.extend(list(add))
+                            report_times.extend(list(report_time))
+        data = {
+            'history': search,
+            'time': time,
+            'blockchain': blockchain,
+            'reports': reports,
+            'errors': errors,
+            'risk_score': risk_scores,
+            'ground_truth': ground_truths,
+            'report_ids': ids,
+            'report_time': report_times,
+            'in_progress': len(search) - len(reports),
+            'labels': labels,
+            'request_ids': request_ids
+        }
         return self.get_paginated_response(data)
 
     def get_paginated_response(self, data):
@@ -2600,11 +2648,34 @@ class OrganizationDetailView(APIView):
         orguser_serializer.is_valid(raise_exception=True)
         validated_data = orguser_serializer.data
         if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
-            user = User.objects.get(email=validated_data['user']['email'])
-            OrganizationUser.objects.filter(
-                organization=organization, user=user).delete()
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user)
+            orguser.status =  validated_data['status']
+            orguser.save()
         elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
-            user = User.objects.get(email=validated_data['user']['email'])
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user,
+                                                   status=OrganizationUserStatus.PENDING.value)
+            orguser.status = OrganizationUserStatus.ACTIVE.value
+            orguser.save()
+        return APIResponse({
+            "data": {
+                "uid": organization.uid
+            }
+        })
+
+    def patch(self, request, uid):
+        organization = self.get_object(uid)
+        orguser_serializer = OrganizationUserPostSerializer(data=request.data, context={"request": request})
+        orguser_serializer.is_valid(raise_exception=True)
+        validated_data = orguser_serializer.data
+        if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user)
+            orguser.status =  validated_data['status']
+            orguser.save()
+        elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
             orguser = OrganizationUser.objects.get(organization=organization, user=user,
                                                    status=OrganizationUserStatus.PENDING.value)
             orguser.status = OrganizationUserStatus.ACTIVE.value
@@ -2704,10 +2775,9 @@ class InvitationView(APIView):
                                         target={
                                             "uid": str(org.uid),
                                             "title": "has added you to the organization {}, please review and accept "
-                                                     "the invitation".format(
-                                                         org.name),
+                                                     "the invitation".format(org.name),
                                             "type": "organization"
-            })
+                                        })
         return APIResponse({
             "data": "Successfully invited"
         })
@@ -2817,7 +2887,8 @@ class CATVReportView(APIView):
             "Ethereum": CatvTokens.ETH.value,
             "Bitcoin": CatvTokens.BTC.value,
             "Tron": CatvTokens.TRON.value,
-            "Litecoin": CatvTokens.LTC.value
+            "Litecoin": CatvTokens.LTC.value,
+            "Ripple": CatvTokens.XRP.value
         }
         token_type = utils.determine_wallet_type(obj.params.get("wallet_address", obj.params.get("address_from", "")))
         has_from_address = obj.params.get("address_from", "")
@@ -2944,3 +3015,77 @@ class UserUpgradeView(APIView):
             if isinstance(e, exceptions.NotAllowedError):
                 raise e
             raise exceptions.ValidationError(detail="Something went wrong while validating transaction")
+
+
+class CATVRequestDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, request, pk):
+        try:
+            obj = CatvRequestStatus.objects.get(uid=pk)
+            if obj.user != request.user:
+                raise exceptions.NotAllowedError(detail="You are only allowed to access your requests")
+            return obj
+        except CatvRequestStatus.DoesNotExist:
+            raise exceptions.FileNotFound(detail="No matching request exists")
+
+    def get(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        serializer = CATVRequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })
+
+    def patch(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        new_labels = request.data.get('labels', [])
+        obj.labels = new_labels
+        obj.save()
+        serializer = CATVRequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })
+
+
+class CARARequestDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, request, pk):
+        try:
+            obj = CaraSearchHistory.objects.get(request_id=pk)
+            if obj.id != request.user.uid:
+                raise exceptions.NotAllowedError(detail="You are only allowed to access your requests")
+            return obj
+        except CaraSearchHistory.DoesNotExist:
+            raise exceptions.FileNotFound(detail="No matching request exists")
+
+    def get(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        serializer = CARARequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })
+
+    def patch(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        new_labels = request.data.get('labels', [])
+        obj.labels = new_labels
+        obj.save()
+        serializer = CARARequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })

@@ -1,7 +1,3 @@
-import json
-
-from django.conf import settings
-from web3 import Web3 as Web3
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.admin.filters import ChoicesFieldListFilter
@@ -12,17 +8,17 @@ from django.contrib.auth.hashers import (check_password, make_password)
 import django.forms as forms
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
-
 # import ModelForm, PasswordInput
-from api.email.tasks import SendEmail
+
 from .models import (
     Indicator, ICO, Case, CaseHistory,
     AttachedFile, User, UserStatus,
     UppwardRewardInfo, CaseInvalidateCandidates,
-    Key, EmailSent, Action, Role, RolePermission, RoleUsageLimit,
+    Key, EmailSent, Action, Role, RolePermission, RoleUsageLimit, RoleInfo,
     RewardSetting, OrganizationUser, OrganizationInvites,
     OrganizationInviteStatus, OrganizationUserStatus, Usage,
-    ExchangeToken, ExchangeStatus)
+    Organization
+)
 from .email import Email
 from .settings import api_settings
 from .constants import Constants
@@ -66,85 +62,6 @@ class EnumFieldListFilter(ChoicesFieldListFilter):
         return super(EnumFieldListFilter, self).queryset(request, queryset)
 
 
-class ApprovalForm(forms.ModelForm):
-    def clean(self):
-        super(ApprovalForm, self).clean()
-
-    def save(self, commit=True):
-        m = super(ApprovalForm, self).save(commit=False)
-        ganache_url = settings.REWARDS_URL
-        web3 = Web3(Web3.HTTPProvider(ganache_url))
-        print("url:", ganache_url)
-        print("Connected:", web3.isConnected())
-        # address = '0x755b72ba19462B49Db0377b28d2AEAF38E8ad217'
-        address = settings.CONTRACT_ADDRESS
-        # key = '66007BEC9450ACC1FCD5BBCA36C9FAF312A326130A747DC8EEA307E3A4DF9199'
-        key = settings.ADMIN_WALLET_KEY
-        admin_address = settings.ADMIN_WALLET_ADDRESS
-        # admin_address = '0x7e62Dd2711261A79404Bf5EF977e2eF74E89E9CC'
-
-        if m.status == ExchangeStatus.APPROVED:
-            token_address = settings.TOKEN_ADDRESS
-            #token_abi = settings.TOKEN_ABI
-            reward_setting = RewardSetting.objects.get(id__exact=1)
-            token_abi = json.loads(reward_setting.token_abi)
-          #  token_address = '0xB8216A10Ae8996B42C409db024f1337cCb9c34DC'
-           # token_abi = json.loads("[{\"constant\":true,\"inputs\":[],\"name\":\"mintingFinished\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_spender\",\"type\":\"address\"},{\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_from\",\"type\":\"address\"},{\"name\":\"_to\",\"type\":\"address\"},{\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"name\":\"\",\"type\":\"uint8\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_to\",\"type\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_spender\",\"type\":\"address\"},{\"name\":\"_subtractedValue\",\"type\":\"uint256\"}],\"name\":\"decreaseApproval\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"finishMinting\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_to\",\"type\":\"address\"},{\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_spender\",\"type\":\"address\"},{\"name\":\"_addedValue\",\"type\":\"uint256\"}],\"name\":\"increaseApproval\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\"},{\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Pause\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Unpause\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Mint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"MintFinished\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"}]")
-#
-            token_contract = web3.eth.contract(address=web3.toChecksumAddress(token_address), abi=token_abi)
-            #nonce = web3.eth.getTransactionCount(web3.toChecksumAddress('0x7e62Dd2711261A79404Bf5EF977e2eF74E89E9CC'))
-            nonce = web3.eth.getTransactionCount(web3.toChecksumAddress(admin_address))
-            print("nonce:", nonce)
-            approve_txn = token_contract.functions.approve(web3.toChecksumAddress(address),
-                                                           m.upp * 1000000000000000000).buildTransaction(
-                {'from': web3.toChecksumAddress(admin_address), 'nonce': nonce}
-            )
-
-            print('app_txn:', approve_txn)
-            app_sign_txn = web3.eth.account.signTransaction(approve_txn, private_key=key)
-            print('signed_app:', app_sign_txn.rawTransaction)
-            print('app_test:', web3.eth.sendRawTransaction(app_sign_txn.rawTransaction))
-
-        if m.status == ExchangeStatus.TRANSFERRED:
-            user = User.objects.get(uid__exact=m.user_id)
-            #abi = json.loads(
-             #   "[{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"value1\",\"type\":\"bool\"}],\"name\":\"test_value\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]")
-            abi = settings.CONTRACT_ABI
-            contract = web3.eth.contract(address=address, abi=abi)
-            nonce_tx = web3.eth.getTransactionCount(web3.toChecksumAddress(admin_address))
-           # txn = contract.functions.swap(m.upp*1000000000000000000, web3.toChecksumAddress(user.address)).buildTransaction({'from': web3.toChecksumAddress('0x7e62Dd2711261A79404Bf5EF977e2eF74E89E9CC'), 'nonce': nonce})
-            txn = contract.functions.swap(m.upp * 1000000000000000000, web3.toChecksumAddress(
-                user.address)).buildTransaction(
-                {'from': web3.toChecksumAddress(admin_address), 'nonce': nonce_tx})
-            print('txn:', txn)
-            sign_txn = web3.eth.account.signTransaction(txn, private_key=key)
-            print("signed:", sign_txn.rawTransaction)
-            print("test", web3.eth.sendRawTransaction(sign_txn.rawTransaction))
-
-            if user and user.email_notification:
-                e = Email()
-                kv = {
-                    "nickname": user.nickname,
-                    "text": Constants.EMAIL_BODY["EXCHANGE_TOKEN_UP_BODY"].format("APPROVED")
-                }
-                SendEmail().delay(kv=kv,
-                                  subject=Constants.EMAIL_TITLE["EXCHANGE_TOKEN_UPDATE"].format(
-                                      "APPROVED"),
-                                  email_type=e.EMAIL_TYPE["EXCHANGE_SUBMIT"],
-                                  attachment=None,
-                                  sender=e.EMAIL_SENDER["NO-REPLY"],
-                                  recipient=[user.email])
-
-           # print("test2", contract.functions.getApprovalList().call()[0])
-        if m.status == ExchangeStatus.REJECTED:
-            reject_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY_REJECT'].format(m.sp_amount, m.user_id)
-            with connection.cursor() as cursor:
-                cursor.execute(reject_points_query)
-        if commit:
-            m.save()
-        return m
-
-
 class UserForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(), required=False)
     confirm_password = forms.CharField(widget=forms.PasswordInput(), required=False)
@@ -178,7 +95,7 @@ class UserForm(forms.ModelForm):
             if user.status == UserStatus.EMAIL_CONFIRMED and m.status == UserStatus.APPROVED:
                 api_key_object, is_created = Key.objects.get_or_create(user=user)
                 if is_created:
-                    api_key_object.expire_datetime = timezone.now() + relativedelta(years=+1)
+                    api_key_object.expire_datetime = timezone.now() + relativedelta(years=+99)
                     api_key_object.save()
 
                 e = Email()
@@ -199,7 +116,11 @@ class UserForm(forms.ModelForm):
                     usage_role_object.api_calls_left = user_role.api_limit
                     usage_role_object.catv_calls_left = user_role.catv_limit
                     usage_role_object.cara_calls_left = user_role.cara_limit
+                    usage_role_object.api_calls_left_y = user_role.api_limit_y - user_role.api_limit
+                    usage_role_object.catv_calls_left_y = user_role.catv_limit_y - user_role.catv_limit
+                    usage_role_object.cara_calls_left_y = user_role.cara_limit_y - user_role.cara_limit
                     usage_role_object.last_renewal_at = timezone.now()
+                    usage_role_object.last_renewal_at_y = timezone.now()
                     usage_role_object.save()
 
                 org_invites = OrganizationInvites.objects.select_related('organization').\
@@ -234,6 +155,8 @@ class UserAdmin(admin.ModelAdmin):
     fields = ('id', 'uid', 'password', 'confirm_password', 'email', 'nickname', 'created', 'permission', 'status',
               'email_notification', 'role')
     readonly_fields = ('id', 'uid', 'created')
+    search_fields = ('email',)
+    ordering = ('-created',)
 
 
 class IndicatorAdmin(admin.ModelAdmin):
@@ -317,14 +240,6 @@ class KeyAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'created', 'user')
 
 
-class ExchangeAdmin(admin.ModelAdmin):
-    form = ApprovalForm
-    list_display = ('id', 'user_id', 'sp_amount', 'req_time', 'upp', 'status')
-    list_filter = [('status', EnumFieldListFilter),]
-    fields = ('id', 'user_id', 'sp_amount', 'req_time', 'upp', 'status')
-    readonly_fields = ('id', 'user_id', 'sp_amount', 'upp', 'req_time')
-
-
 class EmailSentAdmin(admin.ModelAdmin):
     list_display = ('id', 'email', 'created', 'type')
     fields = ('id', 'email', 'type', 'created')
@@ -348,6 +263,16 @@ class RolePermissionAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+class RoleUsageInfoAdmin(admin.ModelAdmin):
+    list_display = ('role',)
+
+class OrganizationUserAdminInline(admin.TabularInline):
+    model = OrganizationUser
+    autocomplete_fields = ('user',)
+
+class OrganizationAdmin(admin.ModelAdmin):
+    inlines = (OrganizationUserAdminInline,)
+    autocomplete_fields = ('administrator',)
 
 admin.site.register(User, UserAdmin)
 admin.site.register(Indicator, IndicatorAdmin)
@@ -359,9 +284,12 @@ admin.site.register(UppwardRewardInfo, UppwardRewardInfoAdmin)
 admin.site.register(CaseInvalidateCandidates, CaseInvalidateCandidatesAdmin)
 admin.site.register(Key, KeyAdmin)
 admin.site.register(EmailSent, EmailSentAdmin)
-admin.site.register(ExchangeToken, ExchangeAdmin)
 admin.site.register(Action, ActionAdmin)
 admin.site.register(Role)
 admin.site.register(RewardSetting)
 admin.site.register(RolePermission, RolePermissionAdmin)
 admin.site.register(RoleUsageLimit)
+admin.site.register(RoleInfo, RoleUsageInfoAdmin)
+admin.site.register(Organization, OrganizationAdmin)
+admin.site.register(OrganizationUser)
+admin.site.register(OrganizationInvites)
