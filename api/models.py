@@ -713,6 +713,10 @@ class Annotation(models.Model):
     annotation = models.CharField(max_length=256, blank=True, null=True)
     created = models.DateTimeField(default=now)
 
+class FixedTag(models.Model):
+    tag = models.CharField(max_length=256, blank=True, null=True)
+    created = models.DateTimeField(default=now)
+    description = models.CharField(max_length=4096, blank=True, null=True)
 
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -740,6 +744,9 @@ class Indicator(models.Model):
     annotation = models.CharField(max_length=256, blank=True, null=True)
     annotations = models.ManyToManyField(
         Annotation, through='IndicatorAnnotation')
+    fixed_tag = models.CharField(max_length=256, blank=True, null=True)
+    fixed_tags = models.ManyToManyField(
+        FixedTag, through='IndicatorTag')
     reporter_info = models.CharField(
         max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
 
@@ -863,6 +870,12 @@ class IndicatorAnnotation(models.Model):
     class Meta:
         db_table = 'api_m2m_indicator_annotation'
 
+class IndicatorTag(models.Model):
+    indicator = models.ForeignKey(Indicator, on_delete=models.CASCADE)
+    tag = models.ForeignKey(FixedTag, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'api_m2m_indicator_tag'
 
 class ICO(models.Model):
     name = models.CharField(max_length=128, default='')
