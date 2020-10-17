@@ -713,6 +713,10 @@ class Annotation(models.Model):
     annotation = models.CharField(max_length=256, blank=True, null=True)
     created = models.DateTimeField(default=now)
 
+class SecurityTag(models.Model):
+    tag = models.CharField(max_length=256, blank=True, null=True)
+    created = models.DateTimeField(default=now)
+    description = models.CharField(max_length=4096, blank=True, null=True)
 
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -740,6 +744,8 @@ class Indicator(models.Model):
     annotation = models.CharField(max_length=256, blank=True, null=True)
     annotations = models.ManyToManyField(
         Annotation, through='IndicatorAnnotation')
+    s_tags = ArrayField(models.CharField(max_length=256, blank=False, null=False),
+                        size=3, default=list)
     reporter_info = models.CharField(
         max_length=api_settings.CASE_REPORTER_MAX_LEN, null=True, blank=True)
 
