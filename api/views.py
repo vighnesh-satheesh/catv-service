@@ -359,6 +359,9 @@ class CaseFilter(filters.FilterSet):
         except User.DoesNotExist:
             raise exceptions.CaseFilterError()
 
+        if user != self.request.user and self.request.user.role.role_name != UserRoles.SUPERSENTINEL.value:
+            return queryset.none()
+
         if action not in ['reported', 'released']:
             raise exceptions.CaseFilterError()
 
@@ -907,14 +910,27 @@ class IndicatorView(generics.ListCreateAPIView):
         page_size = 25
         core_ftr = self.get_filter()
         user_case = self.request.GET.get("user_case", None)
+        user = None
         # TODO: Lots of conditional statements going on here, need to refactor later
+        if user_case:
+            user = User.objects.get(uid=user_case.split('_')[0])
+            if user != self.request.user and self.request.user.role.role_name != UserRoles.SUPERSENTINEL.value:
+                return APIResponse({
+                    "data": {
+                        "indicators": [],
+                        "totalItems": 0,
+                        "totalPages": 0,
+                        "pageIndex": 0
+                    }
+                })
+
         if api_settings.SWITCH_ES_SEARCH and core_ftr.children:
             ftr = self.add_case_permission_filters(core_ftr)
             indicators = self.get_es_results(ftr.children, key, page)
             indicator_res = indicators.get("results", [])
             if indicator_res and user_case:
                 points = IndicatorPoint.objects.filter(indicator_id__in=[
-                    i['id'] for i in indicator_res], user_id=User.objects.get(uid=user_case.split('_')[0]).id, points=True).values_list("indicator_id", flat=True)
+                    i['id'] for i in indicator_res], user_id=user.id, points=True).values_list("indicator_id", flat=True)
                 for i in indicator_res:
                     i['status'] = i.pop('cases')
                     if i['id'] in points:

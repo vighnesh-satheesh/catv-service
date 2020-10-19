@@ -12,7 +12,8 @@ from requests import Request
 from .exceptions import CaseFilterError
 from .models import (
     UserPermission, User, Organization,
-    OrganizationUser, OrganizationUserStatus
+    OrganizationUser, OrganizationUserStatus,
+    UserRoles
 )
 from .settings import api_settings
 from .utils import build_query_string_filter, AsyncAPICaller
@@ -190,9 +191,13 @@ class CaseSearchES:
             key = '-'
         key = key + order_by[0]
         page = int(page)
-        
-        user_case_results = self.__get_es_results(case_filter.children, key, page)
-        user_cases = user_case_results.get("results", [])
+
+        if user != self.request.user and self.request.user.role.role_name != UserRoles.SUPERSENTINEL.value:
+            user_case_results = {}
+            user_cases = []
+        else:
+            user_case_results = self.__get_es_results(case_filter.children, key, page)
+            user_cases = user_case_results.get("results", [])
         return {
             "cases": user_cases,
             "totalItems": user_case_results.get("totalItems", 0),
