@@ -494,7 +494,7 @@ def add_missing_keys(result, mode):
 
 def generate_nodes_edges(result, mode, build_lossy_graph, token_type='ETH'):
     keys = list(result[0].keys())
-    if token_type.upper() == 'XRP':
+    if token_type.upper() in ['XRP', 'XLM']:
         add_missing_keys(result, mode)
     nc, volume_count = assign_nodes(result, mode, token_type)
     edge_dict = assign_edges(result, mode, nc.get_node_enum())

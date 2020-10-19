@@ -352,6 +352,8 @@ class CatvTokens(Enum):
     LTC = 'LTC'
     BCH = 'BCH'
     XRP = 'XRP'
+    EOS = 'EOS'
+    XLM = 'XLM'
 
 
 class CatvSearchType(Enum):
@@ -1088,8 +1090,8 @@ class BloxySource(models.Model):
 
 class CatvHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    wallet_address = models.CharField(null=False, max_length=50)
-    token_address = models.CharField(null=True, max_length=50)
+    wallet_address = models.CharField(null=False, max_length=256)
+    token_address = models.CharField(null=True, max_length=256)
     source_depth = models.IntegerField(default=0)
     distribution_depth = models.IntegerField(default=0)
     transaction_limit = models.IntegerField(null=False)
@@ -1253,9 +1255,9 @@ class IndicatorMView(models.Model):
 
 class CatvPathHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    address_from = models.CharField(null=False, max_length=100)
-    address_to = models.CharField(null=False, max_length=100)
-    token_address = models.CharField(null=True, max_length=100)
+    address_from = models.CharField(null=False, max_length=256)
+    address_to = models.CharField(null=False, max_length=256)
+    token_address = models.CharField(null=True, max_length=256)
     depth = models.IntegerField(default=0)
     min_tx_amount = models.FloatField(default=0.0)
     from_date = models.CharField(null=False, max_length=10)

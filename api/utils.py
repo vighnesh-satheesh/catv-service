@@ -388,7 +388,9 @@ def determine_wallet_type(address_str):
         "^([13]|bc1).*[a-zA-Z0-9]{26,35}$": "Bitcoin",
         "^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$": "Litecoin",
         "^([13][a-km-zA-HJ-NP-Z1-9]{25,34})|^((bitcoincash:)?(q|p)[a-z0-9]{41})|^((BITCOINCASH:)?(Q|P)[A-Z0-9]{41})$": "Bitcoin Cash",
-        "^r[0-9a-zA-Z]{24,34}$": "Ripple"
+        "^r[0-9a-zA-Z]{24,34}$": "Ripple",
+        "^[1-5a-z.]{12}$": "EOS",
+        "^[0-9a-zA-Z]{56}$": "Stellar"
     }
     for regex_token in regex_token_map.items():
         pattern = re.compile(regex_token[0])
@@ -403,7 +405,9 @@ def pattern_matches_token(address, token_type):
         CatvTokens.BTC.value: "^([13]|bc1).*[a-zA-Z0-9]{26,35}$",
         CatvTokens.LTC.value: "^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$",
         CatvTokens.BCH.value: "^([13][a-km-zA-HJ-NP-Z1-9]{25,34})|^((bitcoincash:)?(q|p)[a-z0-9]{41})|^((BITCOINCASH:)?(Q|P)[A-Z0-9]{41})$",
-        CatvTokens.XRP.value: "^r[0-9a-zA-Z]{24,34}$"
+        CatvTokens.XRP.value: "^r[0-9a-zA-Z]{24,34}$",
+        CatvTokens.EOS.value: "^[1-5a-z.]{12}$",
+        CatvTokens.XLM.value: "^[0-9a-zA-Z]{56}$"
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:

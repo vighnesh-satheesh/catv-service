@@ -31,14 +31,15 @@ class BloxyAPIInterface:
         
         updated_chain_map = {
             'trx': 'tron',
-            'xrp': 'ripple'
+            'xrp': 'ripple',
+            'xlm': 'stellar'
         }
         
         updated_chain = chain.lower()
         if updated_chain in updated_chain_map.keys():
             updated_chain = updated_chain_map[updated_chain]
         
-        if updated_chain == 'ripple':
+        if updated_chain == 'ripple' or updated_chain == 'stellar':
             api_url = api_url.replace('coinpath', 'ripple:sentinel')
 
         payload = {'key': self._key, 'address': address, 'depth_limit': depth,
