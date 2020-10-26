@@ -850,7 +850,7 @@ class Indicator(models.Model):
         validates.validate_pattern_type_subtype(
             self.pattern_type, self.pattern_subtype, model=True)
         validates.validate_security_type_tag(
-            self.security_category, self.security_tags, model=True)
+            self.security_category, self.s_tags, model=True)
         validates.validate_indicator_vector(self.vector, model=True)
         validates.validate_indicator_environment(self.vector, model=True)
         return super(Indicator, self).clean()
