@@ -3122,8 +3122,12 @@ class CARARequestDetailView(APIView):
 
 class SecurityTagView(generics.ListCreateAPIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     model = SecurityTag
+
+    @method_decorator(cache_page(60 * 60 * 24))
+    def dispatch(self, *args, **kwargs):
+        return super(SecurityTagView, self).dispatch(*args, **kwargs)
 
     def list(self, request, *args, **kwargs):
         queryset = self.model.objects.all()

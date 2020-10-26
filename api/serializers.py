@@ -668,7 +668,7 @@ class IndicatorDetailSerializer(NonNullModelSerializer):
     detail = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN,
                                        required=False, allow_blank=True, allow_null=True)
     security_tags = serializers.ListField(
-        child=serializers.CharField(), required=False)
+        child=serializers.CharField(), required=False, source='s_tags')
     vector = serializers.ListField(child=fields.EnumField(
         enum=models.IndicatorVector), required=False)
     environment = serializers.ListField(child=fields.EnumField(
@@ -775,7 +775,7 @@ class IndicatorPostSerializer(NonNullModelSerializer):
     detail = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN,
                                        required=False, allow_blank=True, allow_null=True)
     security_tags = serializers.ListField(
-        child=serializers.CharField(), required=False)
+        child=serializers.CharField(), required=False, source='s_tags')
     vector = serializers.ListField(child=fields.EnumField(
         enum=models.IndicatorVector), required=False)
     environment = serializers.ListField(child=fields.EnumField(

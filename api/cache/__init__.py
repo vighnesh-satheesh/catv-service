@@ -1,5 +1,7 @@
-from django.core.cache import caches, cache
+from json import loads, dumps
 import random, string
+
+from django.core.cache import caches, cache
 
 class DefaultCache:
     def __init__(self):
@@ -80,3 +82,11 @@ class DefaultCache:
         if not email or '-invite-' not in email:
             return None
         return email.split('-invite-')
+
+    def set_s_tags(self, tags):
+        tags_list = dumps(tags)
+        self.set('s_tags', tags_list, 60*60*24)
+
+    def get_s_tags(self):
+        tags_list = self.get('s_tags')
+        return loads(tags_list) if tags_list else None

@@ -6,6 +6,7 @@ from rest_framework import exceptions
 from web3 import Web3
 
 from . import models
+from .cache import DefaultCache
 
 
 def validate_pattern_type_subtype(pattern_type, pattern_subtype, model=False):
@@ -51,16 +52,20 @@ def validate_indicator_environment(environment, model=False):
 def validate_security_type_tag(security_category, security_tag, model=False):
     exc_class = ValidationError if model is True else exceptions.ValidationError
 
-    if security_category == models.IndicatorSecurityCategory.WHITELIST:
-        if not (security_tag is None or (isinstance(security_tag, list) and len(security_tag) == 0)):
-            raise exc_class({"security_tags": "whitelist cannot have security_tags"})
-    elif security_category == models.IndicatorSecurityCategory.BLACKLIST:
-        if security_tag is None:
-            return
-        elif isinstance(security_tag, list) and len(security_tag) == 0:
-            return
-        elif not isinstance(security_tag, list):
-            raise exc_class({"security_tags": "list of string is required."})
+    if security_tag is None:
+        return
+    elif isinstance(security_tag, list) and len(security_tag) == 0:
+        return
+    elif not isinstance(security_tag, list):
+        raise exc_class({"security_tags": "list of string is required."})
+    else:
+        c = DefaultCache()
+        tags = c.get_s_tags()
+        if not tags:
+            tags = models.SecurityTag.objects.all().values_list('tag', flat=True)
+            c.set_s_tags(list(tags))
+        if not set(security_tag).issubset(set(tags)):
+            raise exc_class({"security_tags": "security tags should be picked from the system defined list of tags"})
 
 
 def validate_max_length(text, model=False, limit=128, field_name="text"):
