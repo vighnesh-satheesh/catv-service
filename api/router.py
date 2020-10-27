@@ -33,8 +33,10 @@ if settings.EXPOSE_INTERNAL_API:
             name='internal-catv'),
         url(r'^internal/proxy_token/?$',
             views_internal.ProxyAuthentication.as_view(), name='proxy-api-token'),
-        url(r'^internal/proxy_auth/?$', 
-            views_internal.ProxyPasswordAuthentication.as_view(), name='proxy-pwd-auth')
+        url(r'^internal/proxy_auth/?$',
+            views_internal.ProxyPasswordAuthentication.as_view(), name='proxy-pwd-auth'),
+        url(r'^internal/send_email/?$',
+            views_internal.EmailNotificationView.as_view(), name='internal-send-email')
     ]
 
 if settings.EXPOSE_GENERAL_API:

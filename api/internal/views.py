@@ -10,7 +10,10 @@ from ..models import (
     Indicator,
     IndicatorPatternType,
     IndicatorPatternSubtype,
-    Key
+    Key,
+    Notification,
+    NotificationType,
+    User
 )
 
 from django.db.models import Q
@@ -34,6 +37,8 @@ from ..cache import DefaultCache
 from ..response import APIResponse
 from ..settings import api_settings
 from ..tasks import CaseMessageTask
+from ..email import Email
+from ..email.tasks import SendEmail
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -243,4 +248,47 @@ class ProxyPasswordAuthentication(APIView):
         return APIResponse({
             "data": data
         })
+
+class EmailNotificationView(APIView):
+    """
+    uid: portal numerical user id, int
+    subject: email subject, str
+    nickname: user nickname, optional, defaults to User, str
+    text: email body, str
+    recipient: email recipients, arr    
+    """
+    authentication_classes = ()
+    permission_classes = (permissions.InternalOnly,)
+    
+    def post(self, request):
+        req_body = json.loads(request.body)
+        if list(set(['uid','subject', 'text','recipient']) - set(list(req_body.keys()))):
+            return APIResponse({"status":False},status=400)
+        e = Email()        
+        kv = {
+            "nickname":req_body.get('nickname', "User"),
+            "text":req_body['text']
+        }        
+        if not isinstance(req_body['recipient'], list):
+            req_body['recipient']=list(req_body['recipient'])
+        uid = User.objects.get(id=int(req_body['uid']))
+        #Create notification in portal dropdown
+        notification = Notification.objects.create(
+                user=uid,
+                initiator=uid,
+                type=NotificationType("monitor"),                
+                target={
+                    "uid":"",
+                    "title":req_body['subject'],
+                    "type": "monitor"
+                }
+            )
+        #Send email
+        SendEmail().delay(kv=kv,
+                        subject=req_body['subject'],
+                        email_type=e.EMAIL_TYPE["EXCHANGE_SUBMIT"],
+                        sender=e.EMAIL_SENDER["INFO"],
+                        recipient=req_body['recipient']
+                        )
+        return APIResponse({"status":True}, status=202)
 
