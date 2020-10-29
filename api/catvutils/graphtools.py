@@ -137,8 +137,9 @@ def limit_connected_edges(sorted_grouped_edges: dict, scaling_factor: float) -> 
         print(f"Node count for depth {depth}: {node_count}")
         if depth != 1:
             receivers_prev = list(limited_edges.keys())
-            receivers_prev = set([key_pair[1] for key_pair in receivers_prev])
-            modified_edge_dict = take(node_count, filter(lambda item: item[0][0] in receivers_prev, edge_dict.items()))
+            receivers_prev = set([k for key_pair in receivers_prev for k in key_pair])
+            modified_edge_dict = take(node_count, filter(
+                lambda item: item[0][0] in receivers_prev or item[0][1] in receivers_prev, edge_dict.items()))
         else:
             modified_edge_dict = take(node_count, edge_dict.items())
         modified_edge_dict = {dict_tuple[0]: dict_tuple[1] for dict_tuple in modified_edge_dict}
