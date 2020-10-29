@@ -4,6 +4,7 @@ from functools import partial
 from io import BytesIO
 from enum import Enum, IntEnum, unique
 from urllib.parse import urlparse, urlunparse, ParseResult
+import warnings
 
 from django.db import models
 from django.contrib.auth.hashers import (
@@ -29,6 +30,8 @@ from .storages.s3 import StaticS3Storage
 from .fields import LtreeField
 from . import validates
 from .managers import CustomManager
+
+warnings.filterwarnings("once", "This field is deprecated", DeprecationWarning)
 
 ImageStorage = StaticS3Storage(
     region=api_settings.S3_REGION,
@@ -413,6 +416,24 @@ models.TextField.register_lookup(PostgresILike)
 ArrayField.register_lookup(PostgresArrayILike)
 
 
+class AliasFieldMixin(models.Field):
+    def contribute_to_class(self, cls, name, private_only=False):
+        super(AliasFieldMixin, self).contribute_to_class(cls, name, private_only=True)
+        setattr(cls, name, self)
+
+    def __get__(self, instance, instance_type=None):
+        warnings.warn(f"This field is deprecated, please use {self.db_column}.", DeprecationWarning)
+        return getattr(instance, self.db_column)
+
+    def __set__(self, instance, value):
+        warnings.warn(f"This field is deprecated, please use {self.db_column}.", DeprecationWarning)
+        setattr(instance, self.db_column, value)
+
+
+class ArrayAliasField(AliasFieldMixin, ArrayField):
+    pass
+
+
 class RewardSetting(models.Model):
     min_token = models.BigIntegerField(null=True, blank=True)
     token_abi = models.CharField(null=True, blank=True, max_length=5196)
@@ -728,8 +749,8 @@ class Indicator(models.Model):
     cases = models.ManyToManyField(Case, through='CaseIndicator')
 
     security_category = EnumField(enum=IndicatorSecurityCategory)
-    security_tags = ArrayField(models.CharField(
-        max_length=32, blank=False), blank=True, null=True)
+    security_tags = ArrayAliasField(models.CharField(max_length=32, blank=False), blank=True, null=True,
+                                    db_column='s_tags')
     vector = ArrayField(EnumField(enum=IndicatorVector,
                                   max_length=32), blank=True, null=True)
     environment = ArrayField(
@@ -851,7 +872,7 @@ class Indicator(models.Model):
         validates.validate_pattern_type_subtype(
             self.pattern_type, self.pattern_subtype, model=True)
         validates.validate_security_type_tag(
-            self.security_category, self.security_tags, model=True)
+            self.security_category, self.s_tags, model=True)
         validates.validate_indicator_vector(self.vector, model=True)
         validates.validate_indicator_environment(self.vector, model=True)
         return super(Indicator, self).clean()
