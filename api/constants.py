@@ -129,7 +129,7 @@ class Constants:
         "CARA_REPORT_QUERY": "SELECT cr.id, cr.address, cr.risk_score, cr.analysis_end_time, cr.total_amt, cr.estimated_mal_amt, cr.estimated_mal_tx, cr.distinct_transaction_patterns,"
                              "cr.direct_links_to_malicious_activities, cr.illegit_activity_links, cr.error, cr.ground_truth_label, cr.num_blacklisted_addr_contacted, cr.tx_interfere_with_funds,"
                              "cs.blockchain, cr.blacklisted_addr_list, cr.distinct_tx_patterns_details, cr.illegit_activity_links_details, cr.mal_activities_details,"
-                             "cr.tx_interfere_with_funds_details from cara_report as cr JOIN cara_search_history as cs on cr.address = cs.address"
+                             "cr.tx_interfere_with_funds_details, cr.report_generated_time from cara_report as cr JOIN cara_search_history as cs on cr.address = cs.address"
                              " where cr.address='{0}' and cr.id='{1}' and cr.report_generated_time > cs.query_time",
         "CARA_REPORT_DELETE_QUERY": "DELETE from cara_report where address='{0}'",
         "SELECT_USER_CATV_HISTORY": "select 0 as id, wallet_address, token_address, source_depth, distribution_depth, "

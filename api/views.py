@@ -2571,6 +2571,8 @@ class CARAReportDownload(APIView):
     def get(self, request):
         #data = request.data
         #print("Data:", data)
+        cara_search_time = self.request.GET.get('date_s')
+        cara_rep_time = self.request.GET.get('rep_gen_time')
         address = self.request.GET.get('address')
         id = self.request.GET.get('id')
         sus_tx_count = self.request.GET.get('sus_tx_count')
@@ -2698,7 +2700,7 @@ class CARAReportDownload(APIView):
                            acc_cry_v=acc_cry_v, reg_int_tx_c=reg_int_tx_c, reg_int_tx=reg_int_tx, reg_int_tx_v=reg_int_tx_v, dor_c=dor_c,
                            dor=dor, dor_v=dor_v, lar_bal_c=lar_bal_c, lar_bal=lar_bal, lar_bal_v=lar_bal_v, hi_tx_fee_c="circle-inv",
                            hi_tx_fee="und", hi_tx_fee_v="/", hi_cry_tx_c=hi_cry_tx_c, hi_cry_tx=hi_cry_tx, hi_cry_tx_v=hi_cry_tx_v,
-                           rel_c=rel_c, rel=rel, rel_v=rel_v, mix_c=mix_c, mix=mix, mix_v=mix_v,
+                           rel_c=rel_c, rel=rel, rel_v=rel_v, mix_c=mix_c, mix=mix, mix_v=mix_v, cara_search=cara_search_time, cara_rep=cara_rep_time,
                            rel_mix_c=rel_mix_c, rel_mix=rel_mix, rel_mix_v=rel_mix_v, tum_c=tum_c, tum=tum, tum_v=tum_v)
         write_report(html, "/tmp/"+address+".pdf", extra_stylesheets=[css])
         try:
