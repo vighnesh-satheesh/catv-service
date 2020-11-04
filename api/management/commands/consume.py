@@ -21,10 +21,10 @@ class Command(BaseCommand):
                 api_settings.KAFKA_BROKER_2,
                 api_settings.KAFKA_BROKER_3
             ],
-            auto_offset_reset='earliest',
+            auto_offset_reset='latest',
             enable_auto_commit=True,
             auto_commit_interval_ms=1000,
-            group_id='cases-reader',
+            group_id='priority-cases-reader',
             max_poll_records=1
         )
         try:
