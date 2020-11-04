@@ -164,7 +164,7 @@ class IndicatorAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'uid')
     list_filter = [('pattern_type', EnumFieldListFilter), ('security_category', EnumFieldListFilter)]
     search_fields = ('id', 'pattern')
-    fields = ('id', 'uid', 'security_category', 'security_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'vector', 'environment')
+    fields = ('id', 'uid', 'security_category', 's_tags', 'pattern', 'pattern_type', 'pattern_subtype', 'detail', 'annotation', 'vector', 'environment')
     readonly_fields = ('id', 'uid')
 
 

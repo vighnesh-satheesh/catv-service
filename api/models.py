@@ -748,8 +748,7 @@ class Indicator(models.Model):
     cases = models.ManyToManyField(Case, through='CaseIndicator')
 
     security_category = EnumField(enum=IndicatorSecurityCategory)
-    security_tags = ArrayAliasField(models.CharField(max_length=32, blank=False), blank=True, null=True,
-                                    db_column='s_tags')
+    security_tags = ArrayField(models.CharField(max_length=32, blank=False), blank=True, null=True)
     vector = ArrayField(EnumField(enum=IndicatorVector,
                                   max_length=32), blank=True, null=True)
     environment = ArrayField(

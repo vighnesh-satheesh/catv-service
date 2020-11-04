@@ -149,7 +149,7 @@ class TrackingResults:
             query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype=token_type, pattern_type="cryptoaddr")
             query_list &= Q(pattern_lower__in=chunk_addr)
             matched_indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).\
-                prefetch_related('cases').values('id', 'uid', 'security_category', 'security_tags', 'pattern', 'detail',
+                prefetch_related('cases').values('id', 'uid', 'security_category', 's_tags', 'pattern', 'detail',
                                                 'pattern_subtype', 'pattern_type', 'annotation').\
                 order_by('-cases__updated')
             indicators.extend(matched_indicators)

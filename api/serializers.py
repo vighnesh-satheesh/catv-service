@@ -1857,13 +1857,13 @@ class AutoCompleteSerializer(serializers.Serializer):
 
         elif auto_type == "indicator_tag":
             indicator_objs = models.Indicator.objects.filter(
-                security_tags__arrayilike=query)
+                s_tags__arrayilike=query)
             if indicator_objs:
                 __tags = []
                 indicator_tags = []
                 for o in indicator_objs:
                     __tags.extend(
-                        t for t in o.security_tags if t not in __tags)
+                        t for t in o.s_tags if t not in __tags)
                 for tag in __tags:
                     if tag[:len(query)].lower() == query.lower():
                         indicator_tags.append({

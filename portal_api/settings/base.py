@@ -389,6 +389,10 @@ CELERYBEAT_SCHEDULE = {
     'check-user-upgrade-every-hour': {
         'task': 'api.tasks.CheckUserUpgradeTask',
         'schedule': timedelta(minutes=60),
+    },
+    'check-quota-every-year': {
+        'task': 'api.tasks.RefillCreditsYearlyTask',
+        'schedule': timedelta(minutes=30),
     }
 }
 # email
