@@ -735,6 +735,7 @@ class IndicatorListSerializer(NonNullModelSerializer):
     pattern_type = fields.EnumField(enum=models.IndicatorPatternType)
     pattern_subtype = fields.EnumField(enum=models.IndicatorPatternSubtype)
     security_category = fields.EnumField(enum=models.IndicatorSecurityCategory)
+    security_tags = serializers.ListField(child=serializers.CharField(), required=False, source='s_tags')
 
     class Meta:
         model = models.Indicator
