@@ -71,7 +71,7 @@ class Constants:
                                    "cara_calls_left_y=t.cara_limit_y-t.cara_limit, last_renewal_at_y=now() "
                                    "FROM api_role_usage_limit t "
                                    "where t.role_id=%s and au.user_id=%s;",
-        "SELECT_INDICATORS_WITHIN_DATE": "SELECT id, uid, security_category, pattern, created, security_tags, "
+        "SELECT_INDICATORS_WITHIN_DATE": "SELECT id, uid, security_category, pattern, created, s_tags, "
                                          "pattern_type, pattern_subtype FROM api_indicator where created > %s "
                                          "order by created desc;",
         "SELECT_CASE_BY_CREATED": "SELECT created from api_case where created > %s order by created desc;",

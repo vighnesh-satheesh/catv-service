@@ -1283,7 +1283,7 @@ class SearchView(generics.ListAPIView):
     def get_indicator_queryset(self, query):
         objs = []
         filter_queries = Q(pattern__ilike=query)
-        filter_queries |= Q(security_tags__arrayilike=query)
+        filter_queries |= Q(s_tags__arrayilike=query)
 
         try:
             IndicatorPatternSubtype(query.lower())
