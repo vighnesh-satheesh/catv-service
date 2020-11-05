@@ -3277,15 +3277,18 @@ class SecurityTagView(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
     model = SecurityTag
 
-    @method_decorator(cache_page(60 * 60 * 24))
-    def dispatch(self, *args, **kwargs):
-        return super(SecurityTagView, self).dispatch(*args, **kwargs)
-
     def list(self, request, *args, **kwargs):
+        c = DefaultCache()
+        cached_response = c.get_view_cache(request)
+        if cached_response:
+            return APIResponse(cached_response)
         queryset = self.model.objects.all()
         serializer = SecurityTagSerializer(queryset, many=True)
-        return APIResponse({
-            "data": {
-                "items": serializer.data
-            }
-        })
+        return APIResponse(
+            c.set_view_cache(request, {
+                "data": {
+                    "items": serializer.data
+                }
+            })
+        )
+

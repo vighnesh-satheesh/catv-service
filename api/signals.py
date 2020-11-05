@@ -2,12 +2,16 @@ from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.http import HttpRequest
 from django.utils.timezone import now
+from rest_framework.reverse import reverse
 
+from .cache import DefaultCache
 from .models import (
     Key, OrganizationUser, Notification, NotificationType,
     User, Usage, RoleUsageLimit, UserStatus,
-    OrganizationUserStatus, Role, UserRoles, UserPermission
+    OrganizationUserStatus, Role, UserRoles, UserPermission,
+    SecurityTag
 )
 
 
@@ -64,3 +68,10 @@ def assign_usage_quota(sender, instance, created, **kwargs):
         except RoleUsageLimit.DoesNotExist:
             pass
 
+
+@receiver(post_save, sender=SecurityTag)
+def invalidate_tag_cache(sender, instance, created, **kwargs):
+    request = HttpRequest()
+    request.path = reverse('security-tags')
+    c = DefaultCache()
+    c.delete_view_cache(request)
