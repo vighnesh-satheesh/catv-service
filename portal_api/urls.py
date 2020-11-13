@@ -15,7 +15,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.conf import settings
-from django.conf.urls import url, include
+from django.conf.urls import url, include, re_path
+from django.conf.urls.i18n import i18n_patterns
 from django.urls import path
 from django.conf.urls.static import static
 
@@ -23,9 +24,9 @@ from api.router import urlpatterns as api_urls
 from search_indexes.urls import urlpatterns as search_index_urls
 
 
-urlpatterns = [
-    url('^', include(api_urls)),
-]
+urlpatterns = i18n_patterns(
+    re_path('^', include(api_urls)),
+)
 
 if settings.EXPOSE_SEARCH_API:
     urlpatterns += [

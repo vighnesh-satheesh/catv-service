@@ -16,6 +16,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.db import connection, connections
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
 
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -3281,6 +3282,8 @@ class SecurityTagView(generics.ListCreateAPIView):
         c = DefaultCache()
         cached_response = c.get_view_cache(request)
         if cached_response:
+            for item in cached_response["data"]["items"]:
+                item["label"] = _(item["tag"])
             return APIResponse(cached_response)
         queryset = self.model.objects.all()
         serializer = SecurityTagSerializer(queryset, many=True)

@@ -33,7 +33,7 @@ WORKDIR /app
 # Install nodejs and pm2
 RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
 RUN apt-get update && \
-    apt-get install -y nodejs redis-server && \
+    apt-get install -y nodejs redis-server gettext && \
     npm install pm2@3.5.1 -g
 
 # Install requirements
@@ -67,6 +67,9 @@ RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
 # Bundle APP files
 COPY . .
 COPY ./deploy ./deploy
+
+# Make translations available
+RUN django-admin compilemessages
 
 # RUN
 CMD pm2-runtime start /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE --web

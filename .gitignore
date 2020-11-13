@@ -14,3 +14,4 @@ library/
 env-dev/
 .pm2/
 celerybeat.pid
+*django.mo

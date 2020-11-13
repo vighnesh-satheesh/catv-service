@@ -11,6 +11,7 @@ from django.db import transaction, IntegrityError
 from django.db.models import Q, Value, BooleanField
 from django.db.models.signals import post_save
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
 from web3 import Web3
 
 from rest_framework import serializers
@@ -2677,8 +2678,14 @@ class SecurityTagSerializer(serializers.ModelSerializer):
     tag = serializers.CharField(max_length=256)
     description = fields.TruncatedCharField(truncate_len=api_settings.INDICATOR_LIST_DETAIL_LEN, required=False,
                                             allow_blank=True, allow_null=True)
+    label = serializers.SerializerMethodField()
 
     class Meta:
         model = models.SecurityTag
-        fields = ("tag", "description",)
-        read_only_fields = ("tag", "description",)
+        fields = ("tag", "description", "label")
+        read_only_fields = ("tag", "description", "label")
+
+    def get_label(self, obj):
+        if obj and obj.tag:
+            return _(obj.tag)
+        return None
