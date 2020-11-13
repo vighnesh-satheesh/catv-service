@@ -43,6 +43,13 @@ RUN pip install -r ./requirements.txt && \
     pip install uwsgi && \
     pip install -e ./library/indicator-lib/src/py
 
+# Bundle APP files
+COPY . .
+COPY ./deploy ./deploy
+
+# Make translations available
+RUN django-admin compilemessages
+
 # Add uppsala user.
 
 RUN groupadd -g 999 uppsala && \
@@ -63,13 +70,6 @@ RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
     pm2 set pm2-slack:stop true && \
     pm2 set pm2-slack:'restart overlimit' true && \
     pm2 set pm2-slack:buffer_seconds 5
-
-# Bundle APP files
-COPY . .
-COPY ./deploy ./deploy
-
-# Make translations available
-RUN django-admin compilemessages
 
 # RUN
 CMD pm2-runtime start /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE --web

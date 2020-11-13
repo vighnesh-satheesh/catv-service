@@ -44,14 +44,6 @@ RUN pip install -r ./requirements.txt
 RUN pip install uwsgi
 RUN pip install -e ./library/indicator-lib/src/py
 
-# Add uppsala user.
-RUN groupadd -g 999 uppsala && \
-    useradd -r -u 999 -g uppsala uppsala
-WORKDIR /app
-RUN chown uppsala:uppsala /app
-RUN usermod -d /app uppsala
-USER uppsala
-
 # Install pm2-slack
 RUN pm2 install pm2-slack
 RUN pm2 set pm2-slack:slack_url ${SLACK_URL}
@@ -71,6 +63,14 @@ COPY ./deploy ./deploy
 
 # Make translations available
 RUN django-admin compilemessages
+
+# Add uppsala user.
+RUN groupadd -g 999 uppsala && \
+    useradd -r -u 999 -g uppsala uppsala
+WORKDIR /app
+RUN chown uppsala:uppsala /app
+RUN usermod -d /app uppsala
+USER uppsala
 
 # RUN
 CMD pm2-runtime start /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE --web
