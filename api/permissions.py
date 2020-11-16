@@ -59,6 +59,9 @@ class CheckCaseDetailPermission(permissions.BasePermission):
 class CaseListPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         full_path = request.get_full_path()
+        l_index = full_path.rfind('/')
+        if l_index != -1:
+            full_path = full_path[l_index:]
         full_path_list = full_path.split('&')
         full_path = full_path_list[0]
         user_path_list = ['/case?case=my', '/case?case=my_new', '/case?case=my_progress', '/case?case=my_confirmed',

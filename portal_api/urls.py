@@ -26,6 +26,7 @@ from search_indexes.urls import urlpatterns as search_index_urls
 
 urlpatterns = i18n_patterns(
     re_path('^', include(api_urls)),
+    prefix_default_language=False
 )
 
 if settings.EXPOSE_SEARCH_API:
