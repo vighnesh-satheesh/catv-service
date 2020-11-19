@@ -697,7 +697,7 @@ msgid "Black Market"
 msgstr "암시장"
 
 msgid "Child Sexual Exploitation"
-msgstr ""
+msgstr "아동성착취물"
 
 msgid "Community"
 msgstr "커뮤니티"
@@ -706,97 +706,100 @@ msgid "Counterfeit Money"
 msgstr "위조 지폐"
 
 msgid "Credit Card Fraud"
-msgstr ""
+msgstr "신용카드사기"
 
 msgid "Cryptocurrency"
-msgstr ""
+msgstr "암호화폐"
 
 msgid "Cryptocurrency Laundering"
-msgstr ""
+msgstr "암호화폐자금세탁"
 
 msgid "Cryptojacking"
-msgstr ""
+msgstr "크립토재킹"
 
 msgid "Darknet"
-msgstr ""
+msgstr "다크넷"
 
 msgid "Double Spend Attack"
-msgstr ""
+msgstr "이중출금"
 
 msgid "Drug"
-msgstr ""
+msgstr "마약"
 
 msgid "Escrow"
-msgstr ""
+msgstr "에스크로결제"
 
 msgid "Exploits"
-msgstr ""
+msgstr "취약점공격"
 
 msgid "Fake ICO"
-msgstr ""
+msgstr "가짜 ICO"
 
 msgid "Gambling"
-msgstr ""
+msgstr "도박"
 
 msgid "Hack"
-msgstr ""
+msgstr "해킹"
 
 msgid "Hosting"
-msgstr ""
+msgstr "호스팅"
 
 msgid "Impersonation"
-msgstr ""
+msgstr "인격화"
 
 msgid "Information Leakage"
-msgstr ""
+msgstr "정보 유출"
 
 msgid "Lazarus"
-msgstr ""
+msgstr "라자루스"
 
 msgid "Locked"
-msgstr ""
+msgstr "폐쇄"
 
 msgid "Malware"
-msgstr ""
+msgstr "멀웨어"
 
 msgid "Murder"
-msgstr ""
+msgstr "살인"
 
 msgid "Patchwork"
 msgstr ""
 
 msgid "Phishing"
-msgstr ""
+msgstr "피싱"
 
 msgid "Pixel Tracker"
-msgstr ""
+msgstr "픽셀트래커"
 
 msgid "Ponzi"
-msgstr ""
+msgstr "폰지사기"
 
 msgid "Pornography"
-msgstr ""
+msgstr "포르노"
 
 msgid "Ransomware"
-msgstr ""
+msgstr "랜섬웨어"
 
 msgid "Scam"
-msgstr ""
+msgstr "스캠"
 
 msgid "Spam"
-msgstr ""
+msgstr "스팸"
 
 msgid "Terrorism"
-msgstr ""
+msgstr "테러"
 
 msgid "Vishing"
 msgstr ""
 
 msgid "Weapon"
-msgstr ""
+msgstr "무기"
 
 msgid "Wiki"
-msgstr ""
+msgstr "위키피디아"
 
 msgid "Spyware"
-msgstr ""
+msgstr "스파이웨어"
+
+msgid "Legit"
+msgstr "합법적인"
