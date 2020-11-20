@@ -3,9 +3,9 @@ FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.6.5-stretch
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
 ARG PM2_CONFIG_FILE=pm2.json
-ARG EXPOSE_GENERAL_API=false
-ARG EXPOSE_FILE_API=false
-ARG EXPOSE_SEARCH_API=false
+ARG EXPOSE_GENERAL_API=true
+ARG EXPOSE_FILE_API=true
+ARG EXPOSE_SEARCH_API=true
 ARG EXPOSE_INTERNAL_API=true
 ARG EXPOSE_FREESEARCH_ENDPOINT=true
 ARG SLACK_URL
