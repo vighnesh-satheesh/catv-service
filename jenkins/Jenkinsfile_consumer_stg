@@ -7,6 +7,6 @@ portalAPIPipeline(
     INDICATOR_TOKEN: 'b06fdc52611d60ce262c5718e4b1352bca09d4c3', IMAGE_REPO_NAME_F: 'upp/portal-file-api',
     SERVICE_NAME_F: 'PortalFileAPI', APM_SERVICE_NAME: 'stgportal-api', IMAGE_VERSION: '1.0',
     ECR: '821988754834.dkr.ecr.ap-southeast-1.amazonaws.com',
-    TASK_FAMILY: 'UPP-STG-PortalConsumer', ECS_CLUSTER_NAME: 'UPP-STG-APPLICATION-CLUSTER',
+    TASK_FAMILY: 'UPP-STG-PortalConsumer', ECS_CLUSTER_NAME: 'UPP-STG-CLUSTER',
     ECS_SERVICE_NAME: 'UPP-STG-PortalConsumer-Service'
 )
