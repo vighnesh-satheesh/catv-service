@@ -32,7 +32,9 @@ class BloxyAPIInterface:
         updated_chain_map = {
             'trx': 'tron',
             'xrp': 'ripple',
-            'xlm': 'stellar'
+            'xlm': 'stellar',
+            'bnb': 'binance',
+            'ada': 'cardano'
         }
         
         updated_chain = chain.lower()

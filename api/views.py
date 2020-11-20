@@ -1975,6 +1975,14 @@ class CATVView(APIView):
             CatvTokens.XLM.value: {
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.BNB.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.ADA.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
             }
         }
         utils_map = {
@@ -3070,7 +3078,9 @@ class CATVReportView(APIView):
             "Litecoin": CatvTokens.LTC.value,
             "Ripple": CatvTokens.XRP.value,
             "EOS": CatvTokens.EOS.value,
-            "Stellar": CatvTokens.XLM.value
+            "Stellar": CatvTokens.XLM.value,
+            "Binance Coin": CatvTokens.BNB.value,
+            "Cardano": CatvTokens.ADA.value
         }
         token_type = utils.determine_wallet_type(obj.params.get("wallet_address", obj.params.get("address_from", "")))
         has_from_address = obj.params.get("address_from", "")

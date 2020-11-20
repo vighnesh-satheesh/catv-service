@@ -358,6 +358,8 @@ class CatvTokens(Enum):
     XRP = 'XRP'
     EOS = 'EOS'
     XLM = 'XLM'
+    BNB = 'BNB'
+    ADA = 'ADA'
 
 
 class CatvSearchType(Enum):

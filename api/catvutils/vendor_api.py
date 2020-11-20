@@ -73,9 +73,18 @@ class BloxyBTCAPIInterface:
                          till_time=datetime.now(), source=True, chain='BTC'):
         api_url = self.__source_endpoint if source else self.__distribution_endpoint
         depth = depth_limit
+        updated_chain_map = {
+            'trx': 'tron',
+            'xrp': 'ripple',
+            'xlm': 'stellar',
+            'bnb': 'binance',
+            'ada': 'cardano'
+        }
         updated_chain = chain.lower()
-        if updated_chain == 'trx':
-            updated_chain = 'tron'
+        if updated_chain in updated_chain_map.keys():
+            updated_chain = updated_chain_map[updated_chain]
+        if updated_chain == 'ripple' or updated_chain == 'stellar':
+            api_url = api_url.replace('coinpath', 'ripple:sentinel')
         payload = {'key': self.__key, 'address': address, 'depth_limit': depth,
                    'from_date': from_time, 'till_date': till_time, 'snapshot_time': from_time if source else till_time,
                    'limit_address_tx_count': tx_limit, 'limit': limit, 'format': 'json',
@@ -115,7 +124,17 @@ class BloxyEthAPIInterface:
         }
         if path_tracker.token_address:
             payload.update({'token': path_tracker.token_address})
-
+        updated_chain_map = {
+            'trx': 'tron',
+            'xrp': 'ripple',
+            'xlm': 'stellar',
+            'bnb': 'binance',
+            'ada': 'cardano'
+        }
+        updated_chain = path_tracker.chain.lower()
+        if updated_chain in updated_chain_map.keys():
+            updated_chain = updated_chain_map[updated_chain]
+        payload.update({'chain': updated_chain})
         r = self.fetch_api_response(api_url, payload)
         return r
 
