@@ -3303,3 +3303,74 @@ class SecurityTagView(generics.ListCreateAPIView):
             })
         )
 
+
+class RequestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    def list(self, request, *args, **kwargs):
+        valid_search_types = [ProductType.CATV.value, ProductType.CARA.value]
+        search_type = self.request.query_params.get("type", "catv")
+        query = self.request.query_params.get("q", None)
+        status = self.request.query_params.get("status", None)
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        order_by = order_by.split('_')
+        order_key = '-id'
+        if order_by[1] == 'asc':
+            order_key = 'id'
+        if search_type not in valid_search_types:
+            raise exceptions.ValidationError(
+                f"Invalid search type parameter. Valid values: {', '.join(valid_search_types)}")
+        if not query:
+            raise exceptions.ValidationError("q is required.")
+        if len(query) > 1024:
+            raise exceptions.ValidationError("q is too long.")
+        if status and status not in \
+            [CatvTaskStatusType.PROGRESS.value,
+             CatvTaskStatusType.RELEASED.value,
+             CatvTaskStatusType.FAILED.value]:
+            raise exceptions.ValidationError("Invalid status type parameter")
+
+        if search_type == ProductType.CATV.value:
+            serializer_cls = CATVRequestListSerializer
+        elif search_type == ProductType.CARA.value:
+            serializer_cls = CARARequestListSerializer
+        else:
+            serializer_cls = CARARequestListSerializer
+        queryset = self.filter_queryset(self.get_queryset(search_type, query, status, order_key))
+
+        page = self.paginate_queryset(queryset)
+        serializer = serializer_cls(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    def get_catv_queryset(self, query, status, order_key):
+        filter_queries = Q(params__icontains=query)
+        filter_queries |= Q(labels__arrayilike=query)
+        if status:
+            filter_queries &= Q(status=status)
+        filter_queries &= Q(user=self.request.user)
+        objs = CatvRequestStatus.objects.filter(filter_queries).distinct('id').order_by(order_key)
+        return objs
+
+    def get_cara_queryset(self, query, status, order_key):
+        filter_queries = Q(address__ilike=query)
+        filter_queries |= Q(labels__arrayilike=query)
+        if status:
+            filter_queries &= Q(status=status)
+        filter_queries &= Q(user=self.request.user)
+        objs = CaraSearchHistory.objects.filter(filter_queries).distinct('id').order_by(order_key)
+        return objs
+
+    def get_queryset(self, search_type, query, status, order_key):
+        objs = None
+        if search_type == ProductType.CATV.value:
+            return self.get_catv_queryset(query, status, order_key)
+        elif search_type == ProductType.CARA.value:
+            return self.get_cara_queryset(query, status, order_key)
+        return objs
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")
