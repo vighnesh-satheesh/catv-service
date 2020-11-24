@@ -112,6 +112,7 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^carahistory/(?P<pk>[0-9]+)/?$', views.CARARequestDetailView.as_view(),
             name='cara-request-detail'),
         url(r'^tags/?$', views.SecurityTagView.as_view(), name='security-tags'),
+        url(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
     ]
 
 
