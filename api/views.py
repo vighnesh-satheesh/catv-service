@@ -3063,6 +3063,9 @@ class CATVReportView(APIView):
         file_obj = obj.result_file.file.open(mode="rb")
         buf = file_obj.read()
         results = json.loads(buf.decode("UTF-8"))
+        if "messages" in results.keys():
+            for k, v in results["messages"].items():
+                results["messages"][k] = _(v)
         serializer = CATVRequestListSerializer(obj.request)
         return APIResponse({
             **results,

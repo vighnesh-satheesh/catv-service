@@ -803,3 +803,45 @@ msgstr "스파이웨어"
 
 msgid "Legit"
 msgstr "합법적인"
+
+msgid "Invalid token type. Supported:"
+msgstr "올바르지 않은 토큰 유형입니다."
+
+msgid "Invalid search type. Supported:"
+msgstr "올바르지 않은 검색 형식입니다."
+
+msgid "Either of source_depth or distribution_depth is needed."
+msgstr "입금 단계 또는 출금 단계를 입력해 주세요."
+
+msgid "Token address is not a valid ethereum address."
+msgstr "유효한 이더리움 주소가 아닙니다. 주소를 다시한번 확인해 주세요."
+
+msgid "Incorrect date format, should be YYYY-MM-DD."
+msgstr "년도-월-일 순서로 날짜 형식을 올바르게 입력해 주세요."
+
+msgid "Timeout exceeded while fetching/processing data."
+msgstr "데이터 연결 시간이 초과되었습니다. 다시한번 시도해 주세요."
+
+msgid "Incorrect or missing transactions. Please try adjusting your search criteria."
+msgstr "트랜잭션 값이 올바르지 않거나 누락되었습니다. 검색 기준을 조정 후 다시한번 검색해 주세요."
+
+msgid "Oops! Something went wrong while getting results for this address. Please try again later."
+msgstr "주소 추적 중 문제가 발생했습니다. 잠시 후 다시한번 검색해 주세요."
+
+msgid "Transaction hash is an invalid Bitcoin transaction hash"
+msgstr "올바르지 않은 비트코인 트랜잭션 해시입니다."
+
+msgid "Wallet address is an invalid Bitcoin address"
+msgstr "올바르지 않은 비트코인 주소입니다."
+
+msgid "\nThis address has too many transactions. Viewing all transactions would be difficult, so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
+msgstr "\n해당 주소에 트랜잭션이 너무 많습니다. 모든 트랜잭션을 불러오는 것에 제한이 있어 해당 주소와 관련성이 높은 트랜잭션만 표시됩니다."
+
+msgid "Internal server error. Please try again later"
+msgstr "오류가 발생했습니다. 잠시 후 다시한번 시도해 주세요."
+
+msgid "Missing source results for the wallet address within the date range specified"
+msgstr "해당 월렛 주소에 대해 지정된 날짜 범위 내 누락된 결과가 있습니다."
+
+msgid "Missing distribution results for the wallet address within the date range specified"
+msgstr "해당 월렛 주소에 대해 지정된 날짜 범위 내 누락된 결과가 있습니다."

@@ -800,3 +800,45 @@ msgstr ""
 
 msgid "Spyware"
 msgstr ""
+
+msgid "Invalid token type. Supported:"
+msgstr ""
+
+msgid "Invalid search type. Supported:"
+msgstr ""
+
+msgid "Either of source_depth or distribution_depth is needed."
+msgstr ""
+
+msgid "Token address is not a valid ethereum address."
+msgstr ""
+
+msgid "Incorrect date format, should be YYYY-MM-DD."
+msgstr ""
+
+msgid "Timeout exceeded while fetching/processing data."
+msgstr ""
+
+msgid "Incorrect or missing transactions. Please try adjusting your search criteria."
+msgstr ""
+
+msgid "Oops! Something went wrong while getting results for this address. Please try again later."
+msgstr ""
+
+msgid "Transaction hash is an invalid Bitcoin transaction hash"
+msgstr ""
+
+msgid "Wallet address is an invalid Bitcoin address"
+msgstr ""
+
+msgid "\nThis address has too many transactions. Viewing all transactions would be difficult, so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
+msgstr "\nThis address has too many transactions. Viewing all transactions would be difficult, so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
+
+msgid "Internal server error. Please try again later"
+msgstr ""
+
+msgid "Missing source results for the wallet address within the date range specified"
+msgstr ""
+
+msgid "Missing distribution results for the wallet address within the date range specified"
+msgstr ""
