@@ -842,3 +842,6 @@ msgstr ""
 
 msgid "Missing distribution results for the wallet address within the date range specified"
 msgstr ""
+
+msgid "unverified"
+msgstr ""

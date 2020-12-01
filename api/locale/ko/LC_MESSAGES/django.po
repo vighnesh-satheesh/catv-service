@@ -3,21 +3,6 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-11-12 17:37+0800\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-
 #: authentication.py:70
 msgid "Invalid basic header. No credentials provided."
 msgstr ""
@@ -845,3 +830,6 @@ msgstr "해당 월렛 주소에 대해 지정된 날짜 범위 내 누락된 결
 
 msgid "Missing distribution results for the wallet address within the date range specified"
 msgstr "해당 월렛 주소에 대해 지정된 날짜 범위 내 누락된 결과가 있습니다."
+
+msgid "unverified"
+msgstr "미등록"
