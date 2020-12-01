@@ -2579,8 +2579,6 @@ class CARAReportDownload(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        #data = request.data
-        #print("Data:", data)
         cara_search_time = self.request.GET.get('date_s')
         cara_rep_time = self.request.GET.get('rep_gen_time')
         address = self.request.GET.get('address')
@@ -2592,7 +2590,7 @@ class CARAReportDownload(APIView):
         last_tx_ts = self.request.GET.get('last_tx_ts')
         cara_summary = self.request.GET.get('cara_summary')
         verdict = self.request.GET.get('verdict')
-        trdb_result = self.request.GET.get('trdb_result')
+        trdb_result = _(self.request.GET.get('trdb_result'))
         trdb_summary = self.request.GET.get('trdb_summary')
         verdict_message = self.request.GET.get('verdict_message')
         cara_result = self.request.GET.get('cara_result')

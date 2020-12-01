@@ -845,3 +845,6 @@ msgstr "해당 월렛 주소에 대해 지정된 날짜 범위 내 누락된 결
 
 msgid "Missing distribution results for the wallet address within the date range specified"
 msgstr "해당 월렛 주소에 대해 지정된 날짜 범위 내 누락된 결과가 있습니다."
+
+msgid "unverified"
+msgstr "미등록"
