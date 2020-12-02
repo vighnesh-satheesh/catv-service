@@ -1,5 +1,8 @@
-from rest_framework import permissions
 import re
+
+from django.conf import settings
+from rest_framework import permissions
+
 from .settings import api_settings
 from .models import (
     UserPermission, CaseStatus, RolePermission, PermissionList
@@ -59,9 +62,9 @@ class CheckCaseDetailPermission(permissions.BasePermission):
 class CaseListPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         full_path = request.get_full_path()
-        l_index = full_path.rfind('/')
-        if l_index != -1:
-            full_path = full_path[l_index:]
+        locale_url_pattern = re.compile(f"^/({'|'.join(map(lambda x: x[0], settings.LANGUAGES))})/.*$")
+        if locale_url_pattern.match(full_path):
+            full_path = f"/{'/'.join(full_path.split('/')[2:])}"
         full_path_list = full_path.split('&')
         full_path = full_path_list[0]
         user_path_list = ['/case?case=my', '/case?case=my_new', '/case?case=my_progress', '/case?case=my_confirmed',
