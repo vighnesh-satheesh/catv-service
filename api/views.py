@@ -2479,6 +2479,7 @@ class CARAHistory(generics.ListAPIView):
                     0, user, x[0])
                 cursor.execute(update_error_report_query)
         if search_term:
+            search_term = search_term.lower()
             history = [entry for entry in history
                        if search_term in entry[0].lower() or search_term in ("|".join(entry[3])).lower()]
         history = self.paginate_queryset(history)
