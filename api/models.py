@@ -744,6 +744,11 @@ class SecurityTag(models.Model):
     created = models.DateTimeField(default=now)
     description = models.CharField(max_length=4096, blank=True, null=True)
 
+class CustomerSecurityTag(models.Model):
+    tag = models.CharField(max_length=256, blank=True, null=True)
+    created = models.DateTimeField(default=now)
+    description = models.CharField(max_length=4096, blank=True, null=True)
+
 class Indicator(models.Model):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, null=True, blank=True,
