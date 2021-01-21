@@ -17,7 +17,8 @@ from .models import (
     Key, EmailSent, Action, Role, RolePermission, RoleUsageLimit, RoleInfo,
     RewardSetting, OrganizationUser, OrganizationInvites,
     OrganizationInviteStatus, OrganizationUserStatus, Usage,
-    Organization
+    Organization,
+    CustomerSecurityTag
 )
 from .email import Email
 from .settings import api_settings
@@ -293,3 +294,4 @@ admin.site.register(RoleInfo, RoleUsageInfoAdmin)
 admin.site.register(Organization, OrganizationAdmin)
 admin.site.register(OrganizationUser)
 admin.site.register(OrganizationInvites)
+admin.site.register(CustomerSecurityTag)
