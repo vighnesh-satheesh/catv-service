@@ -1099,10 +1099,10 @@ class CaseListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "created", "status",
+        fields = ("id", "uid", "title", "created", "status", "customer_tag",
                   "reporter", "owned_by", "indicators")
         read_only_fields = ("id", "uid", "title", "created",
-                            "status", "reporter", "owned_by", "indicators")
+                            "status", "customer_tag", "reporter", "owned_by", "indicators")
 
     def get_created(self, obj):
         if obj.created is None:
@@ -1207,6 +1207,8 @@ class CasePostSerializer(serializers.ModelSerializer):
         required=True, max_length=api_settings.CASE_TITLE_MAX_LEN)
     detail = serializers.CharField(
         required=True, max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    customer_tag = serializers.CharField(
+        required=False, max_length=64)
     rich_text_detail = serializers.CharField(
         required=False, max_length=api_settings.CASE_DETAIL_MAX_LEN)
     reporter_info = serializers.EmailField(
@@ -1356,6 +1358,7 @@ class CasePostSerializer(serializers.ModelSerializer):
         history_log["fileRemoved"] = False
         history_log["titleUpdated"] = instance.title != validated_data['title']
         history_log["detailUpdated"] = instance.detail != validated_data['detail']
+        history_log["customerTagUpdated"] = instance.customer_tag != validated_data['customer_tag']
         history_log["relatedProjectUpdated"] = instance.ico != ico
         if related_data is not None and instance.related_case is not None:
             history_log["relatedCaseUpdated"] = instance.related_case_id != related_data.id
@@ -1479,7 +1482,7 @@ class CaseDetailSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.Case
-        fields = ("id", "uid", "title", "detail", "rich_text_detail", "created", "status", "reported_by",
+        fields = ("id", "uid", "title", "detail", "customer_tag", "rich_text_detail", "created", "status", "reported_by",
                   "owned_by", "verified_by", "trdb", "histories", "indicators", "files", "related_case")
 
     def get_queryset(self):
