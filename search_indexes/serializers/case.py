@@ -27,6 +27,7 @@ class CaseDocumentSerializer(serializers.Serializer):
     owned_by = serializers.SerializerMethodField()
     indicators = serializers.SerializerMethodField()
     detail = serializers.CharField()
+    customer_tag = serializers.CharField()
 
     class Meta(object):
 
@@ -41,7 +42,8 @@ class CaseDocumentSerializer(serializers.Serializer):
             'reporter',
             'owned_by',
             'indicators',
-            'detail'
+            'detail',
+            'customer_tag'
         )
 
     def get_uid(self, obj):

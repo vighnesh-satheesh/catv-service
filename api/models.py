@@ -1410,6 +1410,8 @@ class CaseMView(models.Model):
         max_length=api_settings.CASE_TITLE_MAX_LEN, default='')
     detail = models.TextField(
         default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
+    customer_tag = models.TextField(
+        default='', max_length=64)
     rich_text_detail = models.CharField(
         default='', max_length=api_settings.CASE_DETAIL_MAX_LEN)
     created = models.DateTimeField(default=now)

@@ -255,15 +255,15 @@ class CaseMessageTask:
             "related_ids": self.related_ids,
             "case_id": self.case_id
         }
-        producer = KafkaProducer(
-            bootstrap_servers=[
+        producer = KafkaProducer(bootstrap_servers=[
                 api_settings.KAFKA_BROKER_1,
                 api_settings.KAFKA_BROKER_2,
                 api_settings.KAFKA_BROKER_3
             ],
-            value_serializer=lambda m: json.dumps(m).encode('utf-8'),
-            retries=3
-        )
+            api_version=(2,0,1),
+            retries=3,
+            value_serializer=lambda x:
+            json.dumps(x).encode('utf-8'))
         producer.send(self.topic, message_body)
         producer.flush()
         producer.close()

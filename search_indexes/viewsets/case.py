@@ -41,6 +41,7 @@ class CaseDocumentView(BaseDocumentViewSet):
     search_fields = {
         'title',
         'detail',
+        'customer_tag',
     }
     filter_fields = {
         'status': {

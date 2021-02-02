@@ -49,6 +49,12 @@ class CaseDocument(Document):
         }
     )
     
+    customer_tag = StringField(
+        fields={
+            'raw': KeywordField(),
+        }
+    )
+
     rich_text_detail = StringField(
         analyzer=HTML_STRIP,
         fields={

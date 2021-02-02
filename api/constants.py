@@ -9,6 +9,7 @@ class Constants:
                       "fileRemoved": False,
                       "titleUpdated": False,
                       "detailUpdated": False,
+                      "customerTagUpdated": False,
                       "relatedProjectUpdated": False,
                       "relatedCaseUpdated": False,
                       "relatedCaseDeleted": False,
