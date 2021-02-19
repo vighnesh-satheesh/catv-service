@@ -130,7 +130,7 @@ class CaraUsageExceededThrottle(BaseThrottle):
         if usage_details and usage_details[0]['cara_calls_left_y'] > 0:
             return True
 
-        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at'] + relativedelta(years=+1), '%Y-%m-%d')
+        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at_y'] + relativedelta(years=+1), '%Y-%m-%d')
         raise Throttled(detail=("You have exhausted your CARA usage credits. "
                                 "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
 
