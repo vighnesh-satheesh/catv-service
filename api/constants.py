@@ -118,13 +118,14 @@ class Constants:
         "CARA_ERROR_COUNT": "SELECT address from cara_search_history where id='{0}' and error_generated=1",
         "CARA_USER_ID": "SELECT id from api_user where uid = '{0}'",
         "INSERT_CARA_REPORT": "INSERT INTO cara_report(address,risk_score,previous_risk_score,analysis_start_time"
-                              ",analysis_end_time,total_amt_dict,mal_amt_dict,total_tx,estimated_mal_tx"
+                              ",analysis_end_time,total_amt, estimated_mal_amt, total_amt_dict,mal_amt_dict,total_tx"
+                              ",estimated_mal_tx"
                               ",num_blacklisted_addr_contacted,distinct_transaction_patterns"
                               ",direct_links_to_malicious_activities,illegit_activity_links"
                               ",report_generated_time,error,ground_truth_label,tx_interfere_with_funds"
                               ",blacklisted_addr_list,distinct_tx_patterns_details,illegit_activity_links_details"
                               ",mal_activities_details,tx_interfere_with_funds_details)"
-                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s, %s, %s, %s, %s, %s)",
+                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         "KAFKA_LISTENER_PARAMS": "SELECT kafka_offset from kafka_listener_parameters where id=1",
         "KAFKA_OFFSET_UPDATE": "UPDATE kafka_listener_parameters set kafka_offset={0} where id=1",
         "CARA_REPORT_ADDRESS_GENERATED": "SELECT cr.address, cr.error, cr.risk_score, cr.ground_truth_label, cr.id, cr.report_generated_time from cara_report as cr JOIN cara_search_history as cs on cs.address = cr.address where cr.address='{0}' and cr.report_generated_time > '{1}' and cs.id = '{2}' and cr.report_generated_time < '{3}' and cs.query_time < cr.report_generated_time",

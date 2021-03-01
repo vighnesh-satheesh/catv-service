@@ -255,8 +255,10 @@ class Listener_Indicator:
                         direct_links = ast.literal_eval(dict_item["illegit_activity_links"])
                         activity = ast.literal_eval(dict_item["direct_links_to_malicious_activities"])
                         tx_funds = ast.literal_eval(dict_item["tx_interfere_with_funds"])
-                        total_amt = ast.literal_eval(dict_item["total_amt"])
-                        estimated_mal_amt = ast.literal_eval(dict_item["estimated_mal_amt"])
+                        total_amt = dict_item["total_amt"]
+                        total_amt_bc = total_amt[dict_item["blockchain"]]
+                        estimated_mal_amt = dict_item["estimated_mal_amt"]
+                        mal_amt_bc = estimated_mal_amt[dict_item["blockchain"]]
                         prv_risk_score = dict_item["previous_risk_score"]
                         pattern_string = ""
                         patterns = ""
@@ -418,8 +420,8 @@ class Listener_Indicator:
                                 activities = activities + "darkweb"
 
                         data_dict = (dict_item["address"], dict_item["risk_score"], prv_risk_score, dict_item["analysis_start_time"],
-                                     dict_item["analysis_end_time"], total_amt,
-                                     estimated_mal_amt, dict_item["total_tx"],
+                                     dict_item["analysis_end_time"], total_amt_bc, mal_amt_bc, str(total_amt),
+                                     str(estimated_mal_amt), dict_item["total_tx"],
                                      dict_item["estimated_mal_tx"],
                                      len(dict_item["num_blacklisted_addr_contacted"]) - 2, patterns, links, activities,
                                      datetime.datetime.now(datetime.timezone.utc), error,
