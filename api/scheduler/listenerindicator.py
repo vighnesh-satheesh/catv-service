@@ -246,11 +246,20 @@ class Listener_Indicator:
                             users = [x[0] for x in error_users]
                             qtime = [x[1] for x in error_users]
                     else:
+                        #request_id_query = Constants.QUERIES['CARA_REPORT_REQUEST_ID'].format(dict_item["address"])
+                        #print("Query:", request_id_query)
+                        #request_id = self.__trdb_api.get_query(request_id_query)
+                        #print("Request ID:", request_id)
                         pattern = ast.literal_eval(dict_item["distinct_transaction_patterns"])
                         blacklist_address = ast.literal_eval(dict_item["num_blacklisted_addr_contacted"])
                         direct_links = ast.literal_eval(dict_item["illegit_activity_links"])
                         activity = ast.literal_eval(dict_item["direct_links_to_malicious_activities"])
                         tx_funds = ast.literal_eval(dict_item["tx_interfere_with_funds"])
+                        total_amt = dict_item["total_amt"]
+                        total_amt_bc = total_amt[dict_item["blockchain"]]
+                        estimated_mal_amt = dict_item["estimated_mal_amt"]
+                        mal_amt_bc = estimated_mal_amt[dict_item["blockchain"]]
+                        prv_risk_score = dict_item["previous_risk_score"]
                         pattern_string = ""
                         patterns = ""
                         links_string = ""
@@ -410,9 +419,9 @@ class Listener_Indicator:
                                 activity_string = activity_string + a2
                                 activities = activities + "darkweb"
 
-                        data_dict = (dict_item["address"], dict_item["risk_score"], dict_item["analysis_start_time"],
-                                     dict_item["analysis_end_time"], dict_item["total_amt"],
-                                     dict_item["estimated_mal_amt"], dict_item["total_tx"],
+                        data_dict = (dict_item["address"], dict_item["risk_score"], prv_risk_score, dict_item["analysis_start_time"],
+                                     dict_item["analysis_end_time"], total_amt_bc, mal_amt_bc, str(total_amt),
+                                     str(estimated_mal_amt), dict_item["total_tx"],
                                      dict_item["estimated_mal_tx"],
                                      len(dict_item["num_blacklisted_addr_contacted"]) - 2, patterns, links, activities,
                                      datetime.datetime.now(datetime.timezone.utc), error,
