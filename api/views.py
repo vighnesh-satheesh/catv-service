@@ -2582,10 +2582,14 @@ class CARAReport(APIView):
         with connections['readonly'].cursor() as cursor:
             cursor.execute(report_query)
             report = cursor.fetchone()
+            import ast
+            mal = ast.literal_eval(report[22])
+            for key in mal:
+                mal[key] = str(mal[key])
             cursor.execute(case_query)
             case = cursor.fetchone()
             if report is not None:
-                data = {'report': report}
+                data = {'report': report, 'mal_dict': mal}
             else:
                 data = {'report': ""}
             if case is not None:
