@@ -234,9 +234,9 @@ class Listener_Indicator:
                     ntime = datetime.datetime.utcnow()
                     if "Error" in dict_item.keys():
                         error = dict_item["Error"]
-                        data_dict = (dict_item["address"], "0", datetime.datetime.now(datetime.timezone.utc),
+                        data_dict = (dict_item["address"], "0", "-2", datetime.datetime.now(datetime.timezone.utc),
                                      datetime.datetime.now(datetime.timezone.utc),
-                                     "0", "0",
+                                     "0", "0", "0", "0",
                                      "0", "0", "0", "",
                                      "", "", datetime.datetime.now(datetime.timezone.utc), error,
                                      "", "", "", "", "", "", "")
