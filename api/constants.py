@@ -130,11 +130,17 @@ class Constants:
         "KAFKA_OFFSET_UPDATE": "UPDATE kafka_listener_parameters set kafka_offset={0} where id=1",
         "CARA_REPORT_ADDRESS_GENERATED": "SELECT cr.address, cr.error, cr.risk_score, cr.ground_truth_label, cr.id, cr.report_generated_time from cara_report as cr JOIN cara_search_history as cs on cs.address = cr.address where cr.address='{0}' and cr.report_generated_time > '{1}' and cs.id = '{2}' and cr.report_generated_time < '{3}' and cs.query_time < cr.report_generated_time",
         "CARA_REPORT_ORPHAN": "SELECT address, error, risk_score, ground_truth_label, id, report_generated_time from cara_report where address='{0}' and report_generated_time > '{1}'",
-        "CARA_REPORT_QUERY": "SELECT cr.id, cr.address, cr.risk_score, cr.analysis_end_time, cr.total_amt_dict, cr.estimated_mal_amt, cr.estimated_mal_tx, cr.distinct_transaction_patterns,"
-                             "cr.direct_links_to_malicious_activities, cr.illegit_activity_links, cr.error, cr.ground_truth_label, cr.num_blacklisted_addr_contacted, cr.tx_interfere_with_funds,"
-                             "cs.blockchain, cr.blacklisted_addr_list, cr.distinct_tx_patterns_details, cr.illegit_activity_links_details, cr.mal_activities_details,"
-                             "cr.tx_interfere_with_funds_details, cr.report_generated_time, cr.previous_risk_score, cr.mal_amt_dict from cara_report as cr JOIN cara_search_history as cs on cr.address = cs.address"
-                             " where cr.address='{0}' and cr.id='{1}' and cr.report_generated_time > cs.query_time",
+        "CARA_REPORT_QUERY": "SELECT cr.id, cr.address, cr.risk_score, cr.analysis_end_time, cr.total_amt_dict, "
+                             "cr.estimated_mal_amt, cr.estimated_mal_tx, cr.distinct_transaction_patterns, "
+                             "cr.direct_links_to_malicious_activities, cr.illegit_activity_links, cr.error, "
+                             "cr.ground_truth_label, cr.num_blacklisted_addr_contacted, cr.tx_interfere_with_funds, "
+                             "cs.blockchain, cr.blacklisted_addr_list, cr.distinct_tx_patterns_details, "
+                             "cr.illegit_activity_links_details, cr.mal_activities_details, "
+                             "cr.tx_interfere_with_funds_details, cr.report_generated_time, cr.previous_risk_score,"
+                             "cr.mal_amt_dict from cara_report as cr JOIN cara_search_history as cs "
+                             "on cr.address = cs.address "
+                             "where cr.address='{0}' and cr.id='{1}' and cr.report_generated_time > cs.query_time "
+                             "order by cs.query_time desc",
         "CARA_REPORT_DELETE_QUERY": "DELETE from cara_report where address='{0}'",
         "SELECT_USER_CATV_HISTORY": "select 0 as id, wallet_address, token_address, source_depth, distribution_depth, "
                                     "transaction_limit, from_date, to_date from vw_catv_history where row_num = 1 and "
