@@ -2604,6 +2604,8 @@ class CARAReportDownload(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
+        prev_risk_score = self.request.GET.get('prev_risk_score')
+        prev_verdict = _(self.request.GET.get('prev_verdict'))
         cara_search_time = self.request.GET.get('date_s')
         cara_rep_time = self.request.GET.get('rep_gen_time')
         address = self.request.GET.get('address')
@@ -2724,7 +2726,8 @@ class CARAReportDownload(APIView):
                            cara_st_head=_("CARA Search Time"), report_gt_head=_("Report Generation Time"),
                            ml_ta_head=_("Machine Learning Transaction Analysis Results"), result_head=_("Result"),
                            score_head=_("Score"), lr_head=_("Low Risk"), mr_head=_("Medium Risk"),
-                           hr_head=("High Risk"),  ehr_head=_("Extremely High Risk"),
+                           pr_result_head=_("Previous Result"), pr_risk_score=prev_risk_score, pr_verdict=prev_verdict,
+                           hr_head=("High Risk"),  ehr_head=_("Extremely High Risk"), pr_score_head=_("Previous Score"),
                            risk_ind_head=_("List of Risk Indicators"), link_mal_head=_("Direct Links to Malicious Activities"),
                            black_head=_("Contacted Blacklist Addresses"), malware_head=_("Malware Wallet"),
                            scam_head=_("Fraud/Scam"), phish_head=_("Phishing"), th_head=_("Thief/Hack"),

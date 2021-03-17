@@ -936,6 +936,12 @@ msgstr ""
 msgid "Low Risk in CARA"
 msgstr ""
 
+msgid "Error retrieving previous risk score."
+msgstr ""
+
+msgid "No previous scores found."
+msgstr ""
+
 msgid "Medium Risk in CARA"
 msgstr ""
 
@@ -988,6 +994,12 @@ msgid "Result"
 msgstr ""
 
 msgid "Score"
+msgstr ""
+
+msgid "Previous Result"
+msgstr ""
+
+msgid "Previous Score"
 msgstr ""
 
 msgid "Static Analysis Results (TRDB)"
