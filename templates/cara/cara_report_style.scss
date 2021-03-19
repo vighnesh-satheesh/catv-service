@@ -43,7 +43,9 @@
 }
 
 .address {
+  width: 100%;
   margin-top: 12px;
+  overflow-wrap: break-word;
   // height: 58px;
   // width: 1183px;
   color: #212529;
@@ -101,6 +103,7 @@
   }
   .det-value {
     text-align: left;
+    overflow-wrap: break-word;
     width: 70%;
     color: #212529;
     font-family: KoreanTimesSSK;
