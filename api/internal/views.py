@@ -287,7 +287,7 @@ class EmailNotificationView(APIView):
         SendEmail().delay(kv=kv,
                         subject=req_body['subject'],
                         email_type=e.EMAIL_TYPE["EXCHANGE_SUBMIT"],
-                        sender=e.EMAIL_SENDER["INFO"],
+                        sender=e.EMAIL_SENDER["NO-REPLY"],
                         recipient=req_body['recipient']
                         )
         return APIResponse({"status":True}, status=202)
