@@ -10,7 +10,7 @@ Receiver: {{ rcv }}
 Funds entered Exchange/DEX: {{ hit_exchangedex }}
 Exchange/Dex Details: {{ exchangedex_anno }}
 
-https://www.etherscan.io/tx/{msg['tx_hash']}
+https://www.etherscan.io/tx/{{ tx_hash }}
 
 Additional notifications will be sent when new transactions are detected.
 

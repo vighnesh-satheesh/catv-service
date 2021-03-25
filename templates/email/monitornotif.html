@@ -101,12 +101,7 @@
                             <td>&nbsp;</td>
                             <td width="20px"></td>
                         </tr>
-                        {% if exchange_dexs_hit %}
-                        <tr>
-                            <td width="20px"></td>
-                            <td>&nbsp;</td>
-                            <td width="20px"></td>
-                        </tr>
+                        {% if hit_exchangedex %}
                         <tr>
                             <td width="20px"></td>
                             <td>
@@ -126,7 +121,17 @@
                             </td>
                             <td width="20px"></td>
                         </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
                         {% endif %}
+                        <tr>
+                            <td width="20px"></td>
+                            <td> https://www.etherscan.io/tx/{{ tx_hash }} </td>
+                            <td width="20px"></td>
+                        </tr>
                         <tr>
                             <td width="20px"></td>
                             <td>&nbsp;</td>
