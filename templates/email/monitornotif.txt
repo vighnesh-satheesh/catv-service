@@ -1,0 +1,19 @@
+Hi {{ nickname }},
+
+A new transfer has been detected for your created incident {{ incident_name }}.
+
+Tx Details:
+
+Tx Hash: {{ tx_hash }}
+Sender: {{ sender }}
+Receiver: {{ rcv }}
+Funds entered Exchange/DEX: {{ hit_exchangedex }}
+Exchange/Dex Details: {{ exchangedex_anno }}
+
+https://www.etherscan.io/tx/{{ tx_hash }}
+
+Additional notifications will be sent when new transactions are detected.
+
+Best regards,
+Team Sentinel Protocol
+Uppsala Security

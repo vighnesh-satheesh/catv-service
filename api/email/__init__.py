@@ -15,7 +15,9 @@ class Email:
             "PASSWORD_RESET": "PASSWORD_RESET",
             "NOTIFICATION": "NOTIFICATION",
             "INVITATION": "INVITATION",
-            "EXCHANGE_SUBMIT": "EXCHANGE_SUBMIT"
+            "EXCHANGE_SUBMIT": "EXCHANGE_SUBMIT",
+            "MONITOR_CONSOLIDATED": "MONITOR_CONSOLIDATED",
+            "MONITOR_NOTIF": "MONITOR_NOTIF"
         }
         self.EMAIL_TEMPLATE = {
             "EXCHANGE_SUBMIT": {
@@ -45,6 +47,14 @@ class Email:
             "INVITATION": {
                 "text": "email/invitation.txt",
                 "html": "email/invitation.html"
+            },
+            "MONITOR_CONSOLIDATED": {
+                "text": "email/monitorconsolidated.txt",
+                "html": "email/monitorconsolidated.html"
+            },
+            "MONITOR_NOTIF": {
+                "text": "email/monitornotif.txt",
+                "html": "email/monitornotif.html"
             }
         }
 

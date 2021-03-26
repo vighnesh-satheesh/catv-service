@@ -262,13 +262,40 @@ class EmailNotificationView(APIView):
     
     def post(self, request):
         req_body = json.loads(request.body)
-        if list(set(['uid','subject', 'text','recipient']) - set(list(req_body.keys()))):
-            return APIResponse({"status":False},status=400)
+
         e = Email()        
-        kv = {
-            "nickname":req_body.get('nickname', "User"),
-            "text":req_body['text']
-        }        
+
+        if req_body['type']=='monitor-consolidated':
+
+            if list(set(['type', 'uid', 'subject', 'incident_name', 'num_tx', 'num_wallets', 'exchange_dexs_hit',
+                         'exchange_dex_string', 'recipient']) - set(list(req_body.keys()))):
+                return APIResponse({"status": False}, status=400)
+
+            email_type = e.EMAIL_TYPE["MONITOR_CONSOLIDATED"]
+            kv = {
+                "nickname": req_body.get('nickname', "User"),
+                "incident_name": req_body['incident_name'],
+                "num_tx": req_body['num_tx'],
+                "num_wallets": req_body['num_wallets'],
+                "exchange_dexs_hit": req_body['exchange_dexs_hit'],
+                "exchange_dex_string": req_body['exchange_dex_string'],
+            }
+        else:
+
+            if list(set(['type', 'uid', 'subject', 'incident_name', 'tx_hash', 'sender', 'rcv',
+                         'hit_exchangedex','exchangedex_anno', 'recipient']) - set(list(req_body.keys()))):
+                return APIResponse({"status": False}, status=400)
+
+            email_type = e.EMAIL_TYPE["MONITOR_NOTIF"]
+            kv = {
+                "nickname": req_body.get('nickname', "User"),
+                "incident_name": req_body['incident_name'],
+                "tx_hash": req_body['tx_hash'],
+                "sender": req_body['sender'],
+                "rcv": req_body['rcv'],
+                "hit_exchangedex": req_body['hit_exchangedex'],
+                "exchangedex_anno": req_body['exchangedex_anno'],
+            }
         if not isinstance(req_body['recipient'], list):
             req_body['recipient']=list(req_body['recipient'])
         uid = User.objects.get(id=int(req_body['uid']))
@@ -286,7 +313,7 @@ class EmailNotificationView(APIView):
         #Send email
         SendEmail().delay(kv=kv,
                         subject=req_body['subject'],
-                        email_type=e.EMAIL_TYPE["EXCHANGE_SUBMIT"],
+                        email_type=email_type,
                         sender=e.EMAIL_SENDER["NO-REPLY"],
                         recipient=req_body['recipient']
                         )

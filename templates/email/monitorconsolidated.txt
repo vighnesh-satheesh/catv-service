@@ -1,0 +1,18 @@
+Hi {{ nickname }},
+
+Initial crawl has been completed for your created incident: {{ incident_name }}.
+
+Below are the tracking statistics up to current block.
+
+- Total number of transactions related to incident: {{ num_tx }}
+
+- Total number of wallets that received tracked funds: {{ num_wallets }}
+
+- List of exchange wallets that received tracked funds:
+{{exchange_dex_string}}
+
+Additional notifications will be sent when new transactions are detected.
+
+Best regards,
+Team Sentinel Protocol
+Uppsala Security

@@ -1,0 +1,202 @@
+<body style="width: 100%; height: 100%; background-color:#fefefe; padding:0; margin:0;">
+    <div style="width: 100%; height: 80px; line-height: 80px; text-align: center; color: #fff; position: relative; background: url('https://d3eihkwfyjrboh.cloudfront.net/email/logo_new.png') no-repeat center; background-size: auto 64px;">
+        <a href="https://uppsalasecurity.com" target="_blank">
+            <img src="https://sentinelmobile.s3-ap-southeast-1.amazonaws.com/img/ic_logo_refresh.png" width="315px" />
+        </a>
+    </div>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tbody>
+        <tr>
+            <td align='center' style="font-size:14px;color:#4d4d4d;font-family:NanumGothic, Helvetica, Verdana, Arialsans-serif;">
+                <div style='max-width:600px; margin-top:0; margin-right:auto; margin-bottom:0; margin-left:auto; padding-top:0; padding-right:10px; padding-left:10px; padding-bottom:0;'>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width:600px; padding:0; margin:0; font-family:NanumGothic, Helvetica, Verdana, Arialsans-serif; font-size:14px; color:#4d4d4d; text-align:left">
+                        <tbody style='background-color:#fcfcfc;'>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>
+                                Hi {{ nickname }},
+                            </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td> Initial crawl has been completed for your created incident: {{ incident_name }}.&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>
+                                Below are the tracking statistics up to current block.
+                            </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>
+                                <b> Total number of transactions related to incident: </b> {{ num_tx }}
+                            </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>
+                                <b> Total number of wallets that received tracked funds: </b> {{ num_wallets }}
+                            </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>
+                                <b> List of exchange wallets that received tracked funds: </b>
+                            </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                        {% if exchange_dexs_hit %}
+                            <table border='1' style="border-collapse: collapse">
+                                <tr>
+                                    <th> Wallet Addr </th>
+                                    <th> Annotations </th>
+                                    <th> Value </th>
+                                    <th> Token </th>
+                                </tr>
+
+                                {% for key, values in exchange_dexs_hit.items %}
+                                    {% for value_token in values.1 %}
+                                <tr>
+                                    {% if forloop.first %}
+                                    <td> {{key}} </td>
+                                    <td> {{values.0}} </td>
+                                        {% else %}
+                                    <td>&nbsp;</td>
+                                    <td>&nbsp;</td>
+                                    {% endif %}
+                                    <td> {{value_token.0}} </td>
+                                    <td> {{value_token.1}} </td>
+                                </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </table>
+                        {% else %}
+                            <tr>
+                                <td width="20px"></td>
+                                <td>
+                                    <b> - </b>
+                                </td>
+                                <td width="20px"></td>
+                            </tr>
+                        {% endif %}
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td> Additional notifications will be sent when new transactions are detected. </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td style='font-size:15px; line-height: 22px;'>
+                                Best regards, <br />
+                                Sentinel Protocol <br />
+                                Uppsala Security
+                            </td>
+                            <td width="20px"></td>
+                        </tr>
+                        <tr>
+                            <td width="20">&nbsp;</td>
+                            <td width="620"></td>
+                            <td width="20">&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td width="20">&nbsp;</td>
+                            <td width="620"></td>
+                            <td width="20">&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td width="20px"></td>
+                            <td>&nbsp;</td>
+                            <td width="20px"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width:600px; border-collapse: collapse; font-family:NanumGothic, Helvetica, Verdana, Arialsans-serif; font-size:14px; color:#4d4d4d; text-align:left; border: 0;">
+                        <tbody style='background-color:#4263EB; color:#fefefe; font-size:11px; text-align: center;'>
+                            <tr>
+                                <td style="padding: 32px;">
+                                    Copyright © 2018-2020 Sentinel Protocol created by Uppsala Security. All Rights Reserved.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</body>
