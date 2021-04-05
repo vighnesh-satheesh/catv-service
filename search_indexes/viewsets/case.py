@@ -52,7 +52,7 @@ class CaseDocumentView(BaseDocumentViewSet):
             ],
         },
         'customer_tag': {
-            'field': 'customer_tag.raw',
+            'field': 'customer_tag',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,
