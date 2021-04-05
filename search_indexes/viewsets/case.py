@@ -41,11 +41,18 @@ class CaseDocumentView(BaseDocumentViewSet):
     search_fields = {
         'title',
         'detail',
-        'customer_tag',
     }
     filter_fields = {
         'status': {
             'field': 'status.raw',
+            'lookups': [
+                LOOKUP_QUERY_IN,
+                LOOKUP_QUERY_CONTAINS,
+                LOOKUP_FILTER_WILDCARD,
+            ],
+        },
+        'customer_tag': {
+            'field': 'customer_tag.raw',
             'lookups': [
                 LOOKUP_QUERY_IN,
                 LOOKUP_QUERY_CONTAINS,

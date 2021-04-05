@@ -391,6 +391,7 @@ class CaseFilter(filters.FilterSet):
         start_date = self.request.GET.getlist("start_date") or []
         end_date = self.request.GET.getlist("end_date") or []
         tz = self.request.query_params.get('timezone', None)
+        customer_tag = self.request.GET.getlist("customer_tag") or []
 
         if len(security_category) > 0:
             indicator_filter &= Q(

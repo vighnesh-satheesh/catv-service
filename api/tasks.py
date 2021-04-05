@@ -179,6 +179,7 @@ class IndicatorESDocumentTask:
             "reporter": case_instance.reporter_id,
             "owner": case_instance.owner_id,
             "verifier": case_instance.verifier_id,
+            "customer_tag": case_instance.customer_tag,
             "security_category": list(self.security_category),
             "pattern_type": list(self.pattern_type),
             "pattern_subtype": list(self.pattern_subtype)

@@ -99,6 +99,9 @@ class CaseSearchES:
         else:
             es_serializer_req = Request('GET', url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/', headers=headers)
         async_req_caller = AsyncAPICaller([es_serializer_req], 1)
+        print("ES: ", es_serializer_req)
+        print("url: ", f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/?{query_string_drf}'
+                                                f'&ordering={order_key}&page={page}')
         result = async_req_caller.execute_request_pool()
         return result
     
@@ -108,7 +111,7 @@ class CaseSearchES:
         """
         case_filter = self.__make_shared_filter(is_user_view=False)
         keyword_filter = Q()
-        
+        print("Inside filter es")
         order_by = self.request.GET.get('order_by', 'id_desc')
         security_category = self.request.GET.getlist("security_category") or []
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
@@ -118,6 +121,7 @@ class CaseSearchES:
         end_date = self.request.GET.getlist("end_date") or []
         tz = self.request.query_params.get('timezone', None)
         page = self.request.GET.get('page', 1)
+        customer_tag = self.request.GET.getlist("customer_tag") or []
         order_by = order_by.split('_')
         key = ''
         if order_by[1] == 'desc':
@@ -127,6 +131,8 @@ class CaseSearchES:
         
         if len(security_category) > 0:
             case_filter &= Q(security_category__in=security_category)
+        if len(customer_tag) > 0:
+            case_filter &= Q(customer_tag__in=customer_tag)
         if len(pattern_type) > 0:
             case_filter &= Q(pattern_type__in=pattern_type)
         if len(pattern_subtype) > 0:
@@ -164,6 +170,7 @@ class CaseSearchES:
     def __filter_user_board_es(self):
         """Filter for user view"""
         case_filter = self.__make_shared_filter(is_user_view=True)
+        print("Case Filter:", case_filter)
         usercase_category = self.request.GET.get("user_case", None)
         usercase_category = usercase_category.split('_')
         if not len(usercase_category) == 2:
