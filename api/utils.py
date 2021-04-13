@@ -281,12 +281,15 @@ class QueryDictList(dict):
             super().__setitem__(key, [])
         self[key].extend(value) if type(value) is list else self[key].append(value)
 
-    def build_query_drf(self, query_operator='=', subquery_joiner='__', query_joiner='&', skip_join_key='search'):
+    def build_query_drf(self, query_operator='=', subquery_joiner='__', query_joiner='&', skip_join_key=['search', 'customer_tag']):
         query_list = []
         for k, v in self.items():
-            if k == skip_join_key:
+            if k in skip_join_key:
                 for term in v:
-                    query_list.append(f'{skip_join_key}{query_operator}{term}')
+                    if k == 'search':
+                        query_list.append(f'{skip_join_key[0]}{query_operator}{term}')
+                    else:
+                        query_list.append(f'{skip_join_key[1]}{query_operator}{term}')
             else:
                 str_v = [str(val) for val in v]
                 query_list.append(f'{k}{query_operator}{subquery_joiner.join(str_v)}')

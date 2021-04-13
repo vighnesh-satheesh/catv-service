@@ -311,4 +311,5 @@ class CustomFilteringBackend(FilteringFilterBackend):
                                                       value)
         if excluded_query_params:
             queryset = self.apply_query_combine(queryset, excluded_query_params.values())
+
         return queryset

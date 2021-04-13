@@ -88,7 +88,6 @@ class CaseSearchES:
     def __get_es_results(self, query_list, order_key, page):
         """Helper method to make request to search_index viewsets and additional raw count query, if needed."""
         query_string_drf, query_string_raw = build_query_string_filter(query_list)
-        print(query_list)
         headers = {
             'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
         }
@@ -99,9 +98,6 @@ class CaseSearchES:
         else:
             es_serializer_req = Request('GET', url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/', headers=headers)
         async_req_caller = AsyncAPICaller([es_serializer_req], 1)
-        print("ES: ", es_serializer_req)
-        print("url: ", f'{api_settings.SEARCH_BACKEND_URL}ecsearch/cases/?{query_string_drf}'
-                                                f'&ordering={order_key}&page={page}')
         result = async_req_caller.execute_request_pool()
         return result
     
@@ -112,7 +108,6 @@ class CaseSearchES:
         case_filter = self.__make_shared_filter(is_user_view=False)
         keyword_filter = Q()
         tag_filter = Q()
-        print("Inside filter es")
         order_by = self.request.GET.get('order_by', 'id_desc')
         security_category = self.request.GET.getlist("security_category") or []
         pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
@@ -123,10 +118,6 @@ class CaseSearchES:
         tz = self.request.query_params.get('timezone', None)
         page = self.request.GET.get('page', 1)
         customer_tag = self.request.GET.getlist("customer_tag") or []
-        cust = self.request.query_params.getlist("customer_tag") or []
-        print("cust:", customer_tag)
-        print("key:", keyword)
-        print("cust2:", cust)
         order_by = order_by.split('_')
         key = ''
         if order_by[1] == 'desc':
@@ -138,10 +129,8 @@ class CaseSearchES:
             case_filter &= Q(security_category__in=security_category)
         if len(customer_tag) > 0:
             for tag in customer_tag:
-                case_filter &= Q(customer_tag=tag)
-                #print("Tag:", tag_filter)
-            #case_filter &= tag_filter
-            print("case:", case_filter)
+                tag_filter |= Q(customer_tag=tag)
+            case_filter &= tag_filter
         if len(pattern_type) > 0:
             case_filter &= Q(pattern_type__in=pattern_type)
         if len(pattern_subtype) > 0:
