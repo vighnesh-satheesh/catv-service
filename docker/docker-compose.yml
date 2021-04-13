@@ -14,4 +14,10 @@ services:
       - C_FORCE_ROOT=1
     ports:
       - 8000:8000
-
+    extra_hosts:
+      - zoo1.prd.upp kafkabroker01.prd.upp:10.14.39.235
+      - zoo2.prd.upp kafkabroker02.prd.upp:10.14.39.187
+      - zoo3.prd.upp kafkabroker03.prd.upp:10.14.40.193
+      - zoo1.stg.upp stgkafkabroker01.stg.upp:10.12.39.108
+      - zoo2.stg.upp stgkafkabroker02.stg.upp:10.12.39.87
+      - zoo3.stg.upp stgkafkabroker03.stg.upp:10.12.40.59
