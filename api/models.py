@@ -632,11 +632,13 @@ class RoleUsageLimit(models.Model):
     api_limit = models.IntegerField(null=True, default=5)
     catv_limit = models.IntegerField(null=True, default=5)
     cara_limit = models.IntegerField(null=True, default=5)
+    cams_limit = models.IntegerField(null=True, default=5)
     org_invite_limit = models.IntegerField(null=True, default=0)
     max_api_keys = models.IntegerField(null=True, default=1)
     api_limit_y = models.IntegerField(null=False, default=5)
     catv_limit_y = models.IntegerField(null=False, default=5)
     cara_limit_y = models.IntegerField(null=False, default=5)
+    cams_limit_y = models.IntegerField(null=False, default=5)
 
     class Meta:
         db_table = 'api_role_usage_limit'
@@ -1146,9 +1148,11 @@ class Usage(models.Model):
     api_calls_left_y = models.IntegerField(default=0)
     catv_calls_left_y = models.IntegerField(default=0)
     cara_calls_left_y = models.IntegerField(default=0)
+    cams_calls_left_y = models.IntegerField(default=0)
     api_calls = models.IntegerField(default=0)
     catv_calls = models.IntegerField(default=0)
     cara_calls = models.IntegerField(default=0)
+    cams_calls = models.IntegerField(default=0)
     last_renewal_at = models.DateTimeField(null=True)
     last_renewal_at_y = models.DateTimeField(null=True)
 
