@@ -8,5 +8,5 @@ portalAPIPipeline(
     SERVICE_NAME_F: 'PortalFileAPI', APM_SERVICE_NAME: 'stgportal-api', IMAGE_VERSION: '1.0',
     ECR: '821988754834.dkr.ecr.ap-southeast-1.amazonaws.com',
     TASK_FAMILY: 'UPP-STG-PortalSearch', ECS_CLUSTER_NAME: 'UPP-STG-CLUSTER',
-    ECS_SERVICE_NAME: 'UPP-STG-PortalSearch-Service'
+    ECS_SERVICE_NAME: 'UPP-STG-PortalSearch'
 )
