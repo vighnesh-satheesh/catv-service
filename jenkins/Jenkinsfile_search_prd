@@ -8,5 +8,5 @@ portalAPIPipeline(
     SERVICE_NAME_F: 'PortalFileAPI', APM_SERVICE_NAME: 'portal-api', IMAGE_VERSION: '1.0',
     ECR: '821988754834.dkr.ecr.ap-southeast-1.amazonaws.com',
     TASK_FAMILY: 'UPP-PRD-PortalSearch', ECS_CLUSTER_NAME: 'UPP-PRD-APP-CLUSTER',
-    ECS_SERVICE_NAME: 'UPP-PRD-PortalSearch'
+    ECS_SERVICE_NAME: 'UPP-PRD-PortalSearch-Service'
 )
