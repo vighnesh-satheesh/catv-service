@@ -318,6 +318,7 @@ class UserRoleUpdateTask(Task):
                 api_calls_left_y=new_role_usage.api_limit_y - new_role_usage.api_limit,
                 catv_calls_left_y=new_role_usage.catv_limit_y - new_role_usage.catv_limit,
                 cara_calls_left_y=new_role_usage.cara_limit_y - new_role_usage.cara_limit,
+                cams_calls_left_y=new_role_usage.cams_limit_y - new_role_usage.cams_limit,
                 last_renewal_at_y=now()
             )
         return True
