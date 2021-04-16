@@ -1145,6 +1145,7 @@ class Usage(models.Model):
     api_calls_left = models.IntegerField(default=0)
     catv_calls_left = models.IntegerField(default=0)
     cara_calls_left = models.IntegerField(default=0)
+    cams_calls_left = models.IntegerField(default=0)
     api_calls_left_y = models.IntegerField(default=0)
     catv_calls_left_y = models.IntegerField(default=0)
     cara_calls_left_y = models.IntegerField(default=0)
