@@ -8,10 +8,13 @@ services:
     volumes:
       - ..:/app
     environment:
-      - PORTAL_API_ENV_PATH=/app/path.env
+      - PORTAL_API_ENV_PATH=/app/dev.env
       - API_TOKEN_ENCRYPT_PRIVATE_KEY=/app/key.private
       - ALLOWED_HOSTS=*
       - C_FORCE_ROOT=1
+    env_file:
+      #Insert your env file here
+      - ../dev.env
     ports:
       - 8000:8000
     extra_hosts:
