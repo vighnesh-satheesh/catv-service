@@ -57,7 +57,7 @@ class Constants:
                                    "api_calls=0, catv_calls=0, cara_calls=0, cams_calls=0,"
                                    "api_calls_left_y=credits.api_calls_left_y - arul.api_limit,"
                                    "catv_calls_left_y=credits.catv_calls_left_y - arul.catv_limit, "
-                                   "cara_calls_left_y=credits.cara_calls_left_y - arul.cara_limit "
+                                   "cara_calls_left_y=credits.cara_calls_left_y - arul.cara_limit, "
                                    "cams_calls_left_y=credits.cams_calls_left_y - arul.cams_limit "
                                    "FROM api_user au, api_role_usage_limit arul "
                                    "WHERE credits.user_id = au.id AND arul.role_id = au.role_id AND "
