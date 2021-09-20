@@ -11,7 +11,7 @@ ARG EXPOSE_FREESEARCH_ENDPOINT=true
 ARG SLACK_URL
 ARG ALLOWED_HOSTS
 ARG CORS_ORIGIN_WHITELIST
-ARG PORTAL_API_ENV=production
+ARG CATV_MS_API=production
 ARG PORTAL_API_VERSION
 ARG CONTAINER_TYPE=portal_api
 
@@ -22,7 +22,7 @@ ENV EXPOSE_INTERNAL_API=$EXPOSE_INTERNAL_API
 ENV EXPOSE_FREESEARCH_ENDPOINT=$EXPOSE_FREESEARCH_ENDPOINT
 ENV ALLOWED_HOSTS=$ALLOWED_HOSTS
 ENV CORS_ORIGIN_WHITELIST=$CORS_ORIGIN_WHITELIST
-ENV PORTAL_API_ENV=$PORTAL_API_ENV
+ENV CATV_MS_API=$CATV_MS_API
 ENV PORTAL_PM2_CONFIG_FILE=$PM2_CONFIG_FILE
 ENV PORTAL_API_VERSION=$PORTAL_API_VERSION
 ENV CONTAINER_TYPE=$CONTAINER_TYPE
@@ -39,7 +39,7 @@ RUN apt-get update && \
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
 
 # Install requirements
-COPY ./requirements/${PORTAL_API_ENV}.txt ./requirements.txt
+COPY ./requirements/${CATV_MS_API}.txt ./requirements.txt
 COPY ./library ./library
 RUN pip install -r ./requirements.txt && \
     pip install uwsgi && \
