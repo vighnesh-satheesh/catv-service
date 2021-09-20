@@ -1,4 +1,5 @@
 FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.6.5-stretch
+FROM python:3.6.5-stretch
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -11,7 +12,7 @@ ARG EXPOSE_FREESEARCH_ENDPOINT=true
 ARG SLACK_URL
 ARG ALLOWED_HOSTS
 ARG CORS_ORIGIN_WHITELIST
-ARG PORTAL_API_ENV=development
+ARG CATV_MS_API=development
 ARG PORTAL_API_VERSION
 ARG CONTAINER_TYPE=portal_api
 
@@ -22,7 +23,7 @@ ENV EXPOSE_INTERNAL_API=$EXPOSE_INTERNAL_API
 ENV EXPOSE_FREESEARCH_ENDPOINT=$EXPOSE_FREESEARCH_ENDPOINT
 ENV ALLOWED_HOSTS=$ALLOWED_HOSTS
 ENV CORS_ORIGIN_WHITELIST=$CORS_ORIGIN_WHITELIST
-ENV PORTAL_API_ENV=$PORTAL_API_ENV
+ENV CATV_MS_API=$CATV_MS_API
 ENV PORTAL_PM2_CONFIG_FILE=$PM2_CONFIG_FILE
 ENV PORTAL_API_VERSION=$PORTAL_API_VERSION
 ENV CONTAINER_TYPE=$CONTAINER_TYPE
@@ -39,7 +40,7 @@ RUN apt-get update && \
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
 
 # Install requirements
-COPY ./requirements/${PORTAL_API_ENV}.txt /app/requirements.txt
+COPY ./requirements/${CATV_MS_API}.txt /app/requirements.txt
 COPY ./library /app/library
 RUN pip install -r /app/requirements.txt && \
     pip install uwsgi && \
