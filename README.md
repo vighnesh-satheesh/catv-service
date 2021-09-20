@@ -48,19 +48,19 @@
    $ cd library/indicator-lib/src/py && python setup.py install
    ```
 
-4. Set two enviroment variables. **CATV_MS_API** and **CATV_MS_API_PATH**.
+4. Set two enviroment variables. **CATVMS_API** and **CATVMS_API_PATH**.
 
-   - **CATV_MS_API**
+   - **CATVMS_API**
      - one of `development` or `production`
-   - **CATV_MS_API_PATH**
+   - **CATVMS_API_PATH**
      - environment file path.
 
    ```
-   $ export CATV_MS_API=development
-   $ export CATV_MS_API_PATH=/env/file/path.env
+   $ export CATVMS_API=development
+   $ export CATVMS_API_PATH=/env/file/path.env
    ```
 
-5. Create _.env_ file at the path stored at **CATV_MS_API_PATH**. Please check _sample.env.example_ and refer to Environment Variables.
+5. Create _.env_ file at the path stored at **CATVMS_API_PATH**. Please check _sample.env.example_ and refer to Environment Variables.
 
    ```
    $ echo "DATABASE_URL=psql://...." > development.env
@@ -353,8 +353,8 @@ $ python manage.py runscript scripts.insert_trdb_data {production|development}
    1. Build a docker image with the `Dockerfile_dev` file
    2. Map the host code directory to the `app` directory inside the to-be built container.
    3. Define a few environment variables, which are used during the project initialization phase by Django.
-      Most importantly, `CATV_MS_API_PATH` & `API_TOKEN_ENCRYPT_PRIVATE_KEY`. You need to grab a copy of them from someone
-      if you don't have it. If you already have the files, then inside the file for the `CATV_MS_API_PATH` change the DATABASE
+      Most importantly, `CATVMS_API_PATH` & `API_TOKEN_ENCRYPT_PRIVATE_KEY`. You need to grab a copy of them from someone
+      if you don't have it. If you already have the files, then inside the file for the `CATVMS_API_PATH` change the DATABASE
       variables to use `host.docker.internal` so that the Postgres database on your host machine can be used by the Docker container.
    4. Port forwarding from host 8000 to container 8000.
 

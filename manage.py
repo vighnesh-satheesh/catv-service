@@ -20,7 +20,7 @@ if __name__ == "__main__":
     AppInit()
     after_setup_task_logger.connect(setup_logstash_celery)
     after_setup_logger.connect(setup_logstash_celery)
-    env = os.environ.get("CATV_MS_API")
+    env = os.environ.get("CATVMS_API")
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "portal_api.settings.{env}".format(env=env))
     try:
         from django.core.management import execute_from_command_line

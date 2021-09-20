@@ -17,11 +17,11 @@ from corsheaders.defaults import default_headers
 from datetime import timedelta
 
 env = environ.Env()
-env_path = os.environ.get('CATV_MS_API_PATH')
+env_path = os.environ.get('CATVMS_API_PATH')
 if env_path and os.path.exists(env_path):
-    env.read_env(env.str('CATV_MS_API_PATH', '.env'))
+    env.read_env(env.str('CATVMS_API_PATH', '.env'))
 
-ENVIRONMENT = env.str('CATV_MS_API', 'development')
+ENVIRONMENT = env.str('CATVMS_API', 'development')
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
