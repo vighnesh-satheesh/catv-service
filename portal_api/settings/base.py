@@ -50,8 +50,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_extensions',
     'social_django',
-    'api',
-    'search_indexes',
+    'api'
 ]
 
 MIDDLEWARE = [
