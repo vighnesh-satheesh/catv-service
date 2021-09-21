@@ -17,11 +17,11 @@ from corsheaders.defaults import default_headers
 from datetime import timedelta
 
 env = environ.Env()
-env_path = os.environ.get('CATVMS_API_PATH')
+env_path = os.environ.get('PORTAL_API_ENV_PATH')
 if env_path and os.path.exists(env_path):
-    env.read_env(env.str('CATVMS_API_PATH', '.env'))
+    env.read_env(env.str('PORTAL_API_ENV_PATH', '.env'))
 
-ENVIRONMENT = env.str('CATVMS_API', 'development')
+ENVIRONMENT = env.str('PORTAL_API_ENV', 'development')
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -44,14 +44,14 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'elasticapm.contrib.django',
     'djcelery',
     'corsheaders',
     'rest_framework',
     'django_filters',
     'django_extensions',
     'social_django',
-    'api'
+    'api',
+    'search_indexes',
 ]
 
 MIDDLEWARE = [
@@ -363,10 +363,6 @@ CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
 CELERY_IMPORTS = ('api.tasks',)
 CELERYBEAT_SCHEDULE = {
-    'check-quota-every-thirty-minutes': {
-        'task': 'api.tasks.CheckUpdateUsageQuotaTask',
-        'schedule': timedelta(minutes=30),
-    },
     'check-invites-every-45-minutes': {
         'task': 'api.tasks.CheckDeleteInvitesTask',
         'schedule': timedelta(minutes=45),
@@ -390,14 +386,16 @@ EMAIL_HOST_PASSWORD = API_SETTINGS['EMAIL_HOST_PASSWORD']
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/outbound_graph_with_stat')
-BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/inbound_graph_with_stat')
-BLOXY_BTC_SRC_ENDPOINT = env.str('API_BLOXY_BTC_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/bitcoin:coinpath/inbound_graph')
-BLOXY_BTC_DIST_ENDPOINT = env.str('API_BLOXY_BTC_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/bitcoin:coinpath/outbound_graph')
-BLOXY_ETHCOINPATH_ENDPOINT = env.str('API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://apisentinel.bloxy.info/coinpath/paths')
-BLOXY_BTCCOINPATH_ENDPOINT = env.str('API_BLOXY_BTCCOINPATH_ENDPOINT', 'https://apisentinel.bloxy.info/bitcoin:coinpath/paths')
-BLOXY_ETH_DIST_ENDPOINT = env.str('API_BLOXY_ETH_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/outbound_graph_with_stat')
-BLOXY_ETH_SRC_ENDPOINT = env.str('API_BLOXY_ETH_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/inbound_graph_with_stat')
+
+BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
+BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/inbound_graph')
+BLOXY_BTC_SRC_ENDPOINT = env.str('API_BLOXY_BTC_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/inbound_graph')
+BLOXY_BTC_DIST_ENDPOINT = env.str('API_BLOXY_BTC_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/outbound_graph')
+BLOXY_ETHCOINPATH_ENDPOINT = env.str('API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/paths')
+BLOXY_BTCCOINPATH_ENDPOINT = env.str('API_BLOXY_BTCCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/paths')
+BLOXY_ETH_DIST_ENDPOINT = env.str('API_BLOXY_ETH_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/outbound_graph_with_stat')
+BLOXY_ETH_SRC_ENDPOINT = env.str('API_BLOXY_ETH_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/inbound_graph_with_stat')
+
 LYZE_API_KEY = env.str('API_LYZE_KEY')
 LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'https://upp.lyze.ai/btc_forward_tracking')
 LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'https://upp.lyze.ai/btc_backward_tracking')
