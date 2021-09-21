@@ -55,16 +55,10 @@ from .serializers import (
     CATVRequestListSerializer
 )
 from .throttling import (
-    SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
-    FileUploadThrottle, CasePostThrottle,
-    EmailVerificationThrottle,
-    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
-    CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle,
-    CatvNoThrottle, UpgradePlanThrottle, UpgradePlanNoThrottle)
+    CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination, CatvRequestPagination
 from . import exceptions
-from . import permissions
 from . import utils
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .settings import api_settings
@@ -72,9 +66,7 @@ from .cache import DefaultCache
 from .cache.catv import TrackingCache
 from .constants import Constants
 from .tasks import (
-    CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
-    CatvPathHistoryTask, CaseMessageTask, CatvRequestTask,
-    UserRoleUpdateTask
+    CatvHistoryTask, CatvPathHistoryTask, CatvRequestTask
 )
 from .catvutils.metrics import CatvMetrics
 

@@ -22,7 +22,6 @@ from .catvutils.tracking_results import (
     BtcPathResults
 )
 from .catvutils.vendor_api import LyzeAPIInterface
-from .tasks import CaseMessageTask, UserRoleUpdateTask
 
 
 class NonNullModelSerializer(serializers.ModelSerializer):
