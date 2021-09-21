@@ -26,12 +26,6 @@ INSTALLED_APPS += [
 
 MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
 
-ELASTICSEARCH_INDEX_NAMES = {
-    'search_indexes.documents.case': env.str('API_ELASTIC_CASE_IDX', 'dev_case'),
-    'search_indexes.documents.indicator': env.str('API_ELASTIC_INDICATOR_IDX', 'dev_indicator'),
-}
-
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 

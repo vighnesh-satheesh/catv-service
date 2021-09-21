@@ -48,13 +48,10 @@ INSTALLED_APPS = [
     'djcelery',
     'corsheaders',
     'rest_framework',
-    'django_elasticsearch_dsl',
-    'django_elasticsearch_dsl_drf',
     'django_filters',
     'django_extensions',
     'social_django',
-    'api',
-    'search_indexes',
+    'api'
 ]
 
 MIDDLEWARE = [
@@ -153,20 +150,6 @@ CACHES = {
     }
 }
 
-ELASTICSEARCH_DSL = {
-    'default': {
-        'hosts': env.str('API_ELASTICSEARCH_HOST', 'localhost:9200'),
-        'timeout': env.str('API_ELASTICSEARCH_TIMEOUT', 7200),
-        'http_auth': env.str('API_ELASTICSEARCH_CREDENTIALS', '')
-    },
-}
-
-ELASTICSEARCH_DSL_AUTOSYNC = False
-
-ELASTICSEARCH_INDEX_NAMES = {
-    'search_indexes.documents.case': 'case',
-    'search_indexes.documents.indicator': 'indicator',
-}
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
@@ -354,9 +337,6 @@ API_SETTINGS = {
     "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', True),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
     "LYZE_API_KEY": env.str('API_LYZE_KEY'),
-    "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
-    "ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
-    "ELASTICSEARCH_INDICATOR_IDX": env.str("API_ELASTIC_INDICATOR_IDX", 'dev_indicator'),
     "KAFKA_CRAWLED_CASE_TOPIC": env.str("API_KAFKA_CRAWLED_CASE_TOPIC", "crawled-cases"),
     "KAFKA_PORTAL_CASE_TOPIC": env.str("API_KAFKA_PORTAL_CASE_TOPIC", "portal-cases"),
     "KAFKA_DELAYED_CASE_TOPIC": env.str("API_KAFKA_DELAYED_CASE_TOPIC", "crawled-delayed-cases"),
@@ -367,7 +347,6 @@ API_SETTINGS = {
     "CATV_MAX_SCALED_NODES": env.int("API_CATV_MAX_SCALED_NODES", 500),
     "CATV_GRAPH_NODES_CUTOFF": env.int("API_CATV_GRAPH_NODES_CUTOFF", 1000),
     "CATV_NUM_JOBS_PICK": env.int("API_CATV_NUM_JOBS_PICK", 3),
-    "ELASTICSEARCH_CASE_IDX": env.str("API_ELASTIC_CASE_IDX", 'dev_case'),
     "SEARCH_BACKEND_URL": env.str("API_SEARCH_BACKEND_URL", "http://localhost:8000/"),
     "MAINNET_URL": env.str("API_MAINNET_URL", "https://mainnet.infura.io/v3/acc7e98bea464efa91f383ce2dd3d764"),
     "VERIFY_TX_AMT": env.str("API_VERIFY_TX_AMT", "0.000118"),

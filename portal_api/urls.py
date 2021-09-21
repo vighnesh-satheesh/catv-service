@@ -21,18 +21,12 @@ from django.urls import path
 from django.conf.urls.static import static
 
 from api.router import urlpatterns as api_urls
-from search_indexes.urls import urlpatterns as search_index_urls
 
 
 urlpatterns = i18n_patterns(
     re_path('^', include(api_urls)),
     prefix_default_language=False
 )
-
-if settings.EXPOSE_SEARCH_API:
-    urlpatterns += [
-        url(r'^ecsearch/', include(search_index_urls)),
-    ]
 
 if settings.ENVIRONMENT == "development":
     import debug_toolbar
