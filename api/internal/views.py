@@ -21,7 +21,6 @@ from django.db.models.functions import Lower
 from kafka import KafkaProducer
 
 from .serializers import (
-    CasePostSerializer,
     IndicatorPostSerializer,
     IndicatorSimpleListSerializer,
     IndicatorDetailSerializer,
@@ -29,65 +28,17 @@ from .serializers import (
     CATVInternalSerializer
 )
 
-from ..serializers import CaseTRDBSerializer, LoginSerializer
 from ..constants import Constants
 from .. import utils
 from .. import permissions
 from ..cache import DefaultCache
 from ..response import APIResponse
 from ..settings import api_settings
-from ..tasks import CaseMessageTask
 from ..email import Email
 from ..email.tasks import SendEmail
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-
-
-class CaseIntervalView(APIView):
-    authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
-    model = Case
-
-    def post(self, request, format=None):
-        serializer = CasePostSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        case = serializer.save()
-
-        # save history.
-        history_log = Constants.HISTORY_LOG
-        history_log["msg"] = CaseStatus.RELEASED.value if case.status.value == CaseStatus.RELEASED.value else CaseStatus.NEW.value
-        history_log["type"] = "status"
-
-        CaseHistory.objects.create(
-            case=case,
-            log=json.dumps(history_log),
-            initiator=case.reporter if case.reporter is not None else None
-        )
-
-        if case.status == CaseStatus.RELEASED:
-            case_serializer = CaseTRDBSerializer(case)
-            data = case_serializer.data
-            utils.TRDB_CLIENT.push_case("activateCase", data)
-
-        c = DefaultCache()
-        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
-        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
-
-        case_task = CaseMessageTask(api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["CREATE"])
-        case_task.related_ids = case.id
-        case_task.run()
-
-        return APIResponse({
-            "data": {
-                "case": {
-                    "id": case.pk,
-                    "uid": case.uid,
-                    "indicators": IndicatorSimpleListSerializer(case.indicators, many=True).data
-                }
-            }
-        })
-
 
 class IndicatorInternalPostView(APIView):
     authentication_classes = ()
@@ -205,49 +156,7 @@ class CATVInternalView(APIView):
         return APIResponse({
             "data": {**results["graph"]}
         })
-        
-class ProxyAuthentication(APIView):
-    authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
-    def post(self, request):
-        req_body = json.loads(request.body)
-        print(req_body)
-        user = Key.objects.get(api_key=req_body['api_key']).user
-        if not user:
-            return APIResponse({"data":{"token":None, "userId":None}})
-        login_serializer = LoginSerializer(data={'email': user.email, 'password':user.password})
-        token = login_serializer.generate_proxy_login_response(user)
-        return APIResponse({
-            "data":{"token":token, "userId": user.uid}
-        })
 
-class ProxyPasswordAuthentication(APIView):
-    authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
-
-    def post(self, request):
-        req_body = json.loads(request.body)
-        token = req_body.get('token', None)
-        if not token:
-            return APIResponse({"data": None})
-        c = DefaultCache()
-        try:
-            user_id = int(c.get(token))
-        except ValueError:
-            return APIResponse({"data": None})
-        if not user_id:
-            return APIResponse({"data": None})
-        user = Key.objects.get(user_id=user_id).user
-        if not user:
-            return APIResponse({"data": None})
-        login_serializer = LoginSerializer(
-            data={'email': user.email, 'password': user.password})
-        data = login_serializer.internal_create_success_response(
-            user, token)
-        print(data)
-        return APIResponse({
-            "data": data
-        })
 
 class EmailNotificationView(APIView):
     """
