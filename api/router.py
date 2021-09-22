@@ -35,10 +35,3 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^catv_requests/(?P<pk>[0-9a-z\-]+)/?$', views.CATVRequestDetailView.as_view(),
             name='catv-request-detail')
     ]
-
-if settings.EXPOSE_FILE_API:
-    urlpatterns += [
-        url(r'^file/?$', views.AttachedFilePostView.as_view(), name='file-upload'),
-        url(r'^file/(?P<pk>[0-9a-z\-]+)/?$',
-            views.AttachedFileDetailView.as_view(), name='file-handle')
-    ]
