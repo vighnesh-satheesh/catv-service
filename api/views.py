@@ -1,28 +1,15 @@
 import gzip
-import datetime
 import json
-import math
 from operator import gt, lt
-import pytz
-from random import randrange
-import socket
 
-from django.conf import settings
-from django.core.files.storage import FileSystemStorage
 from django_filters import rest_framework as filters
-from django.db.models import F, Q, When, Value, Case as CaseFunc, IntegerField
-from django.db import transaction, IntegrityError
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from django.db import connection, connections
-from django.utils import timezone
+from django.db.models import Q
+from django.db import connection
 from django.utils.translation import ugettext_lazy as _
 
 from rest_framework.views import APIView
 from rest_framework import generics
-from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
 from social_django.utils import psa
@@ -35,62 +22,28 @@ from requests.exceptions import HTTPError
 import requests
 
 from .models import (
-    User, Case, Indicator, CaseIndicator, ICO, CaseStatus, Key, Comment, CaseHistory,
-    Notification, NotificationType,
-    AttachedFile, UserPermission, UppwardRewardInfo,
-    UserStatus,
-    IndicatorPatternType, IndicatorPatternSubtype, IndicatorEnvironment, IndicatorVector, IndicatorSecurityCategory,
-    RewardSetting, ProductType, Organization, OrganizationInvites, OrganizationInviteStatus, OrganizationUser,
-    CatvHistory, CatvTokens, CatvPathHistory, InviteType, OrganizationUserStatus,
-    CatvSearchType, CatvRequestStatus, CatvTaskStatusType,
-    UserIndicator, IndicatorPoint, CatvResult,
-    Role, RoleUsageLimit, UserRoles,
-    UserUpgrade, UpgradeVerifyStatus, CaraSearchHistory,
-    SecurityTag, CustomerSecurityTag
+    CatvHistory, CatvTokens, CatvPathHistory, CatvSearchType, 
+    CatvRequestStatus, CatvTaskStatusType, CatvResult
 )
 from .serializers import (
-    LoginSerializer, ChangePasswordSerializer,
-    CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer,
-    AutoCompleteSerializer, AttachedFilePostSerializer,
-    ICODetailSerializer, ICOListSerializer,
-    IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
-    IndicatorLatestRecordSerializer,
-    UppwardRewardInfoPostSerializer,
-    UserDetailSerializer, UserPostSerializer,
-    ICFDetailSerializer, ICFPostSerializer,
-    CommentSerializer, CommentPostSerializer,
-    NotificationSerializer, CATVSerializer,
-    RewardSettingSerializer, OrganizationPostSerializer,
-    OrganizationSimpleSerializer, OrganizationUserPostSerializer,
-    InvitationSerializer, SocialSerializer, CATVBTCSerializer,
-    CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer,
-    CATVRequestListSerializer, CARARequestListSerializer, SecurityTagSerializer,
-    UserPasswordSerializer, CustomerSecurityTagSerializer
+    CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer, 
+    CATVHistorySerializer, CATVBTCCoinpathSerializer,
+    CATVEthPathSerializer, CatvBtcPathSerializer, 
+    CATVRequestListSerializer
 )
 from .throttling import (
-    SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
-    FileUploadThrottle, CasePostThrottle,
-    EmailVerificationThrottle,
-    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
-    CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle,
-    CatvNoThrottle, UpgradePlanThrottle, UpgradePlanNoThrottle)
-from .response import APIResponse, FileResponse, FileRenderer
-from .pagination import CustomPagination, CatvRequestPagination
+    CatvPostThrottle, CatvUsageExceededThrottle,CatvNoThrottle
+)
+from .response import APIResponse
+from .pagination import CatvRequestPagination
 from . import exceptions
-from . import permissions
 from . import utils
-from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
+from .multitoken.tokens_auth import CachedTokenAuthentication
 from .settings import api_settings
-from .cache import DefaultCache
 from .cache.catv import TrackingCache
-from .email import Email
-from .email.tasks import SendEmail
 from .constants import Constants
 from .tasks import (
-    CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
-    CatvPathHistoryTask, CaseMessageTask, CatvRequestTask,
-    UserRoleUpdateTask
+    CatvHistoryTask, CatvPathHistoryTask, CatvRequestTask
 )
 from .catvutils.metrics import CatvMetrics
 
