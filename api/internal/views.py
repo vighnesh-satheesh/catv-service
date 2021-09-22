@@ -1,44 +1,8 @@
-import json
-
-from rest_framework import exceptions
-from ..exceptions import AuthenticationValidationError
 from rest_framework.views import APIView
-from ..models import (
-    Case,
-    CaseStatus,
-    CaseHistory,
-    Indicator,
-    IndicatorPatternType,
-    IndicatorPatternSubtype,
-    Key,
-    Notification,
-    NotificationType,
-    User
-)
 
-from django.db.models import Q
-from django.db.models.functions import Lower
-from kafka import KafkaProducer
-
-from .serializers import (
-    IndicatorPostSerializer,
-    IndicatorSimpleListSerializer,
-    IndicatorDetailSerializer,
-    CaseHistoryPostSerializer,
-    CATVInternalSerializer
-)
-
-from ..constants import Constants
-from .. import utils
+from .serializers import CATVInternalSerializer
 from .. import permissions
-from ..cache import DefaultCache
 from ..response import APIResponse
-from ..settings import api_settings
-from ..email import Email
-from ..email.tasks import SendEmail
-
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
 
 class CATVInternalView(APIView):
     authentication_classes = ()
