@@ -182,18 +182,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'userLogin': '5/min',
-        'changePassword': '5/min',
-        'fileUpload': '20/min',
-        'casePost': '5/min',
-        "signup": "5/min",
-        'emailVerification': '5/min',
-        'indicatorPost': '20/min',
-        'caraPost': '3/min',
         'catvPost': '5/min',
-        'guestSearchGet': '20/min',
-        'catvInternalPost': '1/min',
-        'upgradePostPut': '5/hour'
+        'catvInternalPost': '1/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
