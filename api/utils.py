@@ -12,6 +12,7 @@ from multiprocessing.pool import ThreadPool
 from json import loads
 
 from django.db.models import Q
+from django.db import connection, connections
 from django.utils import six
 from django.utils.encoding import force_text
 
@@ -22,10 +23,11 @@ from .response import APIResponse
 from .models import (
     CaseStatus, UserPermission, RolePermission,
     PermissionList, get_permission_from_status,
-    CatvTokens
+    CatvTokens, CatvHistory
 )
 from . import exceptions
 from .settings import api_settings
+from .constants import Constants
 
 
 def get_validation_error_detail(data):
@@ -134,6 +136,145 @@ def create_path_cache_pattern(data):
 
     return f"af{address_from}at{address_to}d{depth}fd{from_date}td{to_date}tk{token_address}"
 
+
+class CaseStatusTransition(object):
+    # status, is_owner
+    owner_transit = {
+        (CaseStatus.NEW, True): [CaseStatus.PROGRESS],
+        (CaseStatus.NEW, False): [CaseStatus.PROGRESS],
+        (CaseStatus.PROGRESS, True): [CaseStatus.NEW, CaseStatus.CONFIRMED, CaseStatus.REJECTED],
+        (CaseStatus.CONFIRMED, True): [CaseStatus.PROGRESS],
+        (CaseStatus.REJECTED, True): [CaseStatus.PROGRESS]
+    }
+
+    # status, is_owner
+    super_transit = {
+        (CaseStatus.NEW, True): [CaseStatus.PROGRESS],
+        (CaseStatus.NEW, False): [CaseStatus.PROGRESS],
+        (CaseStatus.CONFIRMED, True): [CaseStatus.RELEASED, CaseStatus.REJECTED],
+        (CaseStatus.RELEASED, True): [CaseStatus.REJECTED]
+    }
+
+    def next(self, status, is_super, is_owner, permission):
+        super_status = self.super_transit.get((status, is_super), [])
+        owner_status = self.owner_transit.get((status, is_owner), [])
+        if permission == UserPermission.USER:
+            return {}
+        else:
+            return set(super_status + owner_status)
+
+    def validate(self, status, next_status, is_super, is_owner):
+        super_status = self.super_transit.get((status, is_super), [])
+        not_super_status = self.super_transit.get((status, not is_super), [])
+        owner_status = self.owner_transit.get((status, is_owner), [])
+        not_owner_status = self.owner_transit.get((status, not is_owner), [])
+        if is_super and is_owner:
+            if next_status in super_status or next_status in owner_status:
+                return
+            else:
+                raise exceptions.CaseStatusChangeError(status.value, next_status.value)
+        elif is_super and not is_owner:
+            if next_status in super_status:
+                return
+            elif next_status in not_owner_status:
+                raise exceptions.OwnerRequiredError()
+            else:
+                raise exceptions.CaseStatusChangeError(status.value, next_status.value)
+        elif not is_super and is_owner:
+            if next_status in owner_status:
+                return
+            elif next_status in not_super_status:
+                raise exceptions.SupersentinelRequiredError()
+        else:
+            if next_status in super_status or next_status in owner_status:
+                return
+            elif next_status in not_super_status:
+                raise exceptions.SupersentinelRequiredError()
+            elif next_status in not_owner_status:
+                raise exceptions.OwnerRequiredError()
+            else:
+                raise exceptions.CaseStatusChangeError(status.value, next_status.value)
+
+    def check_access(self, status, role_id):
+        action_code = get_permission_from_status(status.value).value
+        perm_dict = RolePermission.objects.get_permission_matrix(role_id, action_code)[0]
+        if perm_dict[action_code]:
+            return
+        else:
+            raise exceptions.StatusChangeError()
+
+
+CASE_STATUS_FSM = CaseStatusTransition()
+
+
+def get_case_next_status(obj, is_super, is_owner):
+    if obj.status == CaseStatus.NEW:  # authenticated user. new -> progress. owner becomes user.
+        return [CaseStatus.PROGRESS]
+    elif obj.status == CaseStatus.PROGRESS:  # only owner. progress -> new, confirmed, rejected.
+        if is_owner:
+            return [CaseStatus.NEW, CaseStatus.CONFIRMED, CaseStatus.REJECTED]
+    elif obj.status == CaseStatus.CONFIRMED:
+        if is_super and is_owner:
+            return [CaseStatus.PROGRESS, CaseStatus.RELEASED, CaseStatus.REJECTED]
+        elif is_super:  # supersentinel. confirmed -> released,rejected
+            return [CaseStatus.RELEASED, CaseStatus.REJECTED]
+        elif is_owner:  # owner. confirmed -> progress
+            return [CaseStatus.PROGRESS]
+    elif obj.status == CaseStatus.REJECTED:  # owner. rejected -> progress.
+        if is_owner:
+            return [CaseStatus.PROGRESS]
+    elif obj.status == CaseStatus.RELEASED:  # supersentinel. released -> rejected
+        return [CaseStatus.REJECTED]
+
+    return []
+
+
+class TRDBApiClient(object):
+    def __init__(self, base_url=None):
+        self.base_url = base_url if base_url else api_settings.TRDB_API_URL
+        assert(self.base_url is not None)
+
+    @retry(re_exceptions.ConnectionError, tries=3, delay=1, backoff=1)
+    def push_case(self, action, case_data):
+        # TODO: retry will fail because of case_data is mutable.
+        if case_data is None:
+            raise AttributeError("case should not be empty.")
+        if action == "activateCase":
+            case_data = self.__activate_case_data(case_data)
+        elif action == "deactivateCase":
+            case_data = self.__deactivate_case_data(case_data)
+
+        data = {
+            "action": action,
+            "created": int(time.time()),
+            "case": case_data
+        }
+
+        if api_settings.PORTAL_API_MODE == "production":
+            with requests.Session() as s:
+                res = s.post(urllib.parse.urljoin(self.base_url, "transaction"), json=data, headers={'Connection': 'close'})
+                if res.status_code == requests.codes.ok:
+                    return True
+                else:
+                    return False
+
+    def __activate_case_data(self, case_data):
+        return case_data
+
+    def __deactivate_case_data(self, case_data):
+        return {
+            "id": case_data["id"]
+        }
+
+
+def generate_random_key(key_length):
+    v = "".join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(key_length))
+    return v
+
+
+TRDB_CLIENT = TRDBApiClient()
+
+
 class QueryDictList(dict):
     def __setitem__(self, key: str, value: list) -> None:
         try:
@@ -196,24 +337,75 @@ class AsyncAPICaller:
             resp_dict = {**resp_dict, **resp}
         return resp_dict
 
-def determine_wallet_type(address_str):
-    regex_token_map = {
-        "^0x[a-fA-F0-9]{40}$": "Ethereum",
-        "^T[a-zA-Z0-9]{21,34}$": "Tron",
-        "^([13]|bc1).*[a-zA-Z0-9]{26,35}$": "Bitcoin",
-        "^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$": "Litecoin",
-        "^([13][a-km-zA-HJ-NP-Z1-9]{25,34})|^((bitcoincash:)?(q|p)[a-z0-9]{41})|^((BITCOINCASH:)?(Q|P)[A-Z0-9]{41})$": "Bitcoin Cash",
-        "^r[0-9a-zA-Z]{24,34}$": "Ripple",
-        "^[1-5a-z.]{12}$": "EOS",
-        "^[0-9a-zA-Z]{56}$": "Stellar",
-        "^(bnb1)[0-9a-z]{38}$": "Binance Coin",
-        "^[0-9a-zA-Z]+$": "Cardano"
+
+def build_query_string_filter(query_obj):
+    payload = QueryDictList()
+    for predicate in query_obj:
+        if type(predicate) == Q:
+            # this will only happen for keyword search
+            for nested_predicate in predicate.children:
+                payload[nested_predicate[0]] = [nested_predicate[1]]
+        else:
+            payload[predicate[0]] = predicate[1]
+    query_string_drf = payload.build_query_drf()
+    query_string_raw = payload.build_query_raw()
+    return query_string_drf, query_string_raw
+
+
+def es_serialized_search(query_string, page, order_key, index='indicators'):
+    headers = {
+        'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
     }
-    for regex_token in regex_token_map.items():
-        pattern = re.compile(regex_token[0])
-        if pattern.match(address_str):
-            return regex_token[1]
-    return "Ethereum"
+
+    es_serializer_req = requests.get(
+        url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/{index}/?{query_string}'
+        f'&ordering={order_key}&page={page}',
+        headers=headers
+    )
+    if es_serializer_req.status_code != 200:
+        return {}
+    return loads(es_serializer_req.text)
+
+
+def es_raw_search(es_func, query_string, **kwargs):
+    if api_settings.ELASTICSEARCH_CREDENTIALS:
+        user, pwd = api_settings.ELASTICSEARCH_CREDENTIALS.split(':')
+        cred = (user, pwd)
+    else:
+        cred = None
+    if query_string:
+        url = f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/{es_func}?q={query_string}'
+    else:
+        url = f'{api_settings.ELASTICSEARCH_HOST}/{api_settings.ELASTICSEARCH_INDICATOR_IDX}/{es_func}'
+    
+    es_raw_req = requests.get(url=url, auth=cred)
+    if es_raw_req.status_code != 200:
+        return {
+            'count': 0
+        }
+    return loads(es_raw_req.text)
+
+
+def determine_wallet_type(token_type):
+    address_mapping = {
+        "ETH": "Ethereum/ERC20",
+        "TRX": "Tron",
+        "BTC": "Bitcoin",
+        "LTC": "Litecoin",
+        "BCH": "Bitcoin Cash",
+        "XLM": "Stellar",
+        "EOS": "EOS",
+        "XRP": "Ripple",
+        "BNB": "Binance Coin",
+        "ADA": "Cardano",
+        "BSC": "Binance Smart Chain"
+    }
+
+    if address_mapping.__contains__(token_type.value):
+        return address_mapping[token_type.value]
+        
+    return "Ethereum/ERC20"
+
 
 def pattern_matches_token(address, token_type):
     token_regex_map = {
@@ -226,9 +418,10 @@ def pattern_matches_token(address, token_type):
         CatvTokens.EOS.value: "^[1-5a-z.]{12}$",
         CatvTokens.XLM.value: "^[0-9a-zA-Z]{56}$",
         CatvTokens.BNB.value: "^(bnb1)[0-9a-z]{38}$",
-        CatvTokens.ADA.value: "^[0-9a-zA-Z]+$"
+        CatvTokens.ADA.value: "^[0-9a-zA-Z]+$",
+        CatvTokens.BSC.value: "^0x[a-fA-F0-9]{40}$",
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:
-        return false
+        return False
     return re.compile(pattern).match(address)

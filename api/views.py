@@ -49,26 +49,51 @@ from .models import (
     SecurityTag, CustomerSecurityTag
 )
 from .serializers import (
-    CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer,
-     CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer, CatvBtcPathSerializer,
-    CATVRequestListSerializer
+    LoginSerializer, ChangePasswordSerializer,
+    CaseListSerializer, CaseDetailSerializer, CasePatchSerializer, CasePostSerializer,
+    AutoCompleteSerializer, AttachedFilePostSerializer,
+    ICODetailSerializer, ICOListSerializer,
+    IndicatorPostSerializer, IndicatorDetailSerializer, IndicatorListSerializer, IndicatorSimpleListSerializer,
+    IndicatorLatestRecordSerializer,
+    UppwardRewardInfoPostSerializer,
+    UserDetailSerializer, UserPostSerializer,
+    ICFDetailSerializer, ICFPostSerializer,
+    CommentSerializer, CommentPostSerializer,
+    NotificationSerializer, CATVSerializer,
+    RewardSettingSerializer, OrganizationPostSerializer,
+    OrganizationSimpleSerializer, OrganizationUserPostSerializer,
+    InvitationSerializer, SocialSerializer, CATVBTCSerializer,
+    CATVBTCTxlistSerializer, CATVHistorySerializer, CATVBTCCoinpathSerializer,
+    CATVEthPathSerializer, CatvBtcPathSerializer, UserIndicatorSerializer,
+    CATVRequestListSerializer, CARARequestListSerializer, SecurityTagSerializer,
+    UserPasswordSerializer, CustomerSecurityTagSerializer
 )
 from .throttling import (
-    CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle)
+    SignUpThrottle, UserLoginThrottle, ChangePasswordThrottle,
+    FileUploadThrottle, CasePostThrottle,
+    EmailVerificationThrottle,
+    IndicatorPostThrottle, CatvPostThrottle, CatvUsageExceededThrottle,
+    CaraUsageExceededThrottle, CaraPostThrottle, GuestSearchThrottle,
+    CatvNoThrottle, UpgradePlanThrottle, UpgradePlanNoThrottle)
 from .response import APIResponse, FileResponse, FileRenderer
 from .pagination import CustomPagination, CatvRequestPagination
 from . import exceptions
+from . import permissions
 from . import utils
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .settings import api_settings
 from .cache import DefaultCache
 from .cache.catv import TrackingCache
+from .email import Email
+from .email.tasks import SendEmail
 from .constants import Constants
 from .tasks import (
-    CatvHistoryTask, CatvPathHistoryTask, CatvRequestTask
+    CacheLeftPanelValuesTask, CatvHistoryTask, CacheNumberOfIndicatorsCases,
+    CatvPathHistoryTask, CaseMessageTask, CatvRequestTask,
+    UserRoleUpdateTask
 )
 from .catvutils.metrics import CatvMetrics
+from .search import CaseSearchES
 
 
 class HealthCheckView(APIView):
@@ -78,6 +103,1843 @@ class HealthCheckView(APIView):
     def get(self, request):
         return APIResponse({
             "status": "ok"
+        })
+
+
+class LoginView(ObtainAuthToken):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (UserLoginThrottle,)
+
+    def post(self, request, format=None):
+        serializer = LoginSerializer(data=request.data,
+                                     context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        return APIResponse({
+            "data": serializer.validated_data
+        })
+
+
+class LogoutView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, format=None):
+        if request.user is None or request.auth is None:
+            raise exceptions.AuthenticationCheckError()
+        user = request.user
+        user.last_logged_out = timezone.now()
+        user.save()
+        try:
+            MultiToken.expire_token(request.auth)
+        except self.model.DoesNotExist:
+            pass
+
+        return APIResponse({"data": ""})
+
+
+class ChangePasswordView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (ChangePasswordThrottle,)
+    model = User
+
+    def get_object(self, email):
+        try:
+            return self.model.objects.get(email__iexact=email)
+        except self.model.DoesNotExist:
+            raise exceptions.UserNotFound("")
+
+    def get(self, request, code=None):
+        msg = "password reset code is not valid"
+        if not code:
+            raise exceptions.PasswordResetCodeNotValid(msg)
+
+        c = DefaultCache()
+        email = c.get_email_by_password_reset_key(code)
+        if not email:
+            raise exceptions.PasswordResetCodeNotValid(msg)
+
+        return APIResponse({
+            "data": {
+                "email": email
+            }
+        })
+
+    def put(self, request, format=None):
+        data = request.data
+        try:
+            code = data.get("code", None)
+        except KeyError:
+            raise exceptions.AuthenticationValidationError("invalid data")
+        c = DefaultCache()
+        v = c.get(code)
+        if not v:
+            raise exceptions.AuthenticationValidationError("code not found")
+        email = v.split("-")[0]
+        obj = self.get_object(email)
+        serializer = ChangePasswordSerializer(
+            obj, data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        c.delete_key(code)
+        return APIResponse({"data": {}})
+
+
+class DashboardView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, format=None):
+        if request.user is None or request.auth is None:
+            raise exceptions.AuthenticationCheckError()
+        user = request.user
+
+        c = DefaultCache()
+        lpv = c.get(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        all_cases = []
+        my_cases = []
+        org_cases = []
+        user_list = []
+        org_admin = Organization.objects.filter(
+            administrator=user).values_list('id', flat=True)
+        member_orgs = OrganizationUser.objects.filter(
+            user=user).values_list('organization_id', flat=True)
+        if org_admin:
+            user_list.extend(OrganizationUser.objects.filter(organization__in=org_admin).values_list('user_id',
+                                                                                                     flat=True))
+            user_list.extend([user.id, user.id])
+        elif member_orgs:
+            user_list.extend(Organization.objects.filter(pk__in=member_orgs).values_list('administrator',
+                                                                                         flat=True))
+            user_list.extend(OrganizationUser.objects.filter(organization__administrator__in=user_list).
+                             values_list('user_id', flat=True))
+
+        for item in CaseStatus:
+            my_cases.append({
+                "id": "case_my_{0}".format(item.value),
+                "count": 0
+            })
+            all_cases.append({
+                "id": "case_all_{0}".format(item.value),
+                "count": 0
+            })
+            if user_list:
+                org_cases.append({
+                    "id": "case_org_{0}".format(item.value),
+                    "count": 0
+                })
+
+        cases = [
+            {
+                "id": "case_all",
+                "count": 0,
+                "children": all_cases
+            },
+            {
+                "id": "case_my",
+                "count": 0,
+                "children": my_cases
+            }
+        ]
+        if org_cases:
+            cases.append({
+                "id": "case_org",
+                "count": 0,
+                "children": org_cases
+            })
+
+        with connections['readonly'].cursor() as cursor:
+            cursor.execute(
+                Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ALL'].format(user.last_logged_out))
+            all_cases = cursor.fetchall()
+            cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_MY'].format(user.id, user.last_logged_out))
+            my_cases = cursor.fetchall()
+            cases[0]["children"] = all_cases
+            cases[1]["children"] = my_cases
+            if org_cases:
+                users = tuple(user_list)
+                cursor.execute(Constants.QUERIES['SELECT_LEFT_PANEL_VALUES_CASE_ORG'].format(users, user.last_logged_out))
+                org_cases = cursor.fetchall()
+                cases[2]["children"] = org_cases
+
+        for case in cases:
+            case["children"] = [{"id": case["id"] + "_" +
+                                 c[0], "count": c[1]} for c in case["children"]]
+            case["count"] = sum(map(lambda x: x["count"], case["children"]))
+
+        if user.permission is UserPermission.EXCHANGE:
+            cases[0]["children"] = [c for c in cases[0]["children"]
+                                    if "confirmed" in c["id"] or "released" in c["id"]]
+        elif user.permission is UserPermission.USER:
+            cases = [cases[1]]
+
+        with connections['readonly'].cursor() as cursor:
+            if lpv:
+                if user.permission is UserPermission.SUPERSENTINEL or \
+                        user.permission is UserPermission.SENTINEL:
+                    number_of_all_indicators = lpv['indicators']['all']
+                else:
+                    number_of_all_indicators = lpv['indicators']['cr']
+            else:
+                sql = ''
+                if user.permission is UserPermission.SUPERSENTINEL or \
+                        user.permission is UserPermission.SENTINEL:
+                    sql = Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT']
+                else:
+                    sql = Constants.QUERIES['FAKE_SELECT_INDICATOR_COUNT']
+
+                cursor.execute(sql)
+                row = cursor.fetchone()
+                number_of_all_indicators = row[0]
+
+        indicators = [
+            {
+                "id": "indicator_all",
+                "count": number_of_all_indicators,
+                "children": []
+            }
+        ]
+
+        notifications = []
+        notification_objs = Notification.objects.filter(
+            user=user.pk).order_by('-created')[:100]
+        if notification_objs:
+            notifications = NotificationSerializer(
+                notification_objs, many=True).data
+
+        if not lpv:
+            CacheLeftPanelValuesTask().delay()
+
+        return APIResponse({
+            "data": {
+                "cases": cases,
+                "indicators": indicators,
+                "notifications": notifications
+            }
+        })
+
+
+class CaseFilter(filters.FilterSet):
+    user_case = filters.CharFilter(method='filter_user_case')
+    case = filters.CharFilter(method='filter_case_board')
+
+    class Meta:
+        model = Case
+        fields = ("case",)
+        
+    def make_shared_filter(self, queryset, name, value):
+        case_cate = value.split("_")
+        if len(case_cate) not in [1, 2]:
+            raise exceptions.CaseFilterError()
+        case_filter = Q()
+        cate = case_cate[0]
+        subcate = None
+        if len(case_cate) == 2:
+            subcate = case_cate[1]
+
+        if cate not in ["all", "my", "org"]:
+            raise exceptions.CaseFilterError()
+
+        if subcate and subcate not in ["new", "progress", "confirmed", "rejected", "released"]:
+            raise exceptions.CaseFilterError()
+
+        if subcate is not None:
+            case_filter &= Q(status=subcate)
+
+        if cate == "all":
+            if self.request.user.permission == UserPermission.EXCHANGE:
+                case_filter &= (Q(status="released") | Q(status="confirmed"))
+        elif cate == "my":
+            case_filter &= (Q(owner=self.request.user.pk) | Q(reporter=self.request.user.pk))
+        return case_filter
+    
+    def filter_user_case(self, queryset, name, value):
+        usercase_cate = value.split('_')
+        if not len(usercase_cate) == 2:
+            raise exceptions.CaseFilterError()
+        user_uid = usercase_cate[0]
+        action = usercase_cate[1]
+        try:
+            user = User.objects.get(uid=user_uid)
+        except User.DoesNotExist:
+            raise exceptions.CaseFilterError()
+
+        if user != self.request.user and self.request.user.role.role_name != UserRoles.SUPERSENTINEL.value:
+            return queryset.none()
+
+        if action not in ['reported', 'released']:
+            raise exceptions.CaseFilterError()
+
+        if action == 'reported':
+            return queryset.filter(reporter=user.pk).distinct('id')
+        elif action == 'released':
+            return queryset.filter(verifier=user.pk).distinct('id')
+
+        return queryset.distinct('id')
+
+    def filter_case_board(self, queryset, name, value):
+        case_filter = self.make_shared_filter(queryset, name, value)
+        case_keyword_filter = Q()
+        indicator_filter = Q()
+        indicator_keyword_filter = Q()
+
+        security_category = self.request.GET.getlist("security_category") or []
+        pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
+        pattern_type = self.request.GET.getlist("pattern_type") or []
+        keyword = self.request.GET.getlist("keyword") or []
+        start_date = self.request.GET.getlist("start_date") or []
+        end_date = self.request.GET.getlist("end_date") or []
+        tz = self.request.query_params.get('timezone', None)
+        customer_tag = self.request.GET.getlist("customer_tag") or []
+
+        if len(security_category) > 0:
+            indicator_filter &= Q(
+                indicator__security_category__in=security_category)
+        if len(pattern_type) > 0:
+            indicator_filter &= Q(indicator__pattern_type__in=pattern_type)
+        if len(pattern_subtype) > 0:
+            indicator_filter &= Q(
+                indicator__pattern_subtype__in=pattern_subtype)
+        if len(start_date) > 0:
+            sd = datetime.datetime.utcfromtimestamp(int(start_date[0]) / 1000)
+            if tz is not None:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC'))
+            indicator_filter &= Q(indicator__updated__gte=aware_sd) & Q(indicator__created__gte=aware_sd)
+        if len(end_date) > 0:
+            ed = datetime.datetime.utcfromtimestamp(int(end_date[0]) / 1000)
+            if tz is not None:
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC'))
+            indicator_filter &= Q(indicator__updated__lte=aware_ed) & Q(indicator__created__lte=aware_ed)
+
+        if len(keyword) > 0:
+            keyword_pattern_type = []
+            keyword_pattern_subtype = []
+            keyword_vector = []
+            keyword_environment = []
+            for idx, k in enumerate(keyword):
+                case_keyword_filter |= Q(title__ilike=k)
+                case_keyword_filter |= Q(detail__ilike=k)
+                indicator_keyword_filter |= Q(indicators__pattern__ilike=k)
+                indicator_keyword_filter |= Q(indicators__annotation=k)
+                try:
+                    IndicatorPatternType(k)
+                    keyword_pattern_type.append(k)
+                except ValueError:
+                    pass
+                try:
+                    IndicatorPatternSubtype(k)
+                    keyword_pattern_subtype.append(k)
+                except ValueError:
+                    pass
+                try:
+                    IndicatorVector(k)
+                    keyword_vector.append(k)
+                except ValueError:
+                    pass
+                try:
+                    IndicatorEnvironment(k)
+                    keyword_environment.append(k)
+                except ValueError:
+                    pass
+                if k.isdigit():
+                    case_keyword_filter |= Q(id=k)
+
+            if len(keyword_pattern_type) > 0:
+                indicator_keyword_filter |= Q(
+                    indicator__pattern_type__in=keyword_pattern_type)
+            if len(keyword_pattern_subtype) > 0:
+                indicator_keyword_filter |= Q(
+                    indicator__pattern_subtype__in=keyword_pattern_subtype)
+            if len(keyword_vector) > 0:
+                indicator_keyword_filter |= Q(
+                    indicator__vector__contains=keyword_vector)
+            if len(keyword_environment) > 0:
+                indicator_keyword_filter |= Q(
+                    indicator__environment__contains=keyword_environment)
+
+        if (indicator_filter or indicator_keyword_filter) and case_keyword_filter:
+            return queryset.filter(case_filter & case_keyword_filter).union(queryset.filter(case_filter &
+                                                                                            indicator_filter &
+                                                                                            indicator_keyword_filter))
+        elif indicator_filter or indicator_keyword_filter:
+            return queryset.filter(case_filter & indicator_filter & indicator_keyword_filter)
+        else:
+            return queryset.filter(case_filter & case_keyword_filter)
+
+
+class CaseView(generics.ListCreateAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (permissions.IsPostOrIsAuthenticated,
+                          permissions.CaseListPermission)
+    pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+    filter_class = CaseFilter
+    serializer_class = CaseListSerializer
+    model = Case
+
+    def get_queryset(self):
+        order_by = self.request.GET.get('order_by') or 'id_desc'
+        category = self.request.GET.get('case', 'all')
+        order_by = order_by.split('_')
+        key = ""
+        if order_by[1] == "desc":
+            key = "-"
+        key = key + order_by[0]
+        user_list = []
+        current_user = self.request.user
+        if 'org' in category:
+            org_admin = Organization.objects.filter(
+                administrator=current_user).values_list('id', flat=True)
+            member_orgs = OrganizationUser.objects.filter(
+                user=current_user, status=OrganizationUserStatus.ACTIVE).values_list('organization_id', flat=True)
+            if org_admin:
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__in=org_admin, status=OrganizationUserStatus.ACTIVE).\
+                        values_list('user_id', flat=True)
+                )
+                user_list.append(current_user.id)
+            elif member_orgs:
+                user_list.extend(
+                    Organization.objects.filter(pk__in=member_orgs).\
+                        values_list('administrator', flat=True)
+                )
+                user_list.extend(
+                    OrganizationUser.objects.filter(organization__administrator__in=user_list).\
+                        values_list('user_id', flat=True)
+                )
+
+            if user_list:
+                return self.model.objects.filter(Q(owner__in=user_list) | Q(reporter__in=user_list)).\
+                    distinct('id').order_by(key)
+            else:
+                return self.model.objects.filter(Q(owner=current_user) | Q(reporter=current_user)).\
+                    distinct('id').order_by(key)
+
+        return self.model.objects.distinct('id').order_by(key)
+
+    def get_throttles(self):
+        ret = []
+        if self.request.method.lower() == 'get':
+            return ret
+        elif self.request.method.lower() == 'post':
+            return [CasePostThrottle(), ]
+        else:
+            return super(CaseView, self).get_throttles()
+
+    def post(self, request, format=None):
+        serializer = CasePostSerializer(
+            data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        if request.auth is not None:
+            case = serializer.save(reporter=request.user)
+        else:
+            case = serializer.save()
+
+        # save history.
+        history_log = Constants.HISTORY_LOG
+        history_log["msg"] = CaseStatus.NEW.value
+        history_log["type"] = "status"
+
+        CaseHistory.objects.create(
+            case=case,
+            log=json.dumps(history_log),
+            initiator=case.reporter if case.reporter is not None else None
+        )
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+
+        return APIResponse({
+            "data": {
+                "case": {
+                    "id": case.pk,
+                    "uid": case.uid
+                }
+            }
+        })
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="cases")
+    
+    def filter_queryset(self, queryset):
+        qs = super().filter_queryset(queryset)
+        return qs
+    
+    def list(self, request, *args, **kwargs):
+        filter_keys = set(["user_case", "security_category", "pattern_type", "customer_tag", "pattern_subtype", "keyword", "start_date", "end_date"])
+        filter_match = next((key for key in self.request.query_params.keys() if key in filter_keys), False)
+        if filter_match and api_settings.SWITCH_ES_SEARCH:
+            search_wrapper = CaseSearchES(request)
+            results = search_wrapper.search()
+            return APIResponse({
+                "data": results
+            })
+        else:
+            case_queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(case_queryset)
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+
+class CaseDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (
+        IsAuthenticated, permissions.CheckCaseDetailPermission)
+    model = Case
+
+    def get_object(self, pk, request):
+        try:
+            return self.model.objects.get(uid__iexact=pk)
+        except self.model.DoesNotExist:
+            raise exceptions.CaseNotFound()
+
+    def get_permission(self, request, obj, status, pk=None):
+        user_permission = getattr(request.user, 'permission', None)
+        is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
+        is_owner = True if request.user == obj.owner else False
+
+        permission_data = {}
+
+        if user_permission == UserPermission.SUPERSENTINEL and obj.status in [CaseStatus.NEW, CaseStatus.PROGRESS]:
+            permission_data['editable'] = True
+            permission_data['deletable'] = True
+
+        if obj.owner == request.user and status == CaseStatus.PROGRESS:
+            permission_data['editable'] = True
+            permission_data['deletable'] = True
+
+        if obj.reporter == request.user and status == CaseStatus.NEW:
+            permission_data['editable'] = True
+            permission_data['deletable'] = True
+
+        if 'editable' not in permission_data:
+            permission_data['editable'] = False
+
+        if 'deletable' not in permission_data:
+            permission_data['deletable'] = False
+
+        next_status = utils.CASE_STATUS_FSM.next(
+            status, is_super, is_owner, user_permission)
+        permission_data["status"] = [e.value for e in next_status]
+        return permission_data
+
+    def get(self, request, pk=None):
+        obj = self.get_object(pk, request)
+        serializer = CaseDetailSerializer(obj, context={'request': request})
+        data = serializer.data
+
+        user_permission = getattr(request.user, 'permission', None)
+        is_super = True if user_permission == UserPermission.SUPERSENTINEL else False
+        is_owner = True if request.user == obj.owner else False
+
+        permission_data = self.get_permission(request, obj, obj.status)
+
+        return APIResponse({
+            "data": {
+                "case": data,
+                "case_permission": permission_data
+            }
+        })
+
+    def put(self, request, pk=None):
+        obj = self.get_object(pk, request)
+        user_permission = getattr(request.user, 'permission', None)
+
+        if user_permission != UserPermission.SUPERSENTINEL:
+            if obj.status == CaseStatus.PROGRESS and obj.owner != request.user:
+                raise exceptions.NotAllowedError()
+            if obj.status == CaseStatus.NEW and obj.reporter != request.user:
+                raise exceptions.NotAllowedError()
+
+        serializer = CasePostSerializer(
+            obj, data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        c = DefaultCache()
+        c.delete_view_cache(request)
+
+        if obj.reporter and obj.reporter.email_notification:
+            notification = Notification.objects.create(
+                user=obj.reporter,
+                initiator=request.user,
+                type=NotificationType.CASE_UPDATED,
+                target={
+                    "uid": str(obj.uid),
+                    "title": obj.title,
+                    "type": "case"
+                }
+            )
+            e = Email()
+            kv = {
+                "nickname": obj.reporter.nickname,
+                "case_exp": "Case #{0} has been updated".format(obj.id),
+                "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_MODIFY_CASE"].format(
+                                  request.user.nickname),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[obj.reporter.email])
+
+        return APIResponse({
+            "data": {}})
+
+    def patch(self, request, pk=None):
+        obj = self.get_object(pk, request)
+        serializer = CasePatchSerializer(
+            obj, data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+        c.delete_view_cache(request)
+
+        permission_data = self.get_permission(
+            request, obj, CaseStatus(request.data['status']))
+
+        if obj.reporter and obj.reporter.email_notification:
+            notification = Notification.objects.create(
+                user=obj.reporter,
+                initiator=request.user,
+                type=NotificationType(
+                    "case_status_updated_to_{0}".format(serializer.data["status"])),
+                target={
+                    "uid": str(obj.uid),
+                    "title": obj.title,
+                    "type": "case"
+                }
+            )
+            e = Email()
+            kv = {
+                "nickname": obj.reporter.nickname,
+                "case_exp": "Case #{0} status has been updated to {1}".format(obj.id, serializer.data["status"]),
+                "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_PATCH_CASE"].format(request.user.nickname,
+                                                                                              obj.status.value),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[obj.reporter.email])
+
+        return APIResponse({"data": {
+            'case_permission': permission_data
+        }})
+
+    def delete(self, request, pk=None):
+        case_task = CaseMessageTask(
+            api_settings.KAFKA_PORTAL_CASE_TOPIC, action=Constants.CASE_ACTIONS["DELETE"])
+        try:
+            with transaction.atomic():
+                obj = self.get_object(pk, request)
+
+                if obj.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
+                    raise exceptions.ValidationError("case cannot be deleted.")
+
+                if (request.user.permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]) and \
+                        (obj.status == CaseStatus.NEW and obj.reporter != request.user or
+                         (obj.status in [CaseStatus.PROGRESS, CaseStatus.REJECTED] and obj.owner != request.user)):
+                    raise exceptions.OwnerRequiredError()
+                case_m2m_queryset = CaseIndicator.objects.filter(case=obj)
+                indicator_ids = [case_m2m.indicator_id for case_m2m in case_m2m_queryset]
+                case_task.case_id = obj.id
+                case_task.related_ids = indicator_ids
+                case_m2m_queryset.delete()
+
+        except Case.DoesNotExist:
+            raise exceptions.ValidationError("case does not exist")
+        except IntegrityError:
+            raise exceptions.DataIntegrityError("")
+        if obj.reporter and obj.reporter.email_notification:
+            notification = Notification.objects.create(
+                user=obj.reporter,
+                initiator=request.user,
+                type=NotificationType.CASE_DELETED,
+                target={
+                    "uid": str(obj.uid),
+                    "title": obj.title,
+                    "type": "case"
+                }
+            )
+            e = Email()
+            kv = {
+                "nickname": obj.reporter.nickname,
+                "case_exp": "Case #{0} has been deleted".format(obj.id),
+                "link": api_settings.WEB_URL + '/case/' + str(obj.uid)
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_DELETE_CASE"].format(
+                                  request.user.nickname),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[obj.reporter.email])
+        obj.delete()
+        case_task.run()
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+        c.delete_view_cache(request)
+        return APIResponse({"data": {}})
+
+
+class IndicatorView(generics.ListCreateAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = Indicator
+
+    def get_throttles(self):
+        ret = []
+        if self.request.method.lower() == 'get':
+            return ret
+        elif self.request.method.lower() == 'post':
+            return [IndicatorPostThrottle(), ]
+        else:
+            return super(IndicatorView, self).get_throttles()
+
+    def add_case_permission_filters(self, filter_obj):
+        status = self.request.GET.getlist("status") or []
+
+        if self.request.user.permission is not UserPermission.SUPERSENTINEL and \
+                self.request.user.permission is not UserPermission.SENTINEL:
+            if api_settings.SWITCH_ES_SEARCH and filter_obj.children:
+                status.extend([CaseStatus.CONFIRMED.value,
+                               CaseStatus.RELEASED.value])
+                filter_obj &= Q(cases__in=status)
+        return filter_obj
+
+    def get_filter(self):
+        ftr = Q()
+        keyword_filter = Q()
+
+        status = self.request.GET.getlist("status") or []
+        security_category = self.request.GET.getlist("security_category") or []
+        pattern_subtype = self.request.GET.getlist("pattern_subtype") or []
+        pattern_type = self.request.GET.getlist("pattern_type") or []
+        keyword = self.request.GET.getlist("keyword") or []
+        start_date = self.request.GET.getlist("start_date") or []
+        end_date = self.request.GET.getlist("end_date") or []
+        tz = self.request.query_params.get('timezone', None)
+        user_case = self.request.GET.get(
+            "user_case", "")
+        case_status = self.request.GET.get("indicator", "all")
+        if case_status != "all":
+            case_status = case_status.split("_")[1]
+
+        # TODO: Lots of conditional statements going on here, need to refactor later
+        if len(security_category) > 0:
+            ftr &= Q(security_category__in=security_category)
+        if len(pattern_type) > 0:
+            ftr &= Q(pattern_type__in=pattern_type)
+        if len(pattern_subtype) > 0:
+            ftr &= Q(pattern_subtype__in=pattern_subtype)
+        if len(start_date) > 0 and len(end_date) > 0:
+            sd = datetime.datetime.utcfromtimestamp(int(start_date[0]) / 1000)
+            ed = datetime.datetime.utcfromtimestamp(int(end_date[0]) / 1000)
+            if tz is not None:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC')).astimezone(pytz.timezone(tz))
+            else:
+                aware_sd = sd.replace(tzinfo=pytz.timezone('UTC'))
+                aware_ed = ed.replace(tzinfo=pytz.timezone('UTC'))
+            ftr &= Q(created__gte=str(datetime.datetime.timestamp(aware_sd) * 1000))
+            ftr &= Q(created__lte=str(datetime.datetime.timestamp(aware_ed) * 1000))
+
+        if len(keyword) > 0:
+            for idx, k in enumerate(keyword):
+                if api_settings.SWITCH_ES_SEARCH:
+                    keyword_filter |= Q(search=k)
+                else:
+                    keyword_filter |= Q(pattern__ilike=k)
+                    keyword_filter |= Q(detail__icontains=k)
+                    keyword_filter |= Q(annotation=k)
+                    if k.isdigit():
+                        keyword_filter |= Q(id=k)
+            ftr &= keyword_filter
+
+        # if len(status) > 0:
+        if status:
+            ftr &= Q(cases__in=status) if api_settings.SWITCH_ES_SEARCH else Q(
+                cases__status__in=status)
+
+        elif user_case:
+            # Fix for portal-frontend user view
+            user = user_case.split("_")[0]
+            # ES CANNOT BE HANDLED AS INDICATOR HAS NO USER ID!!
+            es_flag = api_settings.SWITCH_ES_SEARCH
+            if es_flag:
+                user_id = User.objects.get(uid=user).id
+                if case_status != 'all':
+                    ftr &= Q(cases__in=case_status)
+                ftr &= Q(user_id=(str(user_id)))
+
+            else:
+                # Get user id
+                user_id = User.objects.get(uid=user).id
+                ftr = {"case_status": case_status, "user_id": user_id}
+        return ftr
+
+    def get_es_results(self, query_list, order_key, page):
+        query_string_drf, query_string_raw = utils.build_query_string_filter(
+            query_list)
+        headers = {
+            'X-Forwarded-For': socket.gethostbyname(socket.gethostname())
+        }
+        es_serializer_req = requests.Request('GET',
+                                             url=f'{api_settings.SEARCH_BACKEND_URL}ecsearch/indicators/?{query_string_drf}'
+                                             f'&ordering={order_key}&page={page}', headers=headers)
+        async_req_caller = utils.AsyncAPICaller([es_serializer_req], 1)
+        result = async_req_caller.execute_request_pool()
+        return result
+
+    def list(self, request, *args, **kwargs):
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        page = self.request.GET.get('page', 1)
+        total_items = int(self.request.GET.get('total_items', 0))
+        permission = self.request.user.permission
+        order_by = order_by.split('_')
+        key = ''
+        if order_by[1] == 'desc':
+            key = '-'
+        key = key + order_by[0]
+        page = int(page)
+        page_size = 25
+        core_ftr = self.get_filter()
+        user_case = self.request.GET.get("user_case", None)
+        user = None
+        # TODO: Lots of conditional statements going on here, need to refactor later
+        if user_case:
+            user = User.objects.get(uid=user_case.split('_')[0])
+            if user != self.request.user and self.request.user.role.role_name != UserRoles.SUPERSENTINEL.value:
+                return APIResponse({
+                    "data": {
+                        "indicators": [],
+                        "totalItems": 0,
+                        "totalPages": 0,
+                        "pageIndex": 0
+                    }
+                })
+
+        if api_settings.SWITCH_ES_SEARCH and core_ftr.children:
+            ftr = self.add_case_permission_filters(core_ftr)
+            indicators = self.get_es_results(ftr.children, key, page)
+            indicator_res = indicators.get("results", [])
+            if indicator_res and user_case:
+                points = IndicatorPoint.objects.filter(indicator_id__in=[
+                    i['id'] for i in indicator_res], user_id=user.id, points=True).values_list("indicator_id", flat=True)
+                for i in indicator_res:
+                    i['status'] = i.pop('cases')
+                    if i['id'] in points:
+                        i['points'] = 10
+                    else:
+                        i['points'] = 0
+            return APIResponse({
+                "data": {
+                    "indicators": indicator_res,
+                    "totalItems": indicators.get("totalItems", 0),
+                    "totalPages": indicators.get("totalPages", 0),
+                    "pageIndex": indicators.get("pageIndex", 0),
+                    "actualCount": indicators.get("actual_count", 0),
+                }
+            })
+        else:
+            ftr = self.add_case_permission_filters(
+                core_ftr) if not user_case else core_ftr
+            if user_case:
+                user, case = user_case.split("_")
+                if (self.request.user.permission is UserPermission.SUPERSENTINEL or self.request.user.permission is UserPermission.SENTINEL) and ftr['case_status'] == 'released':
+                    sentinel_flag = 'sntl_'
+                else:
+                    sentinel_flag = ''
+                with connections['readonly'].cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT COUNT(id) FROM fn_{sentinel_flag}user_points_status({ftr['user_id']}, '{ftr['case_status']}')")
+                    total_items = cursor.fetchall()[0][0]
+                    indicators = UserIndicator.objects.raw(f"SELECT * FROM fn_{sentinel_flag}user_points_status({ftr['user_id']}, '{ftr['case_status']}')")[
+                        page_size * (page - 1):page_size * page]
+                    serializer = UserIndicatorSerializer(indicators, many=True)
+                    data = serializer.data
+            else:
+                indicators = self.model.objects.filter(ftr).distinct('id').order_by(key)[
+                    page_size * (page - 1):page_size * page]
+                serializer = IndicatorListSerializer(indicators, many=True)
+                data = serializer.data
+            if api_settings.SWITCH_ES_SEARCH and len(ftr) == 0:
+                if permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
+                    query_string = 'cases:(released) OR (confirmed)'
+                else:
+                    query_string = None
+                resp = utils.es_raw_search('_count', query_string)
+                total_items = resp['count']
+
+            if len(ftr) == 0 and total_items == 0:
+                c = DefaultCache()
+                d = c.get(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+                if d:
+                    if permission in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]:
+                        total_items = d['all']
+                    else:
+                        total_items = d['cr']
+
+            if total_items == 0:
+                CacheNumberOfIndicatorsCases().delay()
+
+            return APIResponse({
+                "data": {
+                    "indicators": data,
+                    "totalItems": total_items,
+                    "totalPages": math.ceil(total_items / page_size),
+                    "pageIndex": page
+                }
+            })
+
+    def post(self, request):
+        if "indicators" in request.data:
+            serializer = IndicatorPostSerializer(data=request.data["indicators"], many=True,
+                                                 context={'request': request})
+        else:
+            serializer = IndicatorPostSerializer(
+                data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        if request.auth is not None:
+            indicator_obj = serializer.save(user=request.user)
+        else:
+            indicator_obj = serializer.save()
+        result_serializer = IndicatorSimpleListSerializer(
+            indicator_obj, many="indicators" in request.data)
+
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+
+        return APIResponse({
+            "data": result_serializer.data
+        })
+
+
+class IndicatorDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = Indicator
+
+    def get_object(self, pk=None, pattern=None):
+        if not pk and not pattern:
+            raise exceptions.IndicatorNotFound()
+        if pk:
+            try:
+                indicator = self.model.objects.get(uid=pk)
+            except self.model.DoesNotExist:
+                raise exceptions.IndicatorNotFound()
+        elif pattern:
+            try:
+                indicator = self.model.objects.filter(
+                    pattern__iexact=pattern).order_by('-id')[0]
+            except IndexError:
+                raise exceptions.IndicatorNotFound()
+        return indicator
+
+    def get(self, request, pk=None, pattern=None):
+        c = DefaultCache()
+        cached_response = c.get_view_cache(request)
+        if cached_response:
+            return APIResponse(cached_response)
+
+        obj = self.get_object(pk, pattern)
+        serializer = IndicatorDetailSerializer(obj,
+                                               is_authenticated=True if request.user and request.user.is_authenticated else False)
+        data = serializer.data
+        return APIResponse(
+            c.set_view_cache(request, {
+                "data": {
+                    "indicator": data
+                }
+            })
+        )
+
+    def put(self, request, pk=None):
+        obj = self.get_object(pk, None)
+        case_test_objs = obj.cases.filter(
+            status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+        if len(case_test_objs) > 0:
+            raise exceptions.NotAllowedError()
+        serializer = IndicatorPostSerializer(
+            obj, data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        indicator_obj = serializer.save()
+        result_serializer = IndicatorSimpleListSerializer(indicator_obj)
+        c = DefaultCache()
+        c.delete_view_cache(request)
+        return APIResponse({
+            "data": result_serializer.data
+        })
+
+    def delete(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                indicator = self.get_object(pk)
+                cases = indicator.cases.all()
+                for case in cases:
+                    if case.status in [CaseStatus.CONFIRMED, CaseStatus.RELEASED]:
+                        raise exceptions.ValidationError(
+                            "has confirmed or released attached cases.")
+
+                if (request.user.permission not in [UserPermission.SENTINEL, UserPermission.SUPERSENTINEL]) and \
+                        indicator.user != request.user:
+                    raise exceptions.NotAllowedError()
+
+                CaseIndicator.objects.filter(indicator=indicator).delete()
+                indicator.delete()
+        except Indicator.DoesNotExist:
+            raise exceptions.ValidationError("indicator does not exist")
+        except IntegrityError:
+            raise exceptions.DataIntegrityError("")
+        c = DefaultCache()
+        c.delete_key(Constants.CACHE_KEY['LEFT_PANEL_VALUES'])
+        c.delete_key(Constants.CACHE_KEY['NUMBER_OF_INDICATORS_CASES'])
+        c.delete_view_cache(request)
+        return APIResponse({"data": {}})
+
+
+class GuestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (GuestSearchThrottle,)
+
+    @method_decorator(cache_page(60 * 5))
+    def dispatch(self, *args, **kwargs):
+        return super(GuestSearchView, self).dispatch(*args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        query = self.request.query_params.get("q", None)
+        search_type = self.request.query_params.get("type", "indicator")
+        
+        if search_type not in ["case", "indicator"]:
+            search_type = "indicator"
+        if query is None:
+            raise exceptions.ValidationError("Search query is required.")
+
+        if len(query) > 1024:
+            raise exceptions.ValidationError(
+                "Search query cannot exceed 1024 characters.")
+
+        if len(query) < 3:
+            raise exceptions.ValidationError("Search query should contain at least 3 characters.")
+        
+        if search_type == "case":
+            serializer_cls = CaseListSerializer
+        else:
+            serializer_cls = IndicatorListSerializer
+
+        if api_settings.SWITCH_ES_SEARCH:
+            search_results = self.get_queryset_es(query, search_type)
+            return APIResponse({
+                "data": {
+                    "items": search_results.get("results", [])[:20]
+                }
+            })
+        else:
+            queryset = self.get_queryset(query, search_type)
+            serializer = serializer_cls(queryset, many=True)
+
+            return APIResponse({
+                "data": {
+                    "items": serializer.data
+                }
+            })
+
+    def get_indicator_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+        filter_queries &= Q(security_category__in=[IndicatorSecurityCategory.BLACKLIST.value,
+                                                   IndicatorSecurityCategory.WHITELIST.value])
+        filter_queries &= Q(
+            cases__in=[CaseStatus.CONFIRMED.value, CaseStatus.RELEASED.value])
+
+        query_string_drf, query_string_raw = utils.build_query_string_filter(
+            filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key)
+
+    def get_indicator_queryset(self, query):
+        filter_queries = Q(pattern__ilike=query)
+        filter_queries &= Q(security_category__in=[IndicatorSecurityCategory.BLACKLIST,
+                                                   IndicatorSecurityCategory.WHITELIST])
+        filter_queries &= Q(cases__status__in=[
+                            CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+
+        objs = Indicator.objects.filter(
+            filter_queries).distinct('id').order_by('-pk')[:20]
+
+        return objs
+    
+    def get_case_queryset(self, query):
+        filter_queries = Q(title__ilike=query)
+        filter_queries |= Q(detail__ilike=query)
+        return Case.objects.filter(filter_queries).order_by('-pk')[:20]
+    
+    def get_case_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+        query_string_drf, query_string_raw = utils.build_query_string_filter(filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key, index='cases')
+        
+    def get_queryset(self, query, search_type):
+        if search_type == "case":
+            return self.get_case_queryset(query)
+        else:
+            return self.get_indicator_queryset(query)
+    
+    def get_queryset_es(self, query, search_type):
+        if search_type == "case":
+            return self.get_case_queryset_es(query)
+        else:
+            return self.get_indicator_queryset_es(query)
+
+class SearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    @method_decorator(cache_page(60 * 5))
+    def dispatch(self, *args, **kwargs):
+        return super(SearchView, self).dispatch(*args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        search_type = self.request.query_params.get("type", "ico")
+        query = self.request.query_params.get("q", None)
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        page = self.request.GET.get('page', 1)
+        order_by = order_by.split('_')
+        key = ''
+        if order_by[1] == 'desc':
+            key = '-'
+        key = key + order_by[0]
+        page = int(page)
+        page_size = 25
+
+        if query is None:
+            raise exceptions.ValidationError("q is required.")
+
+        if len(query) > 1024:
+            raise exceptions.ValidationError("q is too long.")
+
+        if search_type == "case":
+            serializer_cls = CaseListSerializer
+        elif search_type == "indicator":
+            serializer_cls = IndicatorListSerializer
+        elif search_type == "ico":
+            serializer_cls = ICOListSerializer
+        else:
+            serializer_cls = ICOListSerializer
+
+        if search_type == 'indicator' and api_settings.SWITCH_ES_SEARCH:
+            search_results = self.get_indicator_queryset_es(
+                query, page=page, order_key=key)
+            return APIResponse({
+                "data": {
+                    "items": search_results.get("results", []),
+                    "totalItems": search_results.get("totalItems", 0),
+                    "totalPages": search_results.get("totalPages", 0),
+                    "pageIndex": search_results.get("pageIndex", 0),
+                    "itemsPerPage": page_size
+                }
+            })
+        else:
+            queryset = self.filter_queryset(self.get_queryset())
+
+            page = self.paginate_queryset(queryset)
+            if request.auth and search_type == "indicator":
+                serializer = serializer_cls(
+                    page, many=True, is_authenticated=True)
+            else:
+                serializer = serializer_cls(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+    def get_ico_queryset(self, query):
+        filter_queries = Q(symbol__istartswith=query)
+        if len(query) > 1:
+            filter_queries |= Q(name__icontains=query)
+        objs = ICO.objects.filter(
+            filter_queries).distinct('id').order_by('-pk')
+        return objs
+
+    def get_indicator_queryset_es(self, query, page=1, order_key='-id'):
+        filter_queries = Q(search=query)
+
+        if not self.request.auth:
+            filter_queries &= Q(cases__in=CaseStatus.RELEASED.value)
+        elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
+            filter_queries &= Q(
+                cases__in=[CaseStatus.CONFIRMED.value, CaseStatus.RELEASED.value])
+
+        query_string_drf, query_string_raw = utils.build_query_string_filter(
+            filter_queries.children)
+        return utils.es_serialized_search(query_string_drf, page, order_key)
+
+    def get_indicator_queryset(self, query):
+        objs = []
+        filter_queries = Q(pattern__ilike=query)
+        filter_queries |= Q(s_tags__arrayilike=query)
+
+        try:
+            IndicatorPatternSubtype(query.lower())
+            filter_queries |= Q(pattern_subtype=query.lower())
+        except ValueError:
+            pass
+
+        if not self.request.auth:
+            filter_queries &= Q(case__status=CaseStatus.RELEASED)
+        elif self.request.auth and self.request.user.permission is UserPermission.EXCHANGE:
+            filter_queries &= Q(cases__status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | Q(
+                user=self.request.user.pk)
+
+        objs = Indicator.objects \
+            .filter(filter_queries) \
+            .distinct('id') \
+            .order_by('-pk')
+
+        return objs
+
+    def get_case_queryset(self, query):
+        if not self.request.auth:
+            raise exceptions.AuthenticationCheckError()
+
+        case_filter_queries = Q(id=0)
+        indicator_filter_queries = Q(id=0)
+        if query.isdigit():
+            case_filter_queries = Q(id=int(query))
+            indicator_filter_queries = Q(id=int(query))
+        if len(query) > 1:
+            case_filter_queries |= Q(title__ilike=query)
+            case_filter_queries |= Q(detail__ilike=query)
+
+        if len(query) > 1:
+            indicator_filter_queries = Q(indicator__pattern__ilike=query)
+            indicator_filter_queries |= Q(
+                indicator__pattern_subtype__ilike=query)
+
+        if self.request.user.permission is UserPermission.EXCHANGE:
+            case_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
+                Q(reporter=self.request.user.pk)
+            indicator_filter_queries &= Q(status__in=[CaseStatus.CONFIRMED, CaseStatus.RELEASED]) | \
+                Q(reporter=self.request.user.pk)
+
+        case_indicator_results = Case.objects.filter(indicator_filter_queries).annotate(
+            match=CaseFunc(
+                When(pk=query, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ) if query.isdigit() else Value(0, IntegerField())
+        ).distinct('id')
+        case_results = Case.objects.filter(case_filter_queries).annotate(
+            match=CaseFunc(
+                When(pk=query, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ) if query.isdigit() else Value(0, IntegerField())
+        ).distinct('id')
+
+        objs = case_indicator_results.union(
+            case_results).order_by('-match', '-pk')
+
+        return objs
+
+    def get_queryset(self):
+        query = self.request.query_params.get("q", None)
+        search_type = self.request.query_params.get("type", "ico")
+        if search_type not in ["case", "ico", "indicator"]:
+            search_type = "ico"
+
+        objs = None
+        if search_type == "ico":
+            return self.get_ico_queryset(query)
+        elif search_type == "indicator":
+            return self.get_indicator_queryset(query)
+        elif search_type == "case":
+            return self.get_case_queryset(query)
+        return objs
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")
+
+
+class AutoCompleteView(APIView):
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    @method_decorator(cache_page(60 * 5))
+    def dispatch(self, *args, **kwargs):
+        return super(AutoCompleteView, self).dispatch(*args, **kwargs)
+
+    def get(self, request, **kwargs):
+        serializer = AutoCompleteSerializer(data=request.GET)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        return APIResponse({
+            "data": data})
+
+
+class AttachedFilePostView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (FileUploadThrottle,)
+    model = AttachedFile
+
+    def __create_response(self, files):
+        files_data = []
+        for file in files:
+            file_data = {
+                "uid": file.uid,
+                "type": file.type,
+                "size": file.size,
+            }
+            files_data.append(file_data)
+        return files_data
+
+    def post(self, request, format=None):
+        serializer = AttachedFilePostSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as err:
+            err.exc_file_rid = request.data.get("rid", None)
+            raise err
+        files = serializer.save()
+        return APIResponse({"data": {
+            "files": self.__create_response(files),
+            "rid": serializer.validated_data["rid"]
+        }})
+
+
+class AttachedFileDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    renderer_classes = (FileRenderer, JSONRenderer)
+    model = AttachedFile
+
+    def get_object(self, pk, raise_exception=False):
+        try:
+            obj = self.model.objects.get(uid__iexact=pk)
+        except self.model.DoesNotExist:
+            if raise_exception:
+                raise exceptions.FileNotFound()
+            else:
+                return None
+
+        if obj.case is None:  # TODO: this file should be deleted!
+            raise exceptions.CaseNotFound()
+        return obj
+
+    def get(self, request, pk=None):  # TODO: error response should be json.
+        obj = self.get_object(pk, raise_exception=True)
+        try:
+            file_obj = obj.file.open(mode='rb')
+            buf = file_obj.read()
+        except Exception as err:
+            raise exceptions.FileNotFound()
+        return FileResponse(buf, obj.uid, content_type=obj.type)
+
+
+class ICODetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = ICO
+
+    @method_decorator(cache_page(60 * 5))
+    def dispatch(self, *args, **kwargs):
+        return super(ICODetailView, self).dispatch(*args, **kwargs)
+
+    def get(self, request, pk=None):
+        try:
+            queryset = self.model.objects.get(uid__iexact=pk)
+        except self.model.DoesNotExist:
+            raise exceptions.ICONotFound()
+
+        serializer = ICODetailSerializer(queryset)
+        data = serializer.data
+        return APIResponse({
+            "data": {
+                "ico": data
+            }
+        })
+
+
+class UppwardRewardInfoView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    serializer_class = UppwardRewardInfoPostSerializer
+    model = UppwardRewardInfo
+
+    def post(self, request, format=None):
+        serializer = self.serializer_class(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        except Exception as err:
+            print(">>> uppward_referral failed to validate", err)
+
+        return APIResponse({
+            "data": {
+            }
+        })
+
+
+class VerifyEmail(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (EmailVerificationThrottle,)
+    model = User
+
+    def get_object(self, email):
+        try:
+            return self.model.objects.get(email__iexact=email)
+        except self.model.DoesNotExist:
+            raise exceptions.AuthenticationValidationError("")
+
+    def get(self, request):
+        try:
+            email = request.data["email"]
+        except KeyError:
+            raise exceptions.DataIntegrityError("")
+        user = self.get_object(email)
+        e = Email()
+        c = DefaultCache()
+        link = c.set_signup_verification_key(user.email)
+        kv = {
+            "nickname": user.nickname,
+            "link": api_settings.WEB_URL + "/verify/" + link
+        }
+        SendEmail().delay(kv=kv,
+                          subject=Constants.EMAIL_TITLE["VERIFICATION"],
+                          email_type=e.EMAIL_TYPE["REGISTER"],
+                          sender=e.EMAIL_SENDER["NO-REPLY"],
+                          recipient=[user.email])
+
+        return APIResponse({
+            "data": {}
+        })
+
+    def post(self, request, code=None):
+        if not code:
+            raise exceptions.AuthenticationValidationError("")
+        c = DefaultCache()
+        v = c.get(code)
+        if not v:
+            raise exceptions.AuthenticationValidationError("")
+        email = "-".join(v.split("-")[:-1])
+        user = self.get_object(email)
+        user.update(status=UserStatus.EMAIL_CONFIRMED)
+        token, _ = MultiToken.create_token(user)
+        c.delete_key(code)
+        return APIResponse({
+            "data": {
+                "accessToken": token.key,
+                "user": {
+                    "email": user.email,
+                    "id": user.uid,
+                    "nickname": user.nickname,
+                    "permission": user.permission.value,
+                    "image": "",
+                    "status": user.status.value
+                }
+            }
+        })
+
+
+class SendEmailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    throttle_classes = (EmailVerificationThrottle,)
+    model = User
+
+    def get_object(self, email):
+        try:
+            return self.model.objects.get(email__iexact=email)
+        except self.model.DoesNotExist:
+            raise exceptions.AuthenticationValidationError("")
+
+    def post(self, request, format=None):
+        data = request.data
+        try:
+            email = data.get("email", None)
+            type = data.get("type", None)
+        except KeyError:
+            raise exceptions.DataIntegrityError("")
+
+        user = self.get_object(email)
+        e = Email()
+        c = DefaultCache()
+        if type == "password_reset":
+            link = c.set_password_reset_key(user.email)
+            kv = {
+                "nickname": user.nickname,
+                "link": api_settings.WEB_URL + "/password-reset/" + link
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["PASSWORD_RESET"],
+                              email_type=e.EMAIL_TYPE["PASSWORD_RESET"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[user.email])
+
+        if type == "email_verification":
+            if user.status is not UserStatus.SIGNED_UP:
+                raise exceptions.AuthenticationValidationError("")
+            link = c.set_signup_verification_key(user.email)
+            kv = {
+                "nickname": user.nickname,
+                "link": api_settings.WEB_URL + "/verify/" + link
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["VERIFICATION"],
+                              email_type=e.EMAIL_TYPE["REGISTER"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[user.email])
+
+        return APIResponse({
+            "data": {}
+        })
+
+
+class UserSignUpView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (permissions.IsPostOrIsAuthenticated,)
+    throttle_classes = (SignUpThrottle,)
+    model = User
+
+    def get_object(self, email):
+        try:
+            return self.model.objects.get(email__iexact=email)
+        except self.model.DoesNotExist:
+            raise exceptions.UserNotFound()
+
+    def post(self, request, pk=None):
+        serializer = UserPostSerializer(data=request.data, context={
+                                        "request": request, "payload": {}})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        user = self.get_object(serializer.validated_data["email"])
+        token, _ = MultiToken.create_token(user)
+        e = Email()
+        c = DefaultCache()
+        link = c.set_signup_verification_key(user.email)
+        kv = {
+            "nickname": user.nickname,
+            "link": api_settings.WEB_URL + "/verify/" + link
+        }
+        SendEmail().delay(kv=kv,
+                          subject=Constants.EMAIL_TITLE["VERIFICATION"],
+                          email_type=e.EMAIL_TYPE["REGISTER"],
+                          sender=e.EMAIL_SENDER["NO-REPLY"],
+                          recipient=[user.email])
+
+        return APIResponse({
+            "data": {
+                "accessToken": token.key,
+                "user": {
+                    "email": user.email,
+                    "id": user.uid,
+                    "nickname": user.nickname,
+                    "permission": user.permission.value,
+                    "image": "",
+                    "status": user.status.value
+                }
+            }
+        })
+
+
+class UserDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (permissions.IsPostOrIsAuthenticated,)
+    model = User
+
+    def get_object(self, pk):
+        try:
+            return self.model.objects.get(uid__iexact=pk)
+        except self.model.DoesNotExist:
+            raise exceptions.UserNotFound()
+
+    def get(self, request, pk=None):
+        obj = self.get_object(pk)
+        serializer = UserDetailSerializer(obj, context={"request": request})
+        data = serializer.data
+        return APIResponse({
+            "data": {
+                "user": data
+            }
+        })
+
+    def put(self, request, pk=None):
+        try:
+            obj = self.get_object(pk)
+            serializer = UserPostSerializer(
+                obj, data=request.data, context={"request": request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            user = serializer.data
+            reward_setting = RewardSetting.objects.filter(id=1).values()
+            address_c = w3.toChecksumAddress(
+                reward_setting[0].get('token_address'))
+            token_abi = json.loads(reward_setting[0].get('token_abi'))
+            token = w3.eth.contract(address_c, abi=token_abi)
+            user_waddress = user['address']
+            bal = token.call().balanceOf(user_waddress) if user_waddress else 0
+            user["balance"] = bal
+            user["status"] = obj.status.value
+            user["image"] = obj.image.url if bool(
+                obj.image) else api_settings.S3_USER_IMAGE_DEFAULT
+            return APIResponse({
+                "data": {
+                    "accessToken": serializer.validated_data["token"],
+                    "user": user
+                }
+            })
+        except Exception as e:
+            # TODO: Not good to mask all errors here
+            # Internally it could throw DataIntegrity errors, need more helpful error messages
+            import traceback
+            traceback.print_exc()
+            raise exceptions.ValidationError("invalid data")
+
+    def patch(self, request, pk=None):
+        obj = self.get_object(pk)
+        serializer = UserPasswordSerializer(obj, data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        user = UserPostSerializer(instance=instance)
+        return APIResponse({
+            "data": {
+                "accessToken": serializer.validated_data["token"],
+                "user": user.data
+            }
+        })
+
+
+class IcfView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated, permissions.APIKeyPermission,)
+    model = Key
+
+    def get_object(self, request):
+        if request.user is None or request.auth is None:
+            raise exceptions.AuthenticationCheckError()
+        user = request.user
+        org_details = user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
+        if org_details.count():
+            org = org_details.all()[0]
+            obj = self.model.objects.filter(user=org.administrator).order_by("-pk")
+        else:
+            obj = self.model.objects.filter(user=user).order_by("-pk")
+        if not obj.exists():
+            raise exceptions.ICFNotFound()
+
+        return obj
+
+    def get(self, request, pk=None):
+        obj = self.get_object(request)
+        serializer = ICFDetailSerializer(obj, many=True)
+        max_api_keys = request.user.role.usage_role.get().max_api_keys
+        data = serializer.data
+        return APIResponse({
+            "data": {
+                "api": data,
+                "max_api_keys": max_api_keys
+            }
+        })
+
+    def put(self, request, pk=None):
+        obj = self.get_object(request)
+        matching_obj = None
+        for key_entry in obj:
+            if str(key_entry.uid) == pk:
+                matching_obj = key_entry
+                break
+
+        if not matching_obj:
+            raise exceptions.ICFNotFound()
+
+        serializer = ICFPostSerializer(
+            matching_obj, data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        data = serializer.data
+        return APIResponse({
+            "data": {
+                "api": data
+            }
+        })
+
+    def post(self, request, format=None):
+        serializer = ICFPostSerializer(
+            data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        data = serializer.data
+        return APIResponse({
+            "data": {
+                "api": data
+            }
+        })
+
+
+class CommentView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = Comment
+
+    def get(self, request, type=None, pk=None):
+        if type is None or pk is None:
+            raise exceptions.ValidationError("type or uid is not provided.")
+        comment_objs = []
+
+        if type == 'case':
+            comment_objs = Comment.objects.filter(case=pk)
+        elif type == 'indicator':
+            comment_objs = Comment.objects.filter(indicator=pk)
+        elif type == 'ico':
+            comment_objs = Comment.objects.filter(ico=pk)
+        else:
+            raise exceptions.ValidationError("invalid type")
+        if len(comment_objs) == 0:
+            data = []
+        else:
+            serializer = CommentSerializer(
+                comment_objs, context={"request": request}, many=True)
+            data = serializer.data
+        return APIResponse({
+            "data": data
+        })
+
+    def post(self, request, type=None, pk=None, uid=None, format=None):
+        if type is None or pk is None:
+            raise exceptions.ValidationError("type or uid is not provided.")
+        notification = request.data.pop("notification", [])
+        serializer = CommentPostSerializer(
+            data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        data = serializer.data
+        data["writer"] = {
+            "nickname": request.user.nickname,
+            "image": api_settings.S3_USER_IMAGE_DEFAULT if bool(
+                request.user.image) is False else request.user.image.url,
+            "uid": request.user.uid
+        }
+        u = None
+        target = {}
+        e = Email()
+        if "case" in data:
+            obj = Case.objects.get(id=data["case"])
+            target["uid"] = str(obj.uid)
+            target["title"] = obj.title
+            target["type"] = "case"
+            u = obj.reporter
+        if "indicator" in data:
+            obj = Indicator.objects.get(id=data["indicator"])
+            target["uid"] = str(obj.uid)
+            target["title"] = obj.pattern
+            target["type"] = "indicator"
+            u = obj.user
+        if "ico" in data:
+            obj = ICO.objects.get(id=data["ico"])
+            target["uid"] = str(obj.uid)
+            target["title"] = obj.name
+            target["type"] = "ico"
+            u = obj.user
+        if u and u.email_notification:
+            Notification.objects.create(
+                user=u,
+                initiator=request.user,
+                type=NotificationType.COMMENT,
+                target=target
+            )
+            kv = {
+                "nickname": u.nickname,
+                "case_exp": Constants.EMAIL_TITLE["NOTIFICATION_COMMENT"].format(request.user.nickname),
+                "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["NOTIFICATION_COMMENT"].format(
+                                  request.user.nickname),
+                              email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[u.email])
+
+        if notification:
+            users = User.objects.filter(id__in=notification)
+            for user in users:
+                if not user.email_notification:
+                    continue
+                notification = Notification.objects.create(
+                    user=user,
+                    initiator=request.user,
+                    type=NotificationType.COMMENT_MENTIONED,
+                    target=target
+                )
+                kv = {
+                    "nickname": user.nickname,
+                    "case_exp": Constants.EMAIL_TITLE["NOTIFICATION_COMMENT_MENTION"].format(request.user.nickname),
+                    "link": api_settings.WEB_URL + '/' + target["type"] + '/' + str(obj.uid)
+                }
+                SendEmail().delay(kv=kv,
+                                  subject=Constants.EMAIL_TITLE["NOTIFICATION_COMMENT_MENTION"].format(
+                                      request.user.nickname),
+                                  email_type=e.EMAIL_TYPE["NOTIFICATION"],
+                                  sender=e.EMAIL_SENDER["NO-REPLY"],
+                                  recipient=[user.email])
+
+        return APIResponse({
+            "data": data
+        })
+
+    def delete(self, request, type=None, pk=None, uid=None):
+        if type is None or pk is None or uid is None:
+            raise exceptions.ValidationError(
+                "type, pk or uid is not provided.")
+        try:
+            comment = self.model.objects.get(uid=uid)
+        except Comment.DoesNotExist:
+            raise exceptions.ValidatationError("comment does not exist")
+        comment.deleted = True
+        comment.save()
+        return APIResponse({"data": {
+            "id": comment.pk
+        }})
+
+
+class NotificationView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = Notification
+
+    def delete(self, request, uid=None):
+        if uid is None:
+            notification = self.model.objects.filter(user=request.user)
+        else:
+            notification = self.model.objects.filter(
+                user=request.user, uid=uid)
+
+        if notification.exists():
+            notification.delete()
+        else:
+            raise exceptions.ValidationError('nothing to delete')
+        return APIResponse({
+            "data": ""
+        })
+
+    def patch(self, request):
+        self.model.objects.filter(user=request.user).exclude(
+            read=True).update(read=True)
+        return APIResponse({
+            "data": ""
         })
 
 
@@ -138,6 +2000,10 @@ class CATVView(APIView):
             CatvTokens.ADA.value: {
                 CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
+            },
+            CatvTokens.BSC.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
             }
         }
         utils_map = {
@@ -285,26 +2151,947 @@ class CATVHistoryView(APIView):
         serializer = CATVHistorySerializer(data=request.GET)
         serializer.is_valid(raise_exception=True)
         history_list = []
+        data = serializer.data
+        print("Serializer Data:", data)
 
-        if not serializer.data['path_search']:
-            model_instance = CatvHistory
-            raw_query = Constants.QUERIES["SELECT_USER_CATV_HISTORY"]
-        else:
-            model_instance = CatvPathHistory
-            raw_query = Constants.QUERIES["SELECT_USER_CATV_PATH"]
+        history = Constants.QUERIES["SELECT_USER_WITH_TOKEN_TYPE_CATV_HISTORY"].format(
+            request.user.id, 
+            request.GET['token_type'].upper()
+        )
+        with connection.cursor() as cursor:
+            cursor.execute(history)
+            history_with_tokens = cursor.fetchall()
 
-        history = list(model_instance.objects.raw(raw_query.format(
-            request.user.id, request.GET['token_type'].upper())))
-        attr_list = [
-            'wallet_address', 'distribution_depth', 'source_depth', 'transaction_limit', 'token_address',
-            'address_from', 'address_to', 'depth', 'from_date', 'to_date'
-        ]
-        for item in history:
-            history_list.append({attr: getattr(item, attr, None)
-                                 for attr in attr_list})
+        history_list = []
+        for item in history_with_tokens:
+            obj = {
+                "wallet_address": item[0],
+                "token_address": item[1],
+                "source_depth": item[2],
+                "distribution_depth": item[3],
+                "transaction_limit": item[4],
+                "from_date": item[5],
+                "to_date": item[6],
+                "token_type": item[7]
+            }
+            history_list.append(obj)
+        
         return APIResponse({
             "data": history_list
         })
+
+
+class Metrics(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, format=None):
+        tz = request.query_params.get('timezone', None)
+        rng = request.query_params.get('range', None)
+        user_permission = getattr(request.user, 'permission', None)
+
+        if not timezone or not rng:
+            raise exceptions.ValidationError(
+                "timezone or type is not provided.")
+
+        rng = int(rng)
+
+        now_date = datetime.datetime.now(pytz.timezone(tz))
+        start_date = now_date - datetime.timedelta(days=rng - 1)
+        unaware_std = datetime.datetime.strptime(
+            start_date.strftime('%Y-%m-%d') + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
+        aware_startdate = pytz.timezone(tz).localize(unaware_std)
+        offset = str(now_date.utcoffset())
+        date_dict = {}
+        for d in range(rng):
+            key = (now_date - datetime.timedelta(days=d)).strftime('%Y-%m-%d')
+            date_dict[key] = {
+                'indicator': {
+                    'count': 0,
+                    'security_tags': {},
+                    'pattern_type': {},
+                    'pattern_subtype': {}
+                },
+                'case': {
+                    'count': 0,
+                }
+            }
+
+        indicator_cache_key = Constants.CACHE_KEY['METRICS_INDICATOR'].format(
+            str(rng), offset)
+        case_cache_key = Constants.CACHE_KEY['METRICS_CASE'].format(
+            str(rng), offset)
+
+        if user_permission in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+            latest_indicator_cache_key = Constants.CACHE_KEY['METRICS_LATEST_INDICATORS'].format(
+                'sentinel')
+        else:
+            latest_indicator_cache_key = Constants.CACHE_KEY['METRICS_LATEST_INDICATORS'].format(
+                'non-sentinel')
+
+        c = DefaultCache()
+        indicators = c.get(indicator_cache_key)
+        cases = c.get(case_cache_key)
+        latest_indicators = c.get(latest_indicator_cache_key)
+        cached = True if (indicators != None and cases != None) else False
+
+        if not cached:
+            case_row_query = Constants.QUERIES['SELECT_METRICS_CASE'].format(
+                tz, aware_startdate.strftime('%Y-%m-%d'))
+            indicator_row_query = Constants.QUERIES['SELECT_METRICS_INDICATOR'].format(aware_startdate.strftime(
+                '%Y-%m-%d'))
+
+            with connections['readonly'].cursor() as cursor:
+                cursor.execute(case_row_query)
+                cases = cursor.fetchall()
+                cursor.execute(indicator_row_query)
+                indicators = cursor.fetchall()
+                c.set(case_cache_key, cases, 60 * 10)
+                c.set(indicator_cache_key, indicators, 60 * 10)
+
+        for case in cases:
+            key = case[1].strftime('%Y-%m-%d')
+            date_dict[key]['case']['count'] += case[0]
+
+        for indicator in indicators:
+            count = indicator[0]
+            date = indicator[1].strftime('%Y-%m-%d')
+            pattern_type = indicator[2]
+            pattern_subtype = indicator[3]
+            security_tags = indicator[4]
+
+            date_dict[date]['indicator']['count'] += count
+
+            if pattern_type in date_dict[date]['indicator']['pattern_type']:
+                date_dict[date]['indicator']['pattern_type'][pattern_type] += count
+            else:
+                date_dict[date]['indicator']['pattern_type'][pattern_type] = count
+
+            if pattern_subtype in date_dict[date]['indicator']['pattern_subtype']:
+                date_dict[date]['indicator']['pattern_subtype'][pattern_subtype] += count
+            else:
+                date_dict[date]['indicator']['pattern_subtype'][pattern_subtype] = count
+
+            if security_tags is not None:
+                for tag in security_tags:
+                    if tag in date_dict[date]['indicator']['security_tags']:
+                        date_dict[date]['indicator']['security_tags'][tag] += count
+                    else:
+                        date_dict[date]['indicator']['security_tags'][tag] = count
+
+        if not latest_indicators:
+            filters = Q()
+            if user_permission not in [UserPermission.SUPERSENTINEL, UserPermission.SENTINEL]:
+                filters &= Q(cases__status__in=[
+                             CaseStatus.CONFIRMED, CaseStatus.RELEASED])
+            indicators = Indicator.objects.filter(
+                filters).order_by('-id')[:100]
+            indicators_serializer = IndicatorLatestRecordSerializer(
+                indicators, many=True)
+            latest_indicators = indicators_serializer.data
+            c.set(latest_indicator_cache_key, latest_indicators, 60 * 10)
+
+        return APIResponse({
+            "data": {
+                "dates": date_dict,
+                "indicators": latest_indicators
+            }
+        })
+
+
+class ValidateAddress(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = RewardSetting
+
+    def get(self, request, pk=None, pattern=None):
+        try:
+            settings_obj = self.model.objects.filter(id=1)
+            serializer = RewardSettingSerializer(settings_obj, context={"request": request}, many=True)
+            data = serializer.data
+            token_address = w3.toChecksumAddress(data[0].get('token_address'))
+            abi = data[0].get('token_abi')
+            token_abi = json.loads(abi)
+            token = w3.eth.contract(w3.toChecksumAddress(token_address), abi=token_abi)
+            address = w3.toChecksumAddress(self.request.GET.get('address'))
+            bal = token.call().balanceOf(address)
+            if (bal >= (data[0].get('min_token') * 1000000000000000000)):
+                return APIResponse({
+                    "data": "success"
+                })
+            else:
+                return APIResponse({
+                    "data": "fail"
+                })
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return APIResponse({
+                "data": "error"
+            })
+
+
+
+class SwapData(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        reward_setting = RewardSetting.objects.filter(id=1).values()
+        exchange_rate = reward_setting[0].get('upp_reward')
+        min_points = reward_setting[0].get('sp_required')
+        return APIResponse({
+            "minPoints": min_points,
+            "exchangeRate": exchange_rate
+        })
+
+
+class ExchangeTokenView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    model = User
+
+    # from web3 import Web3
+
+    def get(self, request):
+        ganache_url = "http://172.22.20.106:7545"
+        web3 = Web3(Web3.HTTPProvider(ganache_url))
+        print("url:", ganache_url)
+        print("Connected:", web3.isConnected())
+        address = '0xf5c12631E452495149B5F8f0d9718C0211835DC1'
+
+        abi =json.loads("[{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from_\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"}],\"name\":\"TransferSuccessful\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"ERC20Interface\",\"outputs\":[{\"internalType\":\"contract ERC20\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"approvalList\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"transactions\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"contract_\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"failed_\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"getApprovalList\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sender_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount_\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isApproved_\",\"type\":\"bool\"}],\"internalType\":\"struct SwapContract.Approval[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressUser\",\"type\":\"address\"}],\"name\":\"giveApproval\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"swap\",\"outputs\":[],\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"function\"}]")
+        contract = web3.eth.contract(address=address, abi=abi)
+        print("test", contract.functions.swap('0xda9ae949FefC0136bD1e584fa156b9Dd3379eF56', 1000).call())
+        print("test2", contract.functions.getApprovalList().call()[0])
+
+        return APIResponse({
+            "connected": web3.isConnected()
+        })
+
+    def post(self, request):
+        data = request.data
+        dataQuery = (data['user_id'], data['sp_amount'], 'PENDING_APPROVAL', datetime.datetime.now(datetime.timezone.utc), data['upp'])
+        insert_swap_history_query = Constants.QUERIES['INSERT_SWAP_HISTORY_QUERY']
+        update_points_query = Constants.QUERIES['UPDATE_USER_POINTS_QUERY'].format(data['sp_amount'], data['user_id'])
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(insert_swap_history_query, dataQuery)
+                cursor.execute(update_points_query)
+            user = self.model.objects.get(uid__exact=data['user_id'])
+            if user and user.email_notification:
+                e = Email()
+                kv = {
+                    "nickname": user.nickname,
+                    "text": Constants.EMAIL_BODY["EXCHANGE_TOKEN_SUB_BODY"]
+                }
+                SendEmail().delay(kv=kv,
+                                  subject=Constants.EMAIL_TITLE["EXCHANGE_TOKEN_SUBMITTED"].format(
+                                      request.user.nickname),
+                                  email_type=e.EMAIL_TYPE["EXCHANGE_SUBMIT"],
+                                  attachment=None,
+                                  sender=e.EMAIL_SENDER["NO-REPLY"],
+                                  recipient=[user.email])
+            return APIResponse({
+                "resp": "success"
+            })
+        except Exception as e:
+            print(e)
+            return APIResponse({
+                "resp": "fail"
+            })
+
+
+class SwapHistory(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = self.request.GET.get('user')
+        sd = self.request.GET.get('sd')
+        ed = self.request.GET.get('ed')
+        #sd = datetime.fromtimestamp(sd)
+        from datetime import datetime
+        sd = datetime.utcfromtimestamp(
+            int(sd)/1000).strftime('%Y-%m-%d %H:%M:%S')
+        ed = datetime.utcfromtimestamp(
+            int(ed)/1000).strftime('%Y-%m-%d %H:%M:%S')
+        history_query = Constants.QUERIES['SWAP_HISTORY_USER'].format(
+            user, sd, ed)
+        with connections['readonly'].cursor() as cursor:
+            cursor.execute(history_query)
+            history = cursor.fetchall()
+        data = {'history': history}
+        return APIResponse(data)
+
+
+class CARA(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_throttles(self):
+        return [CaraUsageExceededThrottle(), CaraPostThrottle(), ]
+
+    def get(self, request):
+        kafka_broker_1 = settings.KAFKA_BROKER_1
+        kafka_broker_2 = settings.KAFKA_BROKER_2
+        kafka_broker_3 = settings.KAFKA_BROKER_3
+        producer = KafkaProducer(bootstrap_servers=[kafka_broker_1, kafka_broker_2, kafka_broker_3],
+                                 value_serializer=lambda x:
+                                 json.dumps(x).encode('utf-8'))
+        address = self.request.GET.get('address')
+        user = self.request.GET.get('user')
+        force = self.request.GET.get('force')
+        blockchain = self.request.GET.get('token')
+        time = datetime.datetime.now(datetime.timezone.utc)
+        if blockchain == 'eth' or blockchain == 'bsc':
+            address = address.lower()
+            data = (user, address, time, blockchain)
+        else:
+            data = (user, address, time, blockchain)
+        if force:
+            # removing delete history call
+            cara_history_delete_query = Constants.QUERIES['DELETE_ADDRESS_FROM_HISTORY'].format(
+                address, user)
+           # with connection.cursor() as cursor:
+              #  cursor.execute(cara_history_delete_query)
+        cara_history_insert_query = Constants.QUERIES['INSERT_CARA_HISTORY']
+        with connection.cursor() as cursor:
+            cursor.execute(cara_history_insert_query, data)
+        data = {'address': address,
+                'time': time.strftime("%Y-%m-%d %H:%M:%S"),
+                'blockchain': blockchain
+                }
+        print(producer.send(settings.KAFKA_USER_TOPIC, data))
+        producer.flush()
+        producer.close()
+        query_list = Constants.QUERIES['UPDATE_USER_CARA_USAGE'].format(
+            request.user.id)
+        with connection.cursor() as cursor:
+            cursor.execute(query_list)
+        return APIResponse(data)
+
+
+class CARAHistory(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    pagination_class = CatvRequestPagination
+
+    def get(self, request):
+        user = self.request.GET.get('user')
+        page = self.request.GET.get('page', 1)
+        selected = self.request.GET.get('selected')
+        page = int(page)
+        search_term = self.request.GET.get('q', None)
+        if selected == 'Failed':
+            history_query = Constants.QUERIES['CARA_HISTORY_FAILED_USER'].format(user)
+        elif selected == 'Released':
+            history_query = Constants.QUERIES['CARA_HISTORY_RELEASED_USER'].format(user)
+        elif selected == 'Progress':
+            history_query = Constants.QUERIES['CARA_HISTORY_PROGRESS_USER'].format(user)
+        else:
+            history_query = Constants.QUERIES['CARA_HISTORY_USER'].format(user)
+        error_count_query = Constants.QUERIES['CARA_ERROR_COUNT'].format(user)
+        with connection.cursor() as cursor:
+            cursor.execute(history_query)
+            history = cursor.fetchall()
+            cursor.execute(error_count_query)
+            address = cursor.fetchall()
+            update_error_query = Constants.QUERIES['UPDATE_CARA_ERROR_USAGE'].format(
+                request.user.id)
+
+            for x in address:
+                cursor.execute(update_error_query)
+                update_error_report_query = Constants.QUERIES['UPDATE_ERROR_REPORT'].format(
+                    0, user, x[0])
+                cursor.execute(update_error_report_query)
+        if search_term:
+            search_term = search_term.lower()
+            history = [entry for entry in history
+                       if search_term in entry[0].lower() or search_term in ("|".join(entry[3])).lower()]
+        history = self.paginate_queryset(history)
+        search = [x[0] for x in history]
+        time = [x[1] for x in history]
+        blockchain = [x[2] for x in history]
+        labels = [x[3] for x in history]
+        request_ids = [x[4] for x in history]
+        reports = []
+        errors = []
+        risk_scores = []
+        ground_truths = []
+        ids = []
+        addr_list = []
+        report_times = []
+        for add, t, chain in zip(search, time, blockchain):
+            report_query = Constants.QUERIES['CARA_REPORT_ADDRESS_GENERATED'].format(
+                add, t, user, t + datetime.timedelta(minutes=10), chain)
+            with connections['readonly'].cursor() as new_cursor:
+                new_cursor.execute(report_query)
+                add_report = new_cursor.fetchmany(1)
+                if add_report is not None:
+                    report = [x[0] for x in add_report]
+                    error = [x[1] for x in add_report]
+                    risk_score = [x[2] for x in add_report]
+                    ground_truth = [x[3] for x in add_report]
+                    id = [x[4] for x in add_report]
+                    report_time = [x[5] for x in add_report]
+                    reports.extend(list(report))
+                    errors.extend(list(error))
+                    risk_scores.extend(list(risk_score))
+                    ground_truths.extend(list(ground_truth))
+                    ids.extend(list(id))
+                    addr_list.extend(list(add))
+                    report_times.extend(list(report_time))
+                if not add_report:
+                    report_query = Constants.QUERIES['CARA_REPORT_ORPHAN'].format(add, t, chain)
+                    with connections['readonly'].cursor() as new_cursor:
+                        new_cursor.execute(report_query)
+                        add_report = new_cursor.fetchmany(1)
+                        if add_report is not None:
+                            report = [x[0] for x in add_report]
+                            error = [x[1] for x in add_report]
+                            risk_score = [x[2] for x in add_report]
+                            ground_truth = [x[3] for x in add_report]
+                            id = [x[4] for x in add_report]
+                            report_time = [x[5] for x in add_report]
+                            reports.extend(list(report))
+                            errors.extend(list(error))
+                            risk_scores.extend(list(risk_score))
+                            ground_truths.extend(list(ground_truth))
+                            ids.extend(list(id))
+                            addr_list.extend(list(add))
+                            report_times.extend(list(report_time))
+                        if not add_report:
+                            time_diff = datetime.datetime.utcnow() - t
+                            if time_diff.total_seconds() > 1800:
+                                report = add
+                                error = ["Report is taking too long to be generated."]
+                                risk_score = ""
+                                ground_truth = ""
+                                id = "0"
+                                report_time = ""
+                                reports.extend([report])
+                                errors.extend(error)
+                                risk_scores.extend([risk_score])
+                                ground_truths.extend([ground_truth])
+                                ids.extend([id])
+                                addr_list.extend([add])
+                                report_times.extend([report_time])
+
+        data = {
+            'history': search,
+            'time': time,
+            'blockchain': blockchain,
+            'reports': reports,
+            'errors': errors,
+            'risk_score': risk_scores,
+            'ground_truth': ground_truths,
+            'report_ids': ids,
+            'report_time': report_times,
+            'in_progress': len(search) - len(reports),
+            'labels': labels,
+            'request_ids': request_ids
+        }
+        return self.get_paginated_response(data)
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")
+
+
+# class for generating report
+class CARAReport(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        address = self.request.GET.get('address')
+        id = self.request.GET.get('id')
+        report_query = Constants.QUERIES['CARA_REPORT_QUERY'].format(address, id)
+        case_query = Constants.QUERIES['SELECT_CASE_BY_PATTERN'].format(address)
+        with connections['readonly'].cursor() as cursor:
+            cursor.execute(report_query)
+            report = cursor.fetchone()
+            import ast
+            mal = ast.literal_eval(report[22])
+            for key in mal:
+                mal[key] = str(mal[key])
+            cursor.execute(case_query)
+            case = cursor.fetchone()
+            if report is not None:
+                data = {'report': report, 'mal_dict': mal}
+            else:
+                data = {'report': ""}
+            if case is not None:
+                data['case'] = case
+            else:
+                data['case'] = ""
+        return APIResponse(data)
+
+
+class CARAReportDownload(APIView):
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        mal_dict = self.request.GET.get('mal_dict')
+        prev_risk_score = self.request.GET.get('prev_risk_score')
+        prev_verdict = _(self.request.GET.get('prev_verdict'))
+        cara_search_time = self.request.GET.get('date_s')
+        cara_rep_time = self.request.GET.get('rep_gen_time')
+        address = self.request.GET.get('address')
+        id = self.request.GET.get('id')
+        sus_tx_count = self.request.GET.get('sus_tx_count')
+        sus_tx_amt = self.request.GET.get('sus_tx_amt')
+        type = self.request.GET.get('type')
+        risk_score = self.request.GET.get('risk_score')
+        last_tx_ts = self.request.GET.get('last_tx_ts')
+        cara_summary = _(self.request.GET.get('cara_summary'))
+        verdict = _(self.request.GET.get('verdict'))
+        trdb_result = _(self.request.GET.get('trdb_result'))
+        trdb_summary = _(self.request.GET.get('trdb_summary'))
+        # trdb_summary = "잘못된 페이지 번호입니다."
+        verdict_message = _(self.request.GET.get('verdict_message'))
+        cara_result = _(self.request.GET.get('cara_result'))
+        blacklist_contacted = self.request.GET.get('blacklist_contacted')
+        malware_val = self.request.GET.get('malware')
+        scam = self.request.GET.get('scam')
+        phish_val = self.request.GET.get('phish')
+        hack_val = self.request.GET.get('hack')
+        darkweb = self.request.GET.get('darkweb')
+        porn_val = self.request.GET.get('porn')
+        gambling = self.request.GET.get('gambling')
+        co_val = self.request.GET.get('co')
+        excessive_in_out_tx = self.request.GET.get('exc_in_out_tx')
+        single_recent_tx = self.request.GET.get('single_rec_tx')
+        miner_funds = self.request.GET.get('miner_funds')
+        swift_fund_movement = self.request.GET.get('swift_fund_movement')
+        single_in_out_tx = self.request.GET.get('single_in_out_tx')
+        acc_funds = self.request.GET.get('acc_funds')
+        reg_interval_tx = self.request.GET.get('reg_int_tx')
+        dormant_status = self.request.GET.get('dormant_status')
+        large_balance = self.request.GET.get('lar_bal')
+        high_val_tx = self.request.GET.get('high_val_tx')
+        abnormal_relay = self.request.GET.get('abnormal_relay')
+        abnormal_mix = self.request.GET.get('abnormal_mix')
+        relay_and_mix = self.request.GET.get('relay_mix')
+        tumbling = self.request.GET.get('tumbling')
+        contact_blacklist_c = "circle-inv" if blacklist_contacted == "0" else "circle"
+        contact_blacklist = "und" if blacklist_contacted == "0" else "exc"
+        contact_blacklist_v = "/" if blacklist_contacted == "0" else "!"
+        fraud_c = "circle-inv" if scam == "0" else "circle"
+        fraud = "und" if scam == "0" else "exc"
+        fraud_v = "/" if scam == "0" else "!"
+        malware_c = "circle-inv" if malware_val == "0" else "circle"
+        malware = "und" if malware_val == "0" else "exc"
+        malware_v = "/" if malware_val == "0" else "!"
+        phish_c = "circle-inv" if phish_val == "0" else "circle"
+        phish = "und" if phish_val == "0" else "exc"
+        phish_v = "/" if phish_val == "0" else "!"
+        hack_c = "circle-inv" if hack_val == "0" else "circle"
+        hack = "und" if hack_val == "0" else "exc"
+        hack_v = "/" if hack_val == "0" else "!"
+        dw_c = "circle-inv" if darkweb == "0" else "circle"
+        dw = "und" if darkweb == "0" else "exc"
+        dw_v = "/" if darkweb == "0" else "!"
+        porn_c = "circle-inv" if porn_val == "0" else "circle"
+        porn = "und" if porn_val == "0" else "exc"
+        porn_v = "/" if porn_val == "0" else "!"
+        gamb_c = "circle-inv" if gambling == "0" else "circle"
+        gamb = "und" if gambling == "0" else "exc"
+        gamb_v = "/" if gambling == "0" else "!"
+        co_c = "circle-inv" if co_val == "0" else "circle"
+        co = "und" if co_val == "0" else "exc"
+        co_v = "/" if co_val == "0" else "!"
+        exc_io_tx_c = "circle-inv" if excessive_in_out_tx == "0" else "circle"
+        exc_io_tx = "und" if excessive_in_out_tx == "0" else "exc"
+        exc_io_tx_v = "/" if excessive_in_out_tx == "0" else "!"
+        sin_cry_ass_tx_rec_c = "circle-inv" if single_recent_tx == "0" else "circle"
+        sin_cry_ass_tx_rec = "und" if single_recent_tx == "0" else "exc"
+        sin_cry_ass_tx_rec_v = "/" if single_recent_tx == "0" else "!"
+        min_funds_c = "circle-inv" if miner_funds == "0" else "circle"
+        min_funds = "und" if miner_funds == "0" else "exc"
+        min_funds_v = "/" if miner_funds == "0" else "!"
+        swift_funds_c = "circle-inv" if swift_fund_movement == "0" else "circle"
+        swift_funds = "und" if swift_fund_movement == "0" else "exc"
+        swift_funds_v = "/" if swift_fund_movement == "0" else "!"
+        sin_ic_og_tx_c = "circle-inv" if single_in_out_tx == "0" else "circle"
+        sin_ic_og_tx = "und" if single_in_out_tx == "0" else "exc"
+        sin_ic_og_tx_v = "/" if single_in_out_tx == "0" else "!"
+        acc_cry_c = "circle-inv" if acc_funds == "0" else "circle"
+        acc_cry = "und" if acc_funds == "0" else "exc"
+        acc_cry_v = "/" if acc_funds == "0" else "!"
+        reg_int_tx_c = "circle-inv" if reg_interval_tx == "0" else "circle"
+        reg_int_tx = "und" if reg_interval_tx == "0" else "exc"
+        reg_int_tx_v = "/" if reg_interval_tx == "0" else "!"
+        lar_bal_c = "circle-inv" if large_balance == "0" else "circle"
+        lar_bal = "und" if large_balance == "0" else "exc"
+        lar_bal_v = "/" if large_balance == "0" else "!"
+        dor_c = "circle-inv" if dormant_status == "0" else "circle"
+        dor = "und" if dormant_status == "0" else "exc"
+        dor_v = "/" if dormant_status == "0" else "!"
+        hi_cry_tx_c = "circle-inv" if high_val_tx == "0" else "circle"
+        hi_cry_tx = "und" if high_val_tx == "0" else "exc"
+        hi_cry_tx_v = "/" if high_val_tx == "0" else "!"
+        rel_c = "circle-inv" if abnormal_relay == "0" else "circle"
+        rel = "und" if abnormal_relay == "0" else "exc"
+        rel_v = "/" if abnormal_relay == "0" else "!"
+        mix_c = "circle-inv" if abnormal_mix == "0" else "circle"
+        mix = "und" if abnormal_mix == "0" else "exc"
+        mix_v = "/" if abnormal_mix == "0" else "!"
+        rel_mix_c = "circle-inv" if relay_and_mix == "0" else "circle"
+        rel_mix = "und" if relay_and_mix == "0" else "exc"
+        rel_mix_v = "/" if relay_and_mix == "0" else "!"
+        tum_c = "circle-inv" if tumbling == "0" else "circle"
+        tum = "und" if tumbling == "0" else "exc"
+        tum_v = "/" if tumbling == "0" else "!"
+
+        #address = data['address']
+        from pdf_reports import pug_to_html, write_report, preload_stylesheet
+        css = preload_stylesheet('templates/cara/cara_report_style.scss')
+        # fa_css = preload_stylesheet('https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css')
+        html = pug_to_html("templates/cara/cara_report_template.pug", title=_("Crypto Analysis Risk Assessment"),
+                           address=address, address_head=_("Address"), report_id=_("Report ID"),
+                           verdict=verdict, id=id, cara_result=cara_result, details_head=_("Report Details"),
+                           type_head=_("Type"), ltt_head=_("Last Transaction Timestamp"), summary_head=_("Summary"),
+                           cara_st_head=_("CARA Search Time"), report_gt_head=_("Report Generation Time"),
+                           ml_ta_head=_("Machine Learning Transaction Analysis Results"), result_head=_("Result"),
+                           score_head=_("Score"), lr_head=_("Low Risk"), mr_head=_("Medium Risk"),
+                           pr_result_head=_("Previous Result"), pr_risk_score=prev_risk_score, pr_verdict=prev_verdict,
+                           hr_head=("High Risk"),  ehr_head=_("Extremely High Risk"), pr_score_head=_("Previous Score"),
+                           risk_ind_head=_("List of Risk Indicators"), link_mal_head=_("Direct Links to Malicious Activities"),
+                           black_head=_("Contacted Blacklist Addresses"), malware_head=_("Malware Wallet"),
+                           scam_head=_("Fraud/Scam"), phish_head=_("Phishing"), th_head=_("Thief/Hack"),
+                           darkweb_head=_("Dark Web"), co_head=_("Criminal Organization"),
+                           industry_head=_("Industry Risk Activity"), porn_head=_("Pornography Material"),
+                           gamb_head=_("Gambling"), tx_funds_head=_("Transactions interfere with tracking of Funds"),
+                           exc_io_head=_("Excess input and output transaction"),lar_bal_head=_("Large crypto asset balance"),
+                           acc_cry_head=_("Accumulating Crypto Assets"), dor_tx_head=_("Dormant transaction status"),
+                           tx_act_reg_head=_("Transaction activity at regular intervals"),
+                           swift_head=_("Abnormal swift movement of funds"), dis_pat_head=_("Distinctive Transaction Patterns"),
+                           sin_ic_head=_("Single incoming-outgoing transactions"), abn_mix_head=_("Abnormal Mixing"),
+                           sig_tx_head=_("Significant transaction fees"), abn_rel_head=_("Abnormal Relaying"),
+                           high_val_head=_("High value crypto asset transaction found"),
+                           sin_cat_head=_("Single Crypto Asset Transaction occurred recently"),
+                           rec_fun_min_head=_("Receiving funds from miners service"),
+                           rel_mix_head=_("Relaying and Mixing"), tumb_head=_("Tumbling"),
+                           sar_head=_("Static Analysis Results (TRDB)"), mal_head=_("Malicious Activities"),
+                           sus_tx_chead=_("Suspicious TX Count"), sus_tx_ahead=_("Suspicious TX Amount"),
+                           dis_head=_("Disclaimer head"), dis_1=_("Disclaimer 1"), dis_2=_("Disclaimer 2"),
+                           dis_3=_("Disclaimer 3"), dis_4=_("Disclaimer 4"), dis_5=_("Disclaimer 5"),
+                           dis_6=_("Disclaimer 6"), dis_7=_("Disclaimer 7"), dis_8=_("Disclaimer 8"),
+                           type=type, last_tx_ts=last_tx_ts, sus_tx_count=sus_tx_count, verdict_head=_("Verdict"),
+                           sus_tx_amt=sus_tx_amt, summary=verdict_message, score=risk_score, cara_summary=cara_summary,
+                           trdb_result=trdb_result, trdb_summary=trdb_summary, contact_blacklist_c=contact_blacklist_c,
+                           contact_blacklist=contact_blacklist, contact_blacklist_v=contact_blacklist_v, fraud_c=fraud_c, fraud=fraud,
+                           fraud_v=fraud_v, malware_c=malware_c, malware=malware, malware_v=malware_v, phish_c=phish_c,
+                           phish=phish, phish_v=phish_v, hack_c=hack_c, hack=hack, hack_v=hack_v, dw_c=dw_c,
+                           dw=dw, dw_v=dw_v, porn_c=porn_c, porn=porn, porn_v=porn_v, gamb_c=gamb_c,
+                           gamb=gamb, gamb_v=gamb_v, co_c=co_c, co=co, co_v=co_v, exc_io_tx_c=exc_io_tx_c,
+                           exc_io_tx=exc_io_tx, exc_io_tx_v=exc_io_tx_v, sin_cry_ass_tx_rec_c=sin_cry_ass_tx_rec_c, sin_cry_ass_tx_rec=sin_cry_ass_tx_rec,
+                           sin_cry_ass_tx_rec_v=sin_cry_ass_tx_rec_v, min_funds_c=min_funds_c, min_funds=min_funds, min_funds_v=min_funds_v,
+                           swift_funds_c=swift_funds_c, swift_funds=swift_funds, swift_funds_v=swift_funds_v, sin_ic_og_tx_c=sin_ic_og_tx_c,
+                           sin_ic_og_tx=sin_ic_og_tx, sin_ic_og_tx_v=sin_ic_og_tx_v, acc_cry_c=acc_cry_c, acc_cry=acc_cry,
+                           acc_cry_v=acc_cry_v, reg_int_tx_c=reg_int_tx_c, reg_int_tx=reg_int_tx, reg_int_tx_v=reg_int_tx_v, dor_c=dor_c,
+                           dor=dor, dor_v=dor_v, lar_bal_c=lar_bal_c, lar_bal=lar_bal, lar_bal_v=lar_bal_v, hi_tx_fee_c="circle-inv",
+                           hi_tx_fee="und", hi_tx_fee_v="/", hi_cry_tx_c=hi_cry_tx_c, hi_cry_tx=hi_cry_tx, hi_cry_tx_v=hi_cry_tx_v,
+                           rel_c=rel_c, rel=rel, rel_v=rel_v, mix_c=mix_c, mix=mix, mix_v=mix_v, cara_search=cara_search_time, cara_rep=cara_rep_time,
+                           rel_mix_c=rel_mix_c, rel_mix=rel_mix, rel_mix_v=rel_mix_v, tum_c=tum_c, tum=tum, tum_v=tum_v, mal_dict=mal_dict)
+        font_config = FontConfiguration()
+        css2 = CSS(string='''
+            @font-face {
+                font-family: KoreanTimesSSK;
+                src: url(file:///app/portal_api/templates/cara/KORETS__.ttf);
+            }
+            body { font-family: KoreanTimesSSK }''', font_config=font_config)
+        write_report(html, "/tmp/" + address +".pdf", extra_stylesheets=[css, css2])
+        try:
+            fs = FileSystemStorage('/tmp')
+            filename = address+".pdf"
+            with fs.open(address+'.pdf') as pdf:
+                from django.http import HttpResponse
+                response = HttpResponse(pdf, content_type='application/pdf')
+                response['Content-Disposition'] = 'attachment; filename= "' + filename + '"'
+                return response
+        except Exception as err:
+            raise exceptions.FileNotFound()
+        #return FileResponse(buf, address, content_type='application/pdf')
+
+class UsageStatsView(APIView):
+    authentication_classes = (CachedTokenAuthentication, )
+    permission_classes = (IsAuthenticated, )
+    model = User
+
+    def get_user(self, pk):
+        try:
+            return self.model.objects.get(uid__iexact=pk)
+        except self.model.DoesNotExist:
+            raise exceptions.UserNotFound()
+
+    def get(self, request, pk=None):
+        tz = request.query_params.get('timezone', None)
+        date_range = request.query_params.get('range', None)
+        product = request.query_params.get('product', None)
+
+        if not all([tz, date_range, product]):
+            raise exceptions.ValidationError(
+                "Atleast one parameter is missing out of timezone, range or product")
+
+        user = self.get_user(pk)
+        date_range = int(date_range) - 1
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                Constants.QUERIES['SELECT_CREDIT_DETAILS'].format(tz, user.id))
+            col_desc = [desc[0] for desc in cursor.description]
+            credit_details = cursor.fetchall()
+            cursor.execute(
+                Constants.QUERIES['SELECT_QUERY_LIMITS'].format(user.id))
+            col_desc_ql = [desc[0] for desc in cursor.description]
+            query_limits = cursor.fetchall()
+            if product == ProductType.CATV.value:
+                cursor.execute(Constants.QUERIES['SELECT_CATV_USAGE_OVERXDAYS'].format(
+                    tz, date_range, user.id))
+            elif product == ProductType.CARA.value:
+                cursor.execute(Constants.QUERIES['SELECT_CARA_USAGE_OVERXDAYS'].format(
+                    tz, date_range, user.id))
+            elif product == ProductType.ICF.value:
+                cursor.execute(Constants.QUERIES['SELECT_ICF_USAGE_OVERXDAYS'].format(
+                    tz, date_range, user.id))
+            results = cursor.fetchall()
+
+        credit_details = dict(zip(col_desc, credit_details[0]))
+        query_limits = new_dict = {k: v for k, v in zip(col_desc_ql, query_limits[0])}
+
+        return APIResponse({
+            "data": {
+                "usage_details": results,
+                "credit_details": credit_details,
+                "query_limits": query_limits
+            }
+        })
+
+
+class OrganizationDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, uid):
+        try:
+            return Organization.objects.get(uid=uid)
+        except Organization.DoesNotExist:
+            raise exceptions.OrganizationNotFound()
+
+    def get(self, request, uid):
+        organization = self.get_object(uid)
+        serializer = OrganizationSimpleSerializer(organization)
+        return APIResponse({
+            "data": serializer.data
+        })
+
+    def post(self, request, format=None):
+        serializer = OrganizationPostSerializer(
+            data=request.data, context={"request": request})
+        if serializer.is_valid():
+            org = serializer.save()
+            return APIResponse({
+                "data": {
+                    "uid": org.uid
+                }
+            })
+        raise exceptions.ValidationError()
+
+    def put(self, request, uid):
+        try:
+            organization = self.get_object(uid)
+            modified_data = request.data.copy()
+            users = modified_data.get("users", "[]")
+            users = json.loads(users)
+            modified_data.setlist("users", users)
+            domains = modified_data.get('domains', "[]")
+            domains = json.loads(domains)
+            modified_data.setlist("domains", domains)
+            orguser_serializer = OrganizationUserPostSerializer(
+                data=users, many=True, context={"request": request})
+            orguser_serializer.is_valid(raise_exception=True)
+            orguser_serializer.save()
+            serializer = OrganizationPostSerializer(
+                organization, data=modified_data, context={"request": request})
+            if serializer.is_valid():
+                serializer.save()
+                return APIResponse({
+                    "data": serializer.data
+                })
+            raise exceptions.ValidationError()
+        except json.decoder.JSONDecodeError:
+            raise exceptions.ValidationError(
+                "Error parsing JSON user list or domains")
+
+    def patch(self, request, uid):
+        organization = self.get_object(uid)
+        orguser_serializer = OrganizationUserPostSerializer(
+            data=request.data, context={"request": request})
+        orguser_serializer.is_valid(raise_exception=True)
+        validated_data = orguser_serializer.data
+        if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user)
+            orguser.status =  validated_data['status']
+            orguser.save()
+        elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user,
+                                                   status=OrganizationUserStatus.PENDING.value)
+            orguser.status = OrganizationUserStatus.ACTIVE.value
+            orguser.save()
+        return APIResponse({
+            "data": {
+                "uid": organization.uid
+            }
+        })
+
+    def patch(self, request, uid):
+        organization = self.get_object(uid)
+        orguser_serializer = OrganizationUserPostSerializer(data=request.data, context={"request": request})
+        orguser_serializer.is_valid(raise_exception=True)
+        validated_data = orguser_serializer.data
+        if validated_data['status'] == OrganizationUserStatus.INACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user)
+            orguser.status =  validated_data['status']
+            orguser.save()
+        elif validated_data['status'] == OrganizationUserStatus.ACTIVE.value:
+            user = User.objects.get(email__iexact=validated_data['user']['email'])
+            orguser = OrganizationUser.objects.get(organization=organization, user=user,
+                                                   status=OrganizationUserStatus.PENDING.value)
+            orguser.status = OrganizationUserStatus.ACTIVE.value
+            orguser.save()
+        return APIResponse({
+            "data": {
+                "uid": organization.uid
+            }
+        })
+
+    def delete(self, request, uid=None):
+        organization = self.get_object(uid)
+        current_user = request.user
+        try:
+            org_user = OrganizationUser.objects.get(
+                organization=organization, user=current_user)
+            org_user.delete()
+            Notification.objects.filter(
+                user=current_user, initiator=organization.administrator).delete()
+            return APIResponse({
+                "data": "Succesfully deleted"
+            })
+        except OrganizationUser.DoesNotExist:
+            raise exceptions.ValidationError(
+                "You are not a member of this organization")
+
+
+class InvitationView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (permissions.IsGetOrIsAuthenticated,)
+
+    def get_object(self, uid):
+        try:
+            org = Organization.objects.get(uid=uid)
+            return org
+        except Organization.DoesNotExist:
+            raise exceptions.ValidationError("Organization does not exist")
+
+    def get(self, request):
+        referrer = request.GET.get("user", None)
+        referral_code = request.GET.get("code", None)
+        msg = "Invitation code is invalid"
+        try:
+            if not referral_code or not referrer:
+                raise exceptions.PasswordResetCodeNotValid(msg)
+            org_invite = OrganizationInvites.objects.get(
+                invite_hash=referral_code)
+            referrer_email, referred_email = org_invite.inviter_key.split(
+                '-invite-')
+            user = User.objects.get(uid=referrer)
+            if user.email != referrer_email:
+                raise exceptions.PasswordResetCodeNotValid(msg)
+            organization = org_invite.organization
+            return APIResponse({
+                "data": {
+                    "referrer_org": organization.uid,
+                    "invited_email": referred_email
+                }
+            })
+        except (User.DoesNotExist, Organization.DoesNotExist, OrganizationInvites.DoesNotExist):
+            raise exceptions.PasswordResetCodeNotValid(msg)
+
+    def post(self, request, format=None):
+        org = self.get_object(request.data.get("organization", None))
+        serializer = InvitationSerializer(
+            data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        if serializer.data['type'] == InviteType.EMAIL.value:
+            invited_email = serializer.data['email']
+            invitee_email = request.user.email
+            invite_hash = utils.generate_random_key(40)
+            inviter_key = invitee_email + '-invite-' + invited_email
+            e = Email()
+            kv = {
+                "nickname": request.user.nickname,
+                "email": request.user.email,
+                "link": api_settings.WEB_URL + '/signup?' + "user=" + str(request.user.uid) + "&code=" + invite_hash,
+                "org_name": org.name
+            }
+            SendEmail().delay(kv=kv,
+                              subject=Constants.EMAIL_TITLE["INVITATION_SENTINEL_PORTAL"],
+                              email_type=e.EMAIL_TYPE["INVITATION"],
+                              sender=e.EMAIL_SENDER["NO-REPLY"],
+                              recipient=[serializer.data['email']])
+            OrganizationInvites.objects.update_or_create(organization=org, user=org.administrator, email=invited_email,
+                                                         defaults={
+                                                             'invite_hash': invite_hash,
+                                                             'inviter_key': inviter_key,
+                                                             'status': OrganizationInviteStatus.EMAIL_SENT.value
+                                                         }
+                                                         )
+            org.save()
+        else:
+            Notification.objects.create(user=User.objects.get(email=serializer.data['email']),
+                                        initiator=org.administrator,
+                                        type=NotificationType.ADDED_TO_ORG,
+                                        target={
+                                            "uid": str(org.uid),
+                                            "title": "has added you to the organization {}, please review and accept "
+                                                     "the invitation".format(org.name),
+                                            "type": "organization"
+                                        })
+        return APIResponse({
+            "data": "Successfully invited"
+        })
+
+
+@api_view(http_method_names=['POST'])
+@authentication_classes([CachedTokenAuthentication])
+@permission_classes([AllowAny])
+@psa()
+def exchange_oauth_api_token(request, backend):
+    serializer = SocialSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        user = request.backend.do_auth(
+            serializer.validated_data['access_token'])
+    except HTTPError:
+        raise exceptions.AuthenticationValidationError(
+            "Invalid access token provided.")
+    if user:
+        login_serializer = LoginSerializer(
+            data={'email': user.email, 'password': ''}, context={"request": request})
+        login_data = login_serializer.generate_oauth_login_response(user)
+        return APIResponse({
+            "data": login_data
+        })
+    else:
+        raise exceptions.AuthenticationValidationError()
+
 
 class CATVRequestsView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -331,7 +3118,6 @@ class CATVRequestsView(generics.ListAPIView):
         if status:
             filter_queries &= Q(status=status)
         objs = CatvRequestStatus.objects.filter(filter_queries).order_by('-pk')
-        print(objs.query)
         return objs
 
     def get_paginated_response(self, data):
@@ -386,7 +3172,7 @@ class CATVReportView(APIView):
     def put(self, request, pk=None):
         obj = self.get_related_object(pk)
         reverse_token_map = {
-            "Ethereum": CatvTokens.ETH.value,
+            "Ethereum/ERC20": CatvTokens.ETH.value,
             "Bitcoin": CatvTokens.BTC.value,
             "Tron": CatvTokens.TRON.value,
             "Litecoin": CatvTokens.LTC.value,
@@ -394,9 +3180,11 @@ class CATVReportView(APIView):
             "EOS": CatvTokens.EOS.value,
             "Stellar": CatvTokens.XLM.value,
             "Binance Coin": CatvTokens.BNB.value,
-            "Cardano": CatvTokens.ADA.value
+            "Cardano": CatvTokens.ADA.value,
+            "Binance Smart Chain": CatvTokens.BSC.value
         }
-        token_type = utils.determine_wallet_type(obj.params.get("wallet_address", obj.params.get("address_from", "")))
+        
+        token_type = utils.determine_wallet_type(obj.token_type)
         has_from_address = obj.params.get("address_from", "")
         token_type = reverse_token_map[token_type]
         search_type = CatvSearchType.PATH.value if has_from_address else CatvSearchType.FLOW.value
@@ -467,6 +3255,110 @@ class CATVMultiReportView(APIView):
             "request_params": serializer.data
         })
 
+class UserUpgradeView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    
+    def get_throttles(self):
+        if self.request.method.lower() in ['put', 'post']:
+            return [UpgradePlanThrottle(), ]
+        return [UpgradePlanNoThrottle(), ]
+    
+    def validate_get(self, request):
+        error = None
+        if self.request.user.role.role_name != UserRoles.COMMUNITY.value:
+            error = "No upgrade options available."
+        if not error and not self.request.user.address:
+            error = "No user wallet found. Add user wallet in profile first."
+        if error:
+            raise exceptions.NotAllowedError(detail=error)
+        
+    def validate_post(self, request):
+        error = None
+        verify_record = UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value).order_by('created')[:1]
+        if verify_record:
+            error = "You already have a transaction verification challenge pending."
+        if error:
+            raise exceptions.NotAllowedError(detail=error)
+        
+    def validate_put(self, request):
+        error = None
+        if not self.request.data.get("tx_hash", None):
+            error = "Missing required transaction hash parameter."
+        user_verify_qset = UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value).order_by('-created')[:1]
+        if not user_verify_qset:
+            error = "Could not find a verification test entry. System didn't find any token amount asscoiated."
+        if error:
+            raise exceptions.NotAllowedError(detail=error)
+        return user_verify_qset[0]
+    
+    def get(self, request):
+        self.validate_get(request)
+        try:
+            user_challenge = UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value).order_by('-created')[:1]
+            plan_features = RoleUsageLimit.objects.get(
+                role=Role.objects.get(role_name=UserRoles.PAID.value))
+            return APIResponse({
+                "data": {
+                    "transfer_address": api_settings.ADMIN_WALLET_ADDRESS,
+                    "contract_address": api_settings.TOKEN_ADDRESS,
+                    "asked_tokens": "{:.6f}".format(user_challenge[0].asked_tokens) if user_challenge else None,
+                    "display_tokens": api_settings.VERIFY_TX_AMT,
+                    "wallet_mab": api_settings.MAB_USER_UPGRADE,
+                    "plan_details": {
+                        "catv": plan_features.catv_limit,
+                        "cara": plan_features.cara_limit,
+                        "api": plan_features.api_limit
+                    }
+                }
+            })
+        except (Role.DoesNotExist, RoleUsageLimit.DoesNotExist):
+            raise exceptions.ServerError(detail="Upgrade role not found")
+    
+    def post(self, request):
+        self.validate_get(request)
+        self.validate_post(request)
+        random_tokens = float(api_settings.VERIFY_TX_AMT)
+        verify_record = UserUpgrade.objects.create(user=self.request.user, asked_tokens=random_tokens, status=UpgradeVerifyStatus.PENDING)
+        return APIResponse({
+            "data": {
+                "asked_tokens": "{:.6f}".format(verify_record.asked_tokens)
+            }
+        })
+    
+    def put(self, request):
+        self.validate_get(request)
+        verify_record = self.validate_put(request)
+        tx_hash = self.request.data["tx_hash"]
+        try:
+            web3_client = Web3(Web3.HTTPProvider(api_settings.MAINNET_URL))
+            tx_info = web3_client.eth.getTransaction(tx_hash)
+            if not tx_info:
+                raise exceptions.NotAllowedError(detail="Invalid tx hash provided.")
+            if not tx_info.get("blockNumber", None):
+                raise exceptions.NotAllowedError(detail="Block not mined yet.")
+            block_num, value, sender, to = tx_info["blockNumber"], tx_info["value"], tx_info["from"], tx_info["to"]
+            block_ts = web3_client.eth.getBlock(block_num).timestamp
+            block_ts = datetime.datetime.utcfromtimestamp(block_ts)
+            
+            if pytz.utc.localize(block_ts) > verify_record.created.astimezone(pytz.utc) \
+                and "{:.6f}".format(verify_record.asked_tokens) == "{:.6f}".format(value / 1e18) \
+                and w3.toChecksumAddress(sender) == w3.toChecksumAddress(self.request.user.address) \
+                and w3.toChecksumAddress(to) == w3.toChecksumAddress(api_settings.ADMIN_WALLET_ADDRESS):
+                    UserUpgrade.objects.filter(user=self.request.user, status=UpgradeVerifyStatus.PENDING.value)\
+                        .update(status=UpgradeVerifyStatus.VERIFIED.value, tx_hash=tx_hash)
+                    UserRoleUpdateTask().delay(user_id=self.request.user.id, new_role=UserRoles.COMMUNITY_VERIFIED.value)
+                    return APIResponse({
+                        "data": "Transaction successfully validated"
+                    })
+            else:
+                raise exceptions.NotAllowedError(detail="One or more of the following do not match: Sender, Receiver, Amount, Timestamp")
+        except Exception as e:
+            if isinstance(e, exceptions.NotAllowedError):
+                raise e
+            raise exceptions.ValidationError(detail="Something went wrong while validating transaction")
+
+
 class CATVRequestDetailView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -502,3 +3394,152 @@ class CATVRequestDetailView(APIView):
                 'request': data
             }
         })
+
+
+class CARARequestDetailView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, request, pk):
+        try:
+            obj = CaraSearchHistory.objects.get(request_id=pk)
+            if obj.id != request.user.uid:
+                raise exceptions.NotAllowedError(detail="You are only allowed to access your requests")
+            return obj
+        except CaraSearchHistory.DoesNotExist:
+            raise exceptions.FileNotFound(detail="No matching request exists")
+
+    def get(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        serializer = CARARequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })
+
+    def patch(self, request, pk=None):
+        obj = self.get_object(request, pk)
+        new_labels = request.data.get('labels', [])
+        obj.labels = new_labels
+        obj.save()
+        serializer = CARARequestListSerializer(obj, context={'request': request})
+        data = serializer.data
+        return APIResponse({
+            'data': {
+                'request': data
+            }
+        })
+
+
+class SecurityTagView(generics.ListCreateAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = SecurityTag
+
+    def list(self, request, *args, **kwargs):
+        c = DefaultCache()
+        cached_response = c.get_view_cache(request)
+        if cached_response:
+            return APIResponse(cached_response)
+        queryset = self.model.objects.all()
+        serializer = SecurityTagSerializer(queryset, many=True)
+        return APIResponse(
+            c.set_view_cache(request, {
+                "data": {
+                    "items": serializer.data
+                }
+            })
+        )
+
+class CustomerSecurityTagView(generics.ListCreateAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (AllowAny,)
+    model = CustomerSecurityTag
+
+    def list(self, request, *args, **kwargs):
+        c = DefaultCache()
+        cached_response = c.get_view_cache(request)
+        if cached_response:
+            return APIResponse(cached_response)
+        queryset = self.model.objects.all()
+        serializer = CustomerSecurityTagSerializer(queryset, many=True)
+        return APIResponse(
+            c.set_view_cache(request, {
+                "data": {
+                    "items": serializer.data
+                }
+            })
+        )
+
+class RequestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    def list(self, request, *args, **kwargs):
+        valid_search_types = [ProductType.CATV.value, ProductType.CARA.value]
+        search_type = self.request.query_params.get("type", "catv")
+        query = self.request.query_params.get("q", None)
+        status = self.request.query_params.get("status", None)
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        order_by = order_by.split('_')
+        order_key = '-id'
+        if order_by[1] == 'asc':
+            order_key = 'id'
+        if search_type not in valid_search_types:
+            raise exceptions.ValidationError(
+                f"Invalid search type parameter. Valid values: {', '.join(valid_search_types)}")
+        if not query:
+            raise exceptions.ValidationError("q is required.")
+        if len(query) > 1024:
+            raise exceptions.ValidationError("q is too long.")
+        if status and status not in \
+            [CatvTaskStatusType.PROGRESS.value,
+             CatvTaskStatusType.RELEASED.value,
+             CatvTaskStatusType.FAILED.value]:
+            raise exceptions.ValidationError("Invalid status type parameter")
+
+        if search_type == ProductType.CATV.value:
+            serializer_cls = CATVRequestListSerializer
+        elif search_type == ProductType.CARA.value:
+            serializer_cls = CARARequestListSerializer
+        else:
+            serializer_cls = CARARequestListSerializer
+        queryset = self.filter_queryset(self.get_queryset(search_type, query, status, order_key))
+
+        page = self.paginate_queryset(queryset)
+        serializer = serializer_cls(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    def get_catv_queryset(self, query, status, order_key):
+        filter_queries = Q(params__icontains=query)
+        filter_queries |= Q(labels__arrayilike=query)
+        if status:
+            filter_queries &= Q(status=status)
+        filter_queries &= Q(user=self.request.user)
+        objs = CatvRequestStatus.objects.filter(filter_queries).distinct('id').order_by(order_key)
+        return objs
+
+    def get_cara_queryset(self, query, status, order_key):
+        filter_queries = Q(address__ilike=query)
+        filter_queries |= Q(labels__arrayilike=query)
+        if status:
+            filter_queries &= Q(status=status)
+        filter_queries &= Q(user=self.request.user)
+        objs = CaraSearchHistory.objects.filter(filter_queries).distinct('id').order_by(order_key)
+        return objs
+
+    def get_queryset(self, search_type, query, status, order_key):
+        objs = None
+        if search_type == ProductType.CATV.value:
+            return self.get_catv_queryset(query, status, order_key)
+        elif search_type == ProductType.CARA.value:
+            return self.get_cara_queryset(query, status, order_key)
+        return objs
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")

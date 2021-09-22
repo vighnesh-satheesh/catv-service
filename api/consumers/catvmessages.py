@@ -71,6 +71,10 @@ def process_catv_messages(job: CatvJobQueue):
         CatvTokens.ADA.value: {
             CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
             CatvSearchType.PATH.value: CatvBtcPathSerializer
+        },
+        CatvTokens.BSC.value: {
+            CatvSearchType.FLOW.value: CATVSerializer,
+            CatvSearchType.PATH.value: CATVEthPathSerializer
         }
     }
 

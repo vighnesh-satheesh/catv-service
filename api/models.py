@@ -228,6 +228,8 @@ class IndicatorPatternSubtype(Enum):
     XLM = 'XLM'
     BNB = 'BNB'
     ADA = 'ADA'
+    DOGE = 'DOGE'
+    BSC = 'BSC'
     # network address
     URL = 'url'
     EMAIL = 'email'
@@ -250,7 +252,7 @@ class IndicatorPatternSubtype(Enum):
     def cryptoaddr_subtypes(cls):
         return [cls.ETH, cls.ETC, cls.EOS, cls.BTC, cls.BCH,
                 cls.LTC, cls.DASH, cls.ZEC, cls.XMR, cls.NEO, cls.XRP, cls.NA,
-                cls.KLAY, cls.TRON, cls.XLM, cls.BNB, cls.ADA]
+                cls.KLAY, cls.TRON, cls.XLM, cls.BNB, cls.ADA, cls.DOGE, cls.BSC]
 
     @classmethod
     def networkaddr_subtypes(cls):
@@ -362,7 +364,7 @@ class CatvTokens(Enum):
     XLM = 'XLM'
     BNB = 'BNB'
     ADA = 'ADA'
-
+    BSC = 'BSC'
 
 class CatvSearchType(Enum):
     PATH = 'path'
@@ -1359,6 +1361,8 @@ class CatvRequestStatus(models.Model):
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
     labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
+    token_type = EnumField(CatvTokens, default=CatvTokens.ETH)
+
 
     class Meta:
         db_table = 'api_catv_request_status'

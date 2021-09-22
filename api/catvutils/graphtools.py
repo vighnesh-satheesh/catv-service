@@ -161,6 +161,13 @@ def make_lossy_graph(nc, edge_dict, mode):
     all_nodes = list(nc.get_nodes_as_dict().values())
     limited_nodes = filter(lambda node: node["address"] in edge_keys, all_nodes)
     nc.edge_keys = edge_keys
+
+    #testing
+    print("nodes", all_nodes)
+    print("limited nodes", limited_nodes)
+    print("edges", sorted_per_depth)
+    print("limited edges", limited_conn_edges)
+
     return limited_conn_edges, limited_nodes
 
 

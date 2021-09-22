@@ -37,13 +37,13 @@ class Constants:
         "INSERT_USER_CATV_HISTORY": "INSERT INTO api_catv_history(user_id,wallet_address,token_address,source_depth, "
                                     "distribution_depth,transaction_limit,from_date,to_date,logged_time,token_type) "
                                     "VALUES('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}');",
-        "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls=catv_calls+1, catv_calls_left=(CASE WHEN catv_calls_left > 0 THEN catv_calls_left-1 ELSE 0 END), "
-                                  "catv_calls_left_y=(CASE WHEN catv_calls_left > 0 THEN catv_calls_left_y ELSE catv_calls_left_y-1 END) where user_id=("
+        "UPDATE_USER_CATV_USAGE": "UPDATE api_usage SET catv_calls=catv_calls+1,"
+                                  "catv_calls_left_y=(CASE WHEN catv_calls_left_y > 0 THEN catv_calls_left_y-1 ELSE 0 END) where user_id=("
                                   "SELECT administrator_id from (SELECT ao.administrator_id from api_organization ao "
                                   "inner join api_organizationuser aou on ao.id = aou.organization_id where aou.user_id='{0}' and aou.status='active' "
                                   "union SELECT '{0}') x limit 1) and catv_calls_left_y > 0;",
-        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls=cara_calls+1, cara_calls_left=(CASE WHEN cara_calls_left > 0 THEN cara_calls_left-1 ELSE 0 END), "
-                                  "cara_calls_left_y=(CASE WHEN cara_calls_left > 0 THEN cara_calls_left_y ELSE cara_calls_left_y-1 END) where user_id=("
+        "UPDATE_USER_CARA_USAGE": "UPDATE api_usage SET cara_calls=cara_calls+1,"
+                                  "cara_calls_left_y=(CASE WHEN cara_calls_left_y > 0 THEN cara_calls_left_y-1 ELSE 0 END) where user_id=("
                                   "SELECT administrator_id from (SELECT ao.administrator_id from api_organization ao "
                                   "inner join api_organizationuser aou on ao.id = aou.organization_id where aou.user_id='{0}' and aou.status='active' "
                                   "union SELECT '{0}') x limit 1) and cara_calls_left_y > 0;",
@@ -54,11 +54,7 @@ class Constants:
                                    "cara_calls_left=credits.cara_calls_left + arul.cara_limit, "
                                    "cams_calls_left=credits.cams_calls_left + arul.cams_limit, "
                                    "last_renewal_at=now(), "
-                                   "api_calls=0, catv_calls=0, cara_calls=0, cams_calls=0,"
-                                   "api_calls_left_y=credits.api_calls_left_y - arul.api_limit,"
-                                   "catv_calls_left_y=credits.catv_calls_left_y - arul.catv_limit, "
-                                   "cara_calls_left_y=credits.cara_calls_left_y - arul.cara_limit, "
-                                   "cams_calls_left_y=credits.cams_calls_left_y - arul.cams_limit "
+                                   "api_calls=0, catv_calls=0, cara_calls=0, cams_calls=0 "
                                    "FROM api_user au, api_role_usage_limit arul "
                                    "WHERE credits.user_id = au.id AND arul.role_id = au.role_id AND "
                                    "DATE_PART('day', now() - credits.last_renewal_at) > 30;",
@@ -66,16 +62,16 @@ class Constants:
                                    "last_renewal_at,api_calls,catv_calls,cara_calls,cams_calls,api_calls_left_y,catv_calls_left_y,"
                                    "cara_calls_left_y,cams_calls_left_y,last_renewal_at_y) "
                                    "select %s,api_limit,catv_limit,cara_limit,cams_limit,now(),0,0,0, "
-                                   "api_limit_y-api_limit,catv_limit_y-catv_limit,cara_limit_y-cara_limit, "
-                                   "cams_limit_y-cams_limit,now() "
+                                   "api_limit_y,catv_limit_y,cara_limit_y, "
+                                   "cams_limit_y,now() "
                                    "from api_role_usage_limit where role_id=%s;",
         "UPDATE_USER_USAGE_QUOTA": "UPDATE api_usage au set api_calls_left=t.api_limit, catv_calls_left=t.catv_limit, "
                                    "cara_calls_left=t.cara_limit, cams_calls_left=t.cams_limit, "
                                    "last_renewal_at=now(), api_calls=0, catv_calls=0, "
-                                   "cara_calls=0, cams_calls=0, api_calls_left_y=t.api_limit_y-t.api_limit, "
-                                   "catv_calls_left_y=t.catv_limit_y-t.catv_limit, "
-                                   "cams_calls_left_y=t.cams_limit_y-t.cams_limit, "
-                                   "cara_calls_left_y=t.cara_limit_y-t.cara_limit, last_renewal_at_y=now() "
+                                   "cara_calls=0, cams_calls=0, api_calls_left_y=t.api_limit_y, "
+                                   "catv_calls_left_y=t.catv_limit_y, "
+                                   "cams_calls_left_y=t.cams_limit_y, "
+                                   "cara_calls_left_y=t.cara_limit_y, last_renewal_at_y=now() "
                                    "FROM api_role_usage_limit t "
                                    "where t.role_id=%s and au.user_id=%s;",
         "SELECT_INDICATORS_WITHIN_DATE": "SELECT id, uid, security_category, pattern, created, s_tags, "
@@ -130,17 +126,17 @@ class Constants:
                               ",direct_links_to_malicious_activities,illegit_activity_links"
                               ",report_generated_time,error,ground_truth_label,tx_interfere_with_funds"
                               ",blacklisted_addr_list,distinct_tx_patterns_details,illegit_activity_links_details"
-                              ",mal_activities_details,tx_interfere_with_funds_details)"
-                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                              ",mal_activities_details,tx_interfere_with_funds_details,blockchain)"
+                              "values(%s,%s ,%s,%s,%s ,%s ,%s ,%s ,%s ,%s ,%s ,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         "KAFKA_LISTENER_PARAMS": "SELECT kafka_offset from kafka_listener_parameters where id=1",
         "KAFKA_OFFSET_UPDATE": "UPDATE kafka_listener_parameters set kafka_offset={0} where id=1",
-        "CARA_REPORT_ADDRESS_GENERATED": "SELECT cr.address, cr.error, cr.risk_score, cr.ground_truth_label, cr.id, cr.report_generated_time from cara_report as cr JOIN cara_search_history as cs on cs.address = cr.address where cr.address='{0}' and cr.report_generated_time > '{1}' and cs.id = '{2}' and cr.report_generated_time < '{3}' and cs.query_time < cr.report_generated_time",
-        "CARA_REPORT_ORPHAN": "SELECT address, error, risk_score, ground_truth_label, id, report_generated_time from cara_report where address='{0}' and report_generated_time > '{1}'",
+        "CARA_REPORT_ADDRESS_GENERATED": "SELECT cr.address, cr.error, cr.risk_score, cr.ground_truth_label, cr.id, cr.report_generated_time from cara_report as cr JOIN cara_search_history as cs on (cs.address = cr.address and cr.blockchain = '{4}') where cr.address='{0}' and cr.report_generated_time > '{1}' and cs.id = '{2}' and cr.report_generated_time < '{3}' and cs.query_time < cr.report_generated_time",
+        "CARA_REPORT_ORPHAN": "SELECT address, error, risk_score, ground_truth_label, id, report_generated_time from cara_report where address='{0}' and report_generated_time > '{1}' and blockchain='{2}'",
         "CARA_REPORT_QUERY": "SELECT cr.id, cr.address, cr.risk_score, cr.analysis_end_time, cr.total_amt_dict, "
                              "cr.estimated_mal_amt, cr.estimated_mal_tx, cr.distinct_transaction_patterns, "
                              "cr.direct_links_to_malicious_activities, cr.illegit_activity_links, cr.error, "
                              "cr.ground_truth_label, cr.num_blacklisted_addr_contacted, cr.tx_interfere_with_funds, "
-                             "cs.blockchain, cr.blacklisted_addr_list, cr.distinct_tx_patterns_details, "
+                             "cr.blockchain, cr.blacklisted_addr_list, cr.distinct_tx_patterns_details, "
                              "cr.illegit_activity_links_details, cr.mal_activities_details, "
                              "cr.tx_interfere_with_funds_details, cr.report_generated_time, cr.previous_risk_score,"
                              "cr.mal_amt_dict from cara_report as cr JOIN cara_search_history as cs "
@@ -151,6 +147,10 @@ class Constants:
         "SELECT_USER_CATV_HISTORY": "select 0 as id, wallet_address, token_address, source_depth, distribution_depth, "
                                     "transaction_limit, from_date, to_date from vw_catv_history where row_num = 1 and "
                                     "user_id={0} and token_type='{1}' limit 10;",
+        "SELECT_USER_WITH_TOKEN_TYPE_CATV_HISTORY": "SELECT wallet_address,token_address,source_depth,distribution_depth,"
+                                                    "transaction_limit,from_date,to_date,token_type FROM vw_catv_history "
+                                                    "WHERE row_num=1 AND user_id = '{0}' AND token_type='{1}' "
+                                                    "LIMIT 10",
         "SELECT_CATV_USAGE_OVERXDAYS": "SELECT d::date, coalesce(searches, 0) from "
                                        "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
                                        "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
@@ -189,6 +189,9 @@ class Constants:
                                  "next_renewal_on from api_usage ausage inner join api_user auser on "
                                  "ausage.user_id=auser.id inner join api_role_usage_limit arul on "
                                  "auser.role_id=arul.role_id where ausage.user_id={1};",
+        "SELECT_QUERY_LIMITS":  "SELECT icf_rate_limit,cara_rate_limit,cara_submit_rate_limit,catv_rate_limit "
+                                "FROM api_role_info aroleinfo inner join api_user auser on "
+                                "aroleinfo.role_id=auser.role_id where auser.id={0};",
         "DELETE_ORG_INVITES": "UPDATE api_organizationinvites set status='Expired' where (DATE_PART('day', "
                               "now()::timestamp - sent::timestamp) * 24 + DATE_PART('hour', "
                               "now()::timestamp - sent::timestamp)) >= 72;",
@@ -248,10 +251,10 @@ class Constants:
                                      "cara_calls_left=arul.cara_limit, cams_calls_left=arul.cams_limit, "
                                      "last_renewal_at=now(), "
                                      "api_calls=0, catv_calls=0, cara_calls=0, cams_calls=0, "
-                                     "api_calls_left_y=arul.api_limit_y - arul.api_limit,"
-                                     "catv_calls_left_y=arul.catv_limit_y- arul.catv_limit, "
-                                     "cara_calls_left_y=arul.cara_limit_y - arul.cara_limit, "
-                                     "cams_calls_left_y=arul.cams_limit_y - arul.cams_limit, "
+                                     "api_calls_left_y=arul.api_limit_y,"
+                                     "catv_calls_left_y=arul.catv_limit_y, "
+                                     "cara_calls_left_y=arul.cara_limit_y, "
+                                     "cams_calls_left_y=arul.cams_limit_y, "
                                      "last_renewal_at_y=now() "
                                      "FROM api_user au, api_role_usage_limit arul "
                                      "WHERE credits.user_id = au.id AND arul.role_id = au.role_id AND "
