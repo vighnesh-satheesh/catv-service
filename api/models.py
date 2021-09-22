@@ -153,7 +153,6 @@ class UserPermission(Enum):
 
 class ProductType(Enum):
     CATV = 'catv'
-    CARA = 'cara'
     ICF = 'api'
 
 
@@ -1475,17 +1474,3 @@ class RoleInfo(models.Model):
     org_access = models.BooleanField(default=False)
     role = models.ForeignKey(
         Role, null=False, blank=False, on_delete=models.CASCADE, related_name='info_role')
-
-
-class CaraSearchHistory(models.Model):
-    id = models.UUIDField(primary_key=False)
-    address = models.CharField(max_length=200)
-    query_time = models.DateTimeField()
-    error_generated = models.IntegerField(blank=True, null=True)
-    blockchain = models.CharField(max_length=10, blank=True, null=True)
-    labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
-    request_id = models.AutoField(primary_key=True)
-
-    class Meta:
-        db_table = 'cara_search_history'
-        managed = False

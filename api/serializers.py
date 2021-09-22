@@ -1,37 +1,24 @@
-import os
 import time
 import re
 from collections import OrderedDict
 
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
-from django.contrib.auth.hashers import (check_password, make_password)
-from django.core.validators import validate_email
-from django.db import transaction, IntegrityError
-from django.db.models import Q, Value, BooleanField
-from django.db.models.signals import post_save
+from django.db import transaction
+from django.db.models import BooleanField
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
-from web3 import Web3
 
 from rest_framework import serializers
 
-import boto3
-import json
 from requests.exceptions import ReadTimeout
 
-from . import validates
+
 from . import exceptions
 from . import models
 from . import fields
 from . import utils
 from .settings import api_settings
-from .multitoken.tokens_auth import MultiToken
-from .multitoken.crypto import decrypt_message
-from .constants import Constants
-from .cache.uppward import UppwardCache
-from indicatorlib import Pattern
-from .cache import DefaultCache
 from .catvutils.tracking_results import (
     TrackingResults, BTCTrackingResults,
     BTCCoinpathTrackingResults, EthPathResults,
