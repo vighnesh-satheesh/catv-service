@@ -12,15 +12,6 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from social_django.utils import psa
-from weasyprint import CSS
-from weasyprint.fonts import FontConfiguration
-from web3.auto.infura import w3
-from web3 import Web3
-from kafka import KafkaProducer
-from requests.exceptions import HTTPError
-import requests
-
 from .models import (
     CatvHistory, CatvTokens, CatvPathHistory, CatvSearchType, 
     CatvRequestStatus, CatvTaskStatusType, CatvResult
