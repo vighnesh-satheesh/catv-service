@@ -8,7 +8,7 @@ services:
     volumes:
       - ..:/app
     environment:
-      - CATVMS_API_PATH=/app/dev.env
+      - CATVMS_API_ENV_PATH=/app/dev.env
       - API_TOKEN_ENCRYPT_PRIVATE_KEY=/app/key.private
       - ALLOWED_HOSTS=*
       - C_FORCE_ROOT=1

@@ -66,12 +66,12 @@ class AppInit:
 
                 next_token = response["NextToken"]
         else:
-            env_file = os.environ.get("CATVMS_API_PATH")
+            env_file = os.environ.get("CATVMS_API_ENV_PATH")
             os.environ["PORTAL_API_MODE"] = "development"
             if env_file is None or os.path.isfile(env_file) is False:
                 raise AttributeError(
-                    "Please set environ variable 'CATVMS_API_PATH' for env file path."
-                    "'export CATVMS_API_PATH=/env/file/path.env'"
+                    "Please set environ variable 'CATVMS_API_ENV_PATH' for env file path."
+                    "'export CATVMS_API_ENV_PATH=/env/file/path.env'"
                 )
 
     @classmethod
