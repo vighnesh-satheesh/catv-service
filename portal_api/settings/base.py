@@ -21,7 +21,7 @@ env_path = os.environ.get('CATVMS_API_ENV_PATH')
 if env_path and os.path.exists(env_path):
     env.read_env(env.str('CATVMS_API_ENV_PATH', '.env'))
 
-ENVIRONMENT = env.str('CATVMS_API_ENV', 'development')
+ENVIRONMENT = env.str('CATVMS_API_ENV_PATH', 'development')
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)

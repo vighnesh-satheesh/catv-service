@@ -16,11 +16,11 @@ class AppInit:
         return cls.instance
 
     def __init__(self):
-        env = os.environ.get("CATVMS_API")
+        env = os.environ.get("CATVMS_API_ENV")
         if env is None or env not in ["development", "production"]:
             raise AttributeError(
-                "Missing environment variable 'CATVMS_API'."
-                "CATVMS_API value should be either development or production."
+                "Missing environment variable 'CATVMS_API_ENV'."
+                "CATVMS_API_ENV value should be either development or production."
             )
         if not self.INIT_DONE:
             self.set_allowed_hosts()
@@ -77,7 +77,7 @@ class AppInit:
     @classmethod
     def set_allowed_hosts(self):
         allowed_host = []
-        if os.environ.get("CATVMS_API") != "development" or os.environ.get("CONTAINER_TYPE") == "portal_admin":
+        if os.environ.get("CATVMS_API_ENV") != "development" or os.environ.get("CONTAINER_TYPE") == "portal_admin":
             try:
                 data = requests.get(self.REQUEST_URL["ECS_PRIVATE_IP"], timeout=0.1).text
                 jdata = json.loads(data)
