@@ -317,3 +317,6 @@ LYZE_API_KEY = env.str('API_LYZE_KEY')
 LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'https://upp.lyze.ai/btc_forward_tracking')
 LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'https://upp.lyze.ai/btc_backward_tracking')
 LYZE_TXLIST_ENDPOINT = env.str('API_LYZE_TXLIST_ENDPOINT', 'https://upp.lyze.ai/btc_address_transfers')
+
+#RABBIT MQ URL
+RABBIT_MQ_URL = API_SETTINGS['RABBIT_MQ_URL']
