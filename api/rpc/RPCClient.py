@@ -9,15 +9,15 @@ class RPCClientUpdateUsageCatvCall:
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(host='10.12.50.101'))
 
-    self.channel = self.connection.channel()
+        self.channel = self.connection.channel()
 
-    result = self.channel.queue_declare(queue='', exclusive=True)
-    self.callback_queue = result.method.queue
+        result = self.channel.queue_declare(queue='', exclusive=True)
+        self.callback_queue = result.method.queue
 
-    self.channel.basic_consume(
-        queue=self.callback_queue,
-        on_message_callback=self.on_response,
-        auto_ack=True)
+        self.channel.basic_consume(
+            queue=self.callback_queue,
+            on_message_callback=self.on_response,
+            auto_ack=True)
 
     def on_response(self, ch, method, props, body):
         if self.corr_id == props.correlation_id:
