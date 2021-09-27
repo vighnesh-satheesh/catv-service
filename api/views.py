@@ -30,6 +30,7 @@ from .pagination import CatvRequestPagination
 from . import exceptions
 from . import utils
 from .multitoken.tokens_auth import CachedTokenAuthentication
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall
 from .settings import api_settings
 from .cache.catv import TrackingCache
 from .constants import Constants
