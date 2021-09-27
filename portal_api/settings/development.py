@@ -3,7 +3,7 @@ from .base import *
 
 DEBUG = True
 
-
+CORS_ORIGIN_ALLOW_ALL = True
 ALLOWED_HOSTS += ["172.21.20.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += [
     "localhost", "test.sentinelportal.com"
@@ -25,6 +25,7 @@ INSTALLED_APPS += [
 
 
 MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.0/howto/static-files/

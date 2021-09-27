@@ -9,6 +9,7 @@ from ..exceptions import AuthenticationCheckError
 
 
 TOKENS_CACHE = caches[api_settings.TOKEN_REDIS_DB_NAME]
+USER_CACHE = caches[api_settings.API_USER_CACHE]
 
 class MultiToken:
 
@@ -17,53 +18,14 @@ class MultiToken:
         self.user = user
 
     @classmethod
-    def create_token(cls, user):
-        created = False
-        token = generate_new_token()
-        tokens = TOKENS_CACHE.get(user.pk)
-
-        if not tokens:
-            tokens = [token]
-            created = True
-        else:
-            tokens.append(token)
-
-        cls._set_key_value(str(user.pk), tokens)
-        cls._set_key_value(token, str(user.pk))
-
-        return MultiToken(token, user), created
-
-    @classmethod
     def get_user_token_from_key(cls, token, timestamp):
+        auth = get_authorization_header(request).split()
+        token = auth[1].decode()
+        timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
         verified_token = verify_token(token, timestamp)
-        user = User.objects.get(pk=TOKENS_CACHE.get(verified_token))
-        return user, verified_token
-
-    @classmethod
-    def expire_token(cls, token):
-        user_pk = TOKENS_CACHE.get(token.key)
-        tokens = TOKENS_CACHE.get(user_pk)
-        if tokens and token.key in tokens:
-            tokens.remove(token.key)
-            cls._set_key_value(str(user_pk), tokens)
-
-        TOKENS_CACHE.delete(token.key)
-
-    @classmethod
-    def expire_all_tokens(cls, user):
-        tokens = TOKENS_CACHE.get(user.pk)
-        for h in tokens:
-            TOKENS_CACHE.delete(h)
-
-        TOKENS_CACHE.delete(user.pk)
-
-    @classmethod
-    def reset_tokens_ttl(cls, user_pk):
-        cls._reset_token_ttl(user_pk)
-
-        tokens = TOKENS_CACHE.get(user_pk)
-        for h in tokens:
-            cls._reset_token_ttl(h)
+        user = USER_CACHE.get(verified_token)
+        user_json = json.loads(user)
+        return user_json, verified_token
 
     @classmethod
     def _reset_token_ttl(cls, key):
@@ -73,12 +35,15 @@ class MultiToken:
         if key_ttl is None and timeout is not None:
             if api_settings.TOKEN_OVERWRITE_NONE_TTL:
                 TOKENS_CACHE.expire(key, timeout)
+                USER_CACHE.expire(key, timeout)
         elif key_ttl is None and timeout is None:
             pass
         elif key_ttl is not None and timeout is None:
             TOKENS_CACHE.persist(key)
+            USER_CACHE.persist(key)
         else:
             TOKENS_CACHE.expire(key, timeout)
+            USER_CACHE.expire(key, timeout)
 
     @classmethod
     def _set_key_value(cls, key, value):

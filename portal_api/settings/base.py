@@ -106,14 +106,7 @@ DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
 CACHES = {
     'default': env.cache(),
     'token': env.cache('REDIS_TOKEN_URL'),
-    'uppward': {
-        'BACKEND': 'redis_cache.RedisCache',
-        'LOCATION': env.str('API_UPPWARD_CACHE_SERVER'),
-        "OPTIONS": {
-            "SOCKET_CONNECT_TIMEOUT": 3,
-            "SOCKET_TIMEOUT": 3,
-        }
-    },
+    'user_cache': env.cache('REDIS_USER_CACHE'),
     'local_cache': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
@@ -121,7 +114,7 @@ CACHES = {
     'catv_data': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': env.str('API_CATV_CACHE_SERVER')
-    }
+    },
 }
 
 
