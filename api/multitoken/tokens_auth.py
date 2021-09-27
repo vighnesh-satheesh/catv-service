@@ -9,7 +9,6 @@ from ..exceptions import AuthenticationCheckError
 
 
 TOKENS_CACHE = caches[api_settings.TOKEN_REDIS_DB_NAME]
-USER_CACHE = caches[api_settings.API_USER_CACHE]
 
 class MultiToken:
 
