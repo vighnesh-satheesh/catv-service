@@ -23,7 +23,7 @@ class RPCClientUpdateUsageCatvCall:
         if self.corr_id == props.correlation_id:
             self.response = body
 
-        def call(self, user):
+    def call(self, user):
         self.response = None
         self.corr_id = str(uuid.uuid4())
         self.channel.basic_publish(
