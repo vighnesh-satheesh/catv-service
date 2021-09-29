@@ -1,6 +1,8 @@
 
 from rest_framework import permissions
 
+from api.multitoken.tokens_auth import MultiToken
+
 class InternalOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -12,3 +14,9 @@ class InternalOnly(permissions.BasePermission):
         if ip.startswith("127") or ip.startswith("10.") or ip.startswith("172.") or ip.startswith("192.") or ip.startswith("255."):
             return True
         return False
+
+class IsCATVAuthenticated(permissions.BasePermission):
+    def has_permission(self, request, view):
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        print(user_details)
+        return user_details and user_details['is_authenticated']

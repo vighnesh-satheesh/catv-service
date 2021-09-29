@@ -60,7 +60,7 @@ class CatvRequestTask:
     def run(self):
         message_body = {
             "message_id": self.message_id.hex,
-            "user_id": self.user.id,
+            "user_id": self.user["user_id"],
             "token_type": self.token_type,
             "search_type": self.search_type,
             "search_params": self.search_params
@@ -73,7 +73,7 @@ class CatvRequestTask:
                 task_record = CatvRequestStatus.objects.create(
                     uid=self.message_id,
                     params=self.search_params,
-                    user=self.user,
+                    user_id=self.user["user_id"],
                     token_type=self.token_type
                 )
                 CatvResult.objects.create(request=task_record)

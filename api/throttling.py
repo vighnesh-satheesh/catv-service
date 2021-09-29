@@ -6,25 +6,25 @@ from rest_framework.throttling import (
 )
 from rest_framework.exceptions import Throttled
 
+from .multitoken.tokens_auth import MultiToken
 from .models import Usage, OrganizationUserStatus
 
 class CatvUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):
-        org_details = request.user.organization_set.filter(organizationuser__status=OrganizationUserStatus.ACTIVE)
-        if org_details.count():
-            org = org_details.all()[0]
-            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at_y').\
-                                filter(user=org.administrator)[0:1]
-        else:
-            usage_details = Usage.objects.values('catv_calls_left_y', 'last_renewal_at_y').\
-                                filter(user_id=request.user.id)[0:1]
+        try:
+            user_details, verified_token = MultiToken.get_user_from_key(request)
+            usage = user_details['usage']
+            if usage["catv"] > 0:
+                print("UID:", user_details['user_uid'])
+                return True
+            else:
+                raise Throttled(detail=("You have exhausted your CATV usage credits. "
+                                        "Please wait for your credits to be refilled."))
 
-        if usage_details and usage_details[0]['catv_calls_left_y'] > 0:
-            return True
-
-        next_renewal_at = datetime.strftime(usage_details[0]['last_renewal_at_y'] + relativedelta(years=+1), '%Y-%m-%d')
-        raise Throttled(detail=("You have exhausted your CATV usage credits. "
-                                "Please wait until {} for your credits to be refilled.".format(next_renewal_at)))
+        except Exception as e:
+            print(e.__str__())
+            raise Throttled(detail=("You have exhausted your CATV usage credits. "
+                                    "Please wait for your credits to be refilled."))
 
 class CatvNoThrottle(BaseThrottle):
     def allow_request(self, request, view):
@@ -33,6 +33,30 @@ class CatvNoThrottle(BaseThrottle):
 class CatvPostThrottle(UserRateThrottle):
     scope = "catvPost"
 
+    def get_cache_key(self, request, view):
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        if user_details['is_authenticated']:
+            ident = user_details['user_id']
+        else:
+            ident = self.get_ident(request)
+
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': ident
+        }
+
 class CATVInternalPostThrottle(AnonRateThrottle):
     scope = "catvInternalPost"
+
+    def get_cache_key(self, request, view):
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        if user_details['is_authenticated']:
+            ident = user_details['user_id']
+        else:
+            ident = self.get_ident(request)
+
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': ident
+        }
 

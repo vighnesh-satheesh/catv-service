@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.authentication import get_authorization_header
 
 from .models import (
     CatvHistory, CatvTokens, CatvPathHistory, CatvSearchType, 
@@ -23,13 +24,14 @@ from .serializers import (
     CATVRequestListSerializer
 )
 from .throttling import (
-    CatvPostThrottle, CatvUsageExceededThrottle,CatvNoThrottle
+    CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle
 )
 from .response import APIResponse
 from .pagination import CatvRequestPagination
 from . import exceptions
 from . import utils
-from .multitoken.tokens_auth import CachedTokenAuthentication
+from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
+from api.permissions import IsCATVAuthenticated
 from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall
 from .settings import api_settings
 from .cache.catv import TrackingCache
@@ -51,7 +53,7 @@ class HealthCheckView(APIView):
 
 class CATVView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsCATVAuthenticated,)
 
     def get_throttles(self):
         if self.request.method.lower() == 'post':
@@ -122,6 +124,7 @@ class CATVView(APIView):
                 'history_runner': CatvPathHistoryTask
             }
         }
+
         serializer_cls = serializer_map[token_type][search_type]
         serializer = serializer_cls(data=request.data, context={"request": request})
         serializer._token_type = token_type
@@ -138,6 +141,14 @@ class CATVView(APIView):
                 catv_req_task.run()
                 task = catv_req_task.save()
                 task_serializer = CATVRequestListSerializer(task)
+                rpc = RPCClientUpdateUsageCatvCall()
+                auth = get_authorization_header(request).split()
+                token = auth[1].decode()
+                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+                user_details, verified_token = MultiToken.get_user_from_key(request)
+                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                            "uid": str(user_details['user_uid'])}
+                res = (rpc.call(user_rpc)).decode('UTF-8')
                 return APIResponse({
                     "data": {
                         **task_serializer.data
@@ -149,6 +160,7 @@ class CATVView(APIView):
             except Exception as e:
                 print(str(e))
                 raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
+
         else:
             tracking_cache = TrackingCache()
             cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
@@ -184,7 +196,7 @@ class CATVView(APIView):
 
 class CATVBTCView(APIView):
     authentication_classes = (CachedTokenAuthentication, )
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsCATVAuthenticated, )
 
     def get_throttles(self):
         if self.request.method.lower() == 'post':
@@ -215,7 +227,8 @@ class CATVBTCView(APIView):
                 raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
                                              f"Please try again later.")
         else:
-            history.update({'user_id': request.user.id, 'token_type': CatvTokens.BTC.value})
+            user_details, verified_token = MultiToken.get_user_from_key(request)
+            history.update({'user_id': user_details["user_id"], 'token_type': CatvTokens.BTC.value})
             results = serializer.get_tracking_results()
             CatvHistoryTask().delay(history=history, from_history=False)
             if "graph" in results and "messages" in results:
@@ -230,7 +243,7 @@ class CATVBTCView(APIView):
 
 class CATVBTCTxlistView(APIView):
     authentication_classes = (CachedTokenAuthentication, )
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsCATVAuthenticated, )
 
     def get_throttles(self):
         if self.request.method.lower() == 'post':
@@ -251,7 +264,7 @@ class CATVBTCTxlistView(APIView):
 
 class CATVHistoryView(APIView):
     authentication_classes = (CachedTokenAuthentication, )
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsCATVAuthenticated, )
 
     def get(self, request):
         serializer = CATVHistorySerializer(data=request.GET)
@@ -260,8 +273,9 @@ class CATVHistoryView(APIView):
         data = serializer.data
         print("Serializer Data:", data)
 
+        user_details, verified_token = MultiToken.get_user_from_key(request)
         history = Constants.QUERIES["SELECT_USER_WITH_TOKEN_TYPE_CATV_HISTORY"].format(
-            request.user.id, 
+            user_details["user_id"], 
             request.GET['token_type'].upper()
         )
         with connection.cursor() as cursor:
@@ -289,7 +303,7 @@ class CATVHistoryView(APIView):
 
 class CATVRequestsView(generics.ListAPIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsCATVAuthenticated,)
     pagination_class = CatvRequestPagination
     filter_backends = (filters.DjangoFilterBackend,)
     
@@ -302,7 +316,7 @@ class CATVRequestsView(generics.ListAPIView):
             raise exceptions.ValidationError("Invalid status type parameter")
         page = self.request.GET.get("page", 1)
         page = int(page)
-        queryset = self.filter_queryset(self.get_queryset(request.user, status))
+        queryset = self.filter_queryset(self.get_queryset(request.user["user_id"], status))
         page = self.paginate_queryset(queryset)
         serializer = CATVRequestListSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
@@ -321,12 +335,12 @@ class CATVRequestsView(generics.ListAPIView):
 
 class CATVReportView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsCATVAuthenticated,)
 
     def get_throttles(self):
-        if self.request.method.lower() in ['put', 'post']:
+        # if self.request.method.lower() in ['put', 'post']:
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
-        return [CatvNoThrottle(), ]
+        # return [CatvNoThrottle(), ]
     
     def get_object(self, pk):
         try:
@@ -403,7 +417,7 @@ class CATVReportView(APIView):
 
 class CATVMultiReportView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsCATVAuthenticated,)
 
     def get_object(self, pk):
         try:
@@ -453,7 +467,7 @@ class CATVMultiReportView(APIView):
 
 class CATVRequestDetailView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsCATVAuthenticated,)
 
     def get_object(self, request, pk):
         try:
