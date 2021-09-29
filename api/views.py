@@ -141,6 +141,7 @@ class CATVView(APIView):
                 catv_req_task.run()
                 task = catv_req_task.save()
                 task_serializer = CATVRequestListSerializer(task)
+
                 rpc = RPCClientUpdateUsageCatvCall()
                 auth = get_authorization_header(request).split()
                 token = auth[1].decode()
@@ -149,6 +150,8 @@ class CATVView(APIView):
                 user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
                             "uid": str(user_details['user_uid'])}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
+                print("Submission Status: ", res)
+
                 return APIResponse({
                     "data": {
                         **task_serializer.data
@@ -217,6 +220,17 @@ class CATVBTCView(APIView):
                                                 )
                 catv_req_task.run()
                 catv_req_task.save()
+
+                rpc = RPCClientUpdateUsageCatvCall()
+                auth = get_authorization_header(request).split()
+                token = auth[1].decode()
+                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+                user_details, verified_token = MultiToken.get_user_from_key(request)
+                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                            "uid": str(user_details['user_uid'])}
+                res = (rpc.call(user_rpc)).decode('UTF-8')
+                print("Submission Status: ", res)
+
                 return APIResponse({
                     "data": {},
                     "messages": {
@@ -322,7 +336,7 @@ class CATVRequestsView(generics.ListAPIView):
         return self.get_paginated_response(serializer.data)
     
     def get_queryset(self, user, status):
-        filter_queries = Q(user=user)
+        filter_queries = Q(user_id=user)
         if status:
             filter_queries &= Q(status=status)
         objs = CatvRequestStatus.objects.filter(filter_queries).order_by('-pk')
@@ -338,9 +352,9 @@ class CATVReportView(APIView):
     permission_classes = (IsCATVAuthenticated,)
 
     def get_throttles(self):
-        # if self.request.method.lower() in ['put', 'post']:
+        if self.request.method.lower() in ['put', 'post']:
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
-        # return [CatvNoThrottle(), ]
+        return [CatvNoThrottle(), ]
     
     def get_object(self, pk):
         try:
@@ -405,6 +419,17 @@ class CATVReportView(APIView):
         catv_req_task.run()
         task = catv_req_task.save()
         task_serializer = CATVRequestListSerializer(task)
+
+        rpc = RPCClientUpdateUsageCatvCall()
+        auth = get_authorization_header(request).split()
+        token = auth[1].decode()
+        timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                    "uid": str(user_details['user_uid'])}
+        res = (rpc.call(user_rpc)).decode('UTF-8')
+        print("Submission Status: ", res)
+        
         return APIResponse({
             "data": {
                 **task_serializer.data

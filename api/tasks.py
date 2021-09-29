@@ -16,7 +16,7 @@ class CatvHistoryTask(Task):
     def run(self, *args, **kwargs):
         entry = kwargs['history']
         from_history = kwargs['from_history']
-        query_list = [Constants.QUERIES['INSERT_USER_CATV_HISTORY'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
+        query_list = [Constants.QUERIES['INSERT_USER_CATV_HISTORY']]
         query_data = [(entry['user_id'], entry['wallet_address'], entry.get('token_address', ''),
                        entry.get('source_depth', 0), entry.get('distribution_depth', 0), entry['transaction_limit'],
                        entry['from_date'], entry['to_date'], now(), entry['token_type']),
@@ -34,7 +34,7 @@ class CatvPathHistoryTask(Task):
     def run(self, *args, **kwargs):
         entry = kwargs['history']
         from_history = kwargs['from_history']
-        query_list = [Constants.QUERIES['INSERT_USER_CATV_PATH_SEARCH'], Constants.QUERIES['UPDATE_USER_CATV_USAGE']]
+        query_list = [Constants.QUERIES['INSERT_USER_CATV_PATH_SEARCH']]
         query_data = [(entry['user_id'], entry['address_from'], entry['address_to'], entry['depth'],
                        entry['from_date'], entry['to_date'], now(), entry['token_type'], entry['min_tx_amount'],
                        entry['limit_address_tx'], entry['token_address']),

@@ -1356,7 +1356,7 @@ class CatvRequestStatus(models.Model):
     params = JSONField(default=dict)
     status = EnumField(enum=CatvTaskStatusType,
                        default=CatvTaskStatusType.PROGRESS)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user_id = models.IntegerField(null=False)
     created = models.DateTimeField(default=now)
     updated = models.DateTimeField(auto_now=True)
     labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
@@ -1367,7 +1367,7 @@ class CatvRequestStatus(models.Model):
         db_table = 'api_catv_request_status'
         indexes = [
             models.Index(fields=['status']),
-            models.Index(fields=['user']),
+            models.Index(fields=['user_id']),
             models.Index(fields=['uid']),
         ]
 
