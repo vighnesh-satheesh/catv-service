@@ -1,5 +1,7 @@
 import gzip
 import json
+import ast
+import boto3
 from operator import gt, lt
 
 from django_filters import rest_framework as filters
@@ -32,7 +34,7 @@ from . import exceptions
 from . import utils
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchFile
 from .settings import api_settings
 from .cache.catv import TrackingCache
 from .constants import Constants
@@ -372,19 +374,32 @@ class CATVReportView(APIView):
     
     def get(self, request, pk=None):
         obj = self.get_object(pk)
-        if not obj.result_file:
+        file_id = str(obj.result_file_id)
+
+        rpc = RPCClientFetchFile()
+        res = (rpc.call(file_id)).decode("UTF-8")
+        print(res)
+        filename = 'file/'+res
+
+        s3 = boto3.resource('s3')
+        s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+        body = s3_obj.get()['Body'].read()
+
+        results = json.loads(body)
+        if isinstance(results, str):
+            results = ast.literal_eval(results)
+
+        if "messages" in results.keys():
+            for k, v in results["messages"].items():
+                results["messages"][k] = _(v)
+
+        if results == "False":
             return APIResponse({
                 "data": {},
                 "messages": {
                     "source": "Results not generated yet. Please try again later."
                 }
             })
-        file_obj = obj.result_file.file.open(mode="rb")
-        buf = file_obj.read()
-        results = json.loads(buf.decode("UTF-8"))
-        if "messages" in results.keys():
-            for k, v in results["messages"].items():
-                results["messages"][k] = _(v)
         serializer = CATVRequestListSerializer(obj.request)
         return APIResponse({
             **results,
