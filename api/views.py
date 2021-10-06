@@ -1,47 +1,44 @@
+import ast
 import gzip
 import json
-import ast
-import boto3
 from operator import gt, lt
 
-from django_filters import rest_framework as filters
+import boto3
 from django.db.models import Q
-from django.db import connection
 from django.utils.translation import ugettext_lazy as _
-
-from rest_framework.views import APIView
+from django_filters import rest_framework as filters
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.authentication import get_authorization_header
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 
+from api.permissions import IsCATVAuthenticated
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchFile
+from . import exceptions
+from . import utils
+from .cache.catv import TrackingCache
+from .catvutils.metrics import CatvMetrics
 from .models import (
-    CatvHistory, CatvTokens, CatvPathHistory, CatvSearchType, 
+    CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult
 )
+from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
+from .pagination import CatvRequestPagination
+from .response import APIResponse
 from .serializers import (
-    CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer, 
+    CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer,
     CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer, CatvBtcPathSerializer, 
+    CATVEthPathSerializer, CatvBtcPathSerializer,
     CATVRequestListSerializer
+)
+from .settings import api_settings
+from .tasks import (
+    CatvHistoryTask, CatvPathHistoryTask, CatvRequestTask
 )
 from .throttling import (
     CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle
 )
-from .response import APIResponse
-from .pagination import CatvRequestPagination
-from . import exceptions
-from . import utils
-from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
-from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchFile
-from .settings import api_settings
-from .cache.catv import TrackingCache
-from .constants import Constants
-from .tasks import (
-    CatvHistoryTask, CatvPathHistoryTask, CatvRequestTask
-)
-from .catvutils.metrics import CatvMetrics
+
 
 class HealthCheckView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -132,6 +129,7 @@ class CATVView(APIView):
         serializer._token_type = token_type
         serializer.is_valid(raise_exception=True)
         history = serializer.data
+        user_details, verified_token = MultiToken.get_user_from_key(request)
         if api_settings.SWITCH_CATV_KAFKA:
             try:
                 catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
@@ -148,7 +146,7 @@ class CATVView(APIView):
                 auth = get_authorization_header(request).split()
                 token = auth[1].decode()
                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
-                user_details, verified_token = MultiToken.get_user_from_key(request)
+                # user_details, verified_token = MultiToken.get_user_from_key(request)
                 user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
                             "uid": str(user_details['user_uid'])}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
@@ -171,7 +169,8 @@ class CATVView(APIView):
             cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
             history_runner = utils_map[search_type]['history_runner']
             cached_entry = tracking_cache.get_cache_entry(cache_key)
-            history.update({'user_id': request.user.id, 'token_type': token_type})
+            print("USER ID:-", user_details['user_id'])
+            history.update({'user_id': user_details['user_id'], 'token_type': token_type})
             if not serializer.data.get('force_lookup', False) and cached_entry:
                 results = json.loads(gzip.decompress(cached_entry).decode())
                 history_runner().run(history=history, from_history=True)
@@ -285,19 +284,11 @@ class CATVHistoryView(APIView):
     def get(self, request):
         serializer = CATVHistorySerializer(data=request.GET)
         serializer.is_valid(raise_exception=True)
-        history_list = []
         data = serializer.data
         print("Serializer Data:", data)
 
         user_details, verified_token = MultiToken.get_user_from_key(request)
-        history = Constants.QUERIES["SELECT_USER_WITH_TOKEN_TYPE_CATV_HISTORY"].format(
-            user_details["user_id"], 
-            request.GET['token_type'].upper()
-        )
-        with connection.cursor() as cursor:
-            cursor.execute(history)
-            history_with_tokens = cursor.fetchall()
-
+        history_with_tokens = self.get_history_list(user_details["user_id"], request.GET['token_type'].upper())
         history_list = []
         for item in history_with_tokens:
             obj = {
@@ -311,10 +302,20 @@ class CATVHistoryView(APIView):
                 "token_type": item[7]
             }
             history_list.append(obj)
-        
+
         return APIResponse({
             "data": history_list
         })
+
+    def get_history_list(self, user_id, token_type):
+        filter_queries = Q(user_id=user_id)
+        if token_type:
+            filter_queries &= Q(token_type=token_type)
+        objs = CatvHistory.objects.filter(filter_queries).values_list('wallet_address', 'token_address', 'source_depth',
+                                                                      'distribution_depth', 'transaction_limit',
+                                                                      'from_date', 'to_date', 'token_type').order_by(
+            '-pk')[:10]
+        return list(objs)
 
 
 class CATVRequestsView(generics.ListAPIView):
@@ -337,8 +338,8 @@ class CATVRequestsView(generics.ListAPIView):
         serializer = CATVRequestListSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
     
-    def get_queryset(self, user, status):
-        filter_queries = Q(user_id=user)
+    def get_queryset(self, user_id, status):
+        filter_queries = Q(user_id=user_id)
         if status:
             filter_queries &= Q(status=status)
         objs = CatvRequestStatus.objects.filter(filter_queries).order_by('-pk')

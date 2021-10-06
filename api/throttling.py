@@ -1,13 +1,8 @@
-from datetime import datetime
-
-from dateutil.relativedelta import relativedelta
+from rest_framework.exceptions import Throttled
 from rest_framework.throttling import (
     BaseThrottle, AnonRateThrottle, UserRateThrottle
 )
-from rest_framework.exceptions import Throttled
-
 from .multitoken.tokens_auth import MultiToken
-from .models import Usage, OrganizationUserStatus
 
 class CatvUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):

@@ -1,11 +1,10 @@
-from multiprocessing.pool import ThreadPool
-from multiprocessing import Pool
+import ast
 from datetime import datetime
+from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
 
-from django.utils.timezone import make_aware
 from django.conf import settings
-from django.db.models import Q
-from django.db.models.functions import Lower
+from django.utils.timezone import make_aware
 
 from .bloxy_interface import BloxyAPIInterface
 from .graphtools import (
@@ -13,11 +12,12 @@ from .graphtools import (
     generate_nodes_edges_coinpath, generate_nodes_edges_ethcoinpath,
     generate_nodes_edges_btccoinpath
 )
-from ..models import (
-    BloxyDistribution, BloxySource, Indicator,
-    CaseStatus, CatvTokens
-)
 from .vendor_api import LyzeAPIInterface, BloxyBTCAPIInterface, BloxyEthAPIInterface
+from ..models import (
+    BloxyDistribution, BloxySource,
+    CatvTokens
+)
+from ..rpc.RPCClient import RPCClientFetchIndicators
 
 
 def chunks(iterable, size):
@@ -142,34 +142,33 @@ class TrackingResults:
 
     @staticmethod
     def update_annotations(nc, item_list, token_type):
+        print("inside update_annotations")
+
         addr_list = nc.get_node_enum().keys()
         addr_list = [addr.lower() for addr in addr_list]
-        indicators = []
-        for chunk_addr in chunks(addr_list, 2000):
-            query_list = Q(cases__status__in=[CaseStatus.RELEASED], pattern_subtype=token_type, pattern_type="cryptoaddr")
-            query_list &= Q(pattern_lower__in=chunk_addr)
-            matched_indicators = Indicator.objects.annotate(pattern_lower=Lower('pattern')).filter(query_list).\
-                prefetch_related('cases').values('id', 'uid', 'security_category', 's_tags', 'pattern', 'detail',
-                                                'pattern_subtype', 'pattern_type', 'annotation').\
-                order_by('-cases__updated')
-            indicators.extend(matched_indicators)
-        seen_indicators = []
 
+        request_dict = {'addr_list': addr_list, 'token_type': str(token_type)}
+        rpc = RPCClientFetchIndicators()
+        res = rpc.call(request_dict).decode("utf-8")
+        indicators = ast.literal_eval(res)
+        print("indicators:- ", indicators)
+        seen_indicators = []
         for item in indicators:
             if item['pattern'].lower() in seen_indicators:
+                print("inside if item['pattern'].lower() in seen_indicators")
                 continue
             cur_node = nc.get_node(item["pattern"].lower())
             cur_node = nc.get_node(item["pattern"]) if cur_node is None else cur_node
             if cur_node is None:
                 continue
             cur_node.update(trdb_info={**item, 'uid': str(item['uid']),
-                                       'security_category': item['security_category'].value,
-                                       'pattern_type': item['pattern_type'].value,
-                                       'pattern_subtype': item['pattern_subtype'].value})
+                                       'security_category': item['security_category'],
+                                       'pattern_type': item['pattern_type'],
+                                       'pattern_subtype': item['pattern_subtype']})
             if cur_node.group == "Exchange & DEX":
                 seen_indicators.append(item['pattern'].lower())
                 continue
-            if item["security_category"].value == "graylist":
+            if item["security_category"] == "graylist":
                 if item["annotation"]:
                     cur_node.update(annotation=item["annotation"])
                     cur_node.set_group_from_annotation()
@@ -177,7 +176,8 @@ class TrackingResults:
                     cur_node.update(group="No Tag", annotation="")
             else:
                 kwargs = {}
-                kwargs["group"] = item["security_category"].value.title()
+                # kwargs["group"] = item["security_category"].value.title()
+                kwargs["group"] = item["security_cat  egory"]
                 if item["annotation"]:
                     kwargs["annotation"] = item["annotation"]
                     if "Exchange" in item["annotation"] or "DEX" in item["annotation"]:
@@ -200,6 +200,8 @@ class TrackingResults:
         return nc, item_list
 
     def set_annotations_from_db(self, token_type='ETH'):
+        print("inside set_annotations_from_db")
+
         if not self._skip_source and self._async_source_graph:
             tracking_results, nc = self._async_source_graph.get()
             updated_nc, updated_item_list = TrackingResults.update_annotations(nc, tracking_results['item_list'], self.chain)
