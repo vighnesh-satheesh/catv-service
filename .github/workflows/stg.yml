@@ -1,4 +1,4 @@
-name: STG-PORTAL-CARA-API #Only for staging environment
+name: STG-PORTAL-CATV-API #Only for staging environment
 on:
   push:
     branches:
