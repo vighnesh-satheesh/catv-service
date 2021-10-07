@@ -177,7 +177,7 @@ class TrackingResults:
             else:
                 kwargs = {}
                 # kwargs["group"] = item["security_category"].value.title()
-                kwargs["group"] = item["security_cat  egory"]
+                kwargs["group"] = item["security_category"]
                 if item["annotation"]:
                     kwargs["annotation"] = item["annotation"]
                     if "Exchange" in item["annotation"] or "DEX" in item["annotation"]:
