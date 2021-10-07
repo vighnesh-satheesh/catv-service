@@ -1,11 +1,11 @@
 import uuid
-from enum import Enum, IntEnum, unique
 import warnings
+from enum import Enum
 
-from django.db import models
 from django.contrib.postgres.fields import ArrayField, JSONField
-from django.utils.timezone import now
+from django.db import models
 from django.db.models.lookups import IContains
+from django.utils.timezone import now
 from enumfields import EnumField
 
 warnings.filterwarnings("once", "This field is deprecated", DeprecationWarning)
