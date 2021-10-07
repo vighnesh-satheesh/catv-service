@@ -1,0 +1,105 @@
+name: STG-PORTAL-CARA-API #Only for staging environment
+on:
+  push:
+    branches:
+      - stage
+  workflow_dispatch:
+jobs:
+  build:
+    name: Build & Deploy
+    runs-on: ubuntu-20.04
+    env: ###--> Change all values here <--###
+      SLACK_URL: 'https://hooks.slack.com/services/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'
+      ECR_REPO_NAME: upp/stg/portal-catv-service
+      BUILD_ENV: STG
+      SENTRY_ENV: staging
+      APM_SERVICE_NAME: uppsala-stg-portal-catv-service
+      SERVICE_NAME: UPP-STG-API-CATV-SERVICE
+      CLUSTER_NAME: UPP-STG-API-CLUSTER
+      CONTAINER_NAME: UPP-STG-API-CATV
+      TASK_DEF_NAME: UPP-STG-API-CATV
+      UPP_HOST: stgcatv-service.api.sentinelprotocol.io
+      DATABASE_URL: "psql://uppsala:uppsala4$@upp-stg-micro-catv-db.csojvsvix6tg.ap-southeast-1.rds.amazonaws.com:5432/portal"
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '8'
+
+      - name: Configure AWS cli
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+    
+      - name: Clone indicator lib
+        id: indicator-lib-checkout
+        run: |
+          git clone "https://uppindicator:b06fdc52611d60ce262c5718e4b1352bca09d4c3@github.com/upphub/indicator-lib.git"
+          mkdir -p library
+          mv indicator-lib library/indicator-lib
+
+      - name: Build & Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build -t ${{ env.ECR_REPO_NAME }}:latest -f docker/Dockerfile .
+          docker tag ${{ env.ECR_REPO_NAME }}:latest ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+          docker tag ${{ env.ECR_REPO_NAME }}:latest ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:latest
+
+      - name: Replace ECS Task Definition Template
+        uses: franzbischoff/replace_envs@v1
+        env:
+          DEPLOYMENT_NAME: ${{env.CONTAINER_NAME}}
+          DOCKER_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+          BUILD_ENV: ${{ env.BUILD_ENV }}
+          SENTRY_ENVIRONMENT: ${{env.SENTRY_ENV}}
+          APM_SERVICE_NAME: ${{env.APM_SERVICE_NAME}}
+          UPP_HOST: ${{env.UPP_HOST}}
+          DATABASE_URL: ${{env.DATABASE_URL}}
+        with:
+          from_file: "docker/ecs-task-definition.json"
+          to_file: "docker/${{env.TASK_DEF_NAME}}-task-def_${{ github.run_id }}.json"
+          commit: "false"
+
+      - name: Create new Task Definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: docker/${{env.TASK_DEF_NAME}}-task-def_${{ github.run_id }}.json
+          container-name: ${{env.CONTAINER_NAME}}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+
+      - name: Deploy task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.SERVICE_NAME }}
+          cluster: ${{ env.CLUSTER_NAME }}
+          wait-for-service-stability: true
+      
+      - name: Slack Notification
+        if: ${{ always() }}
+        uses: adamkdean/simple-slack-notify@master
+        with:
+          channel: "#github_actions_update"
+          status: ${{ job.status }}
+          username: "Build triggered by ${env.GITHUB_ACTOR}"
+          success_text: "Build (#${env.GITHUB_RUN_NUMBER}) completed successfully :sunglasses:"
+          failure_text: "Build (#${env.GITHUB_RUN_NUMBER}) failed :worried:"
+          cancelled_text: "Build (#${env.GITHUB_RUN_NUMBER}) was cancelled :face_with_rolling_eyes:"
+          fields: |
+            [{ "title": "GitHub Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"}]
