@@ -117,3 +117,4 @@ webencodings==0.5.1
 websockets==6.0
 wrapt==1.11.2
 zipp==3.4.0
+pika==1.0.0

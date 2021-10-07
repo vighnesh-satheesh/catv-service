@@ -62,7 +62,7 @@ class BloxyBTCAPIInterface:
         self.__distribution_endpoint = settings.BLOXY_BTC_DIST_ENDPOINT
 
     def fetch_api_response(self, api_url, data, timeout=600):
-        response = requests.get(api_url, params=data, timeout=timeout)
+        response = requests.get(api_url, params=data, timeout=timeout, verify=False)
         if response.status_code != 200:
             print(response)
             return []
@@ -78,7 +78,8 @@ class BloxyBTCAPIInterface:
             'xrp': 'ripple',
             'xlm': 'stellar',
             'bnb': 'binance',
-            'ada': 'cardano'
+            'ada': 'cardano',
+            'bsc': 'binance smart chain'
         }
         updated_chain = chain.lower()
         if updated_chain in updated_chain_map.keys():
@@ -129,7 +130,8 @@ class BloxyEthAPIInterface:
             'xrp': 'ripple',
             'xlm': 'stellar',
             'bnb': 'binance',
-            'ada': 'cardano'
+            'ada': 'cardano',
+            'bsc': 'binance smart chain'
         }
         updated_chain = path_tracker.chain.lower()
         if updated_chain in updated_chain_map.keys():

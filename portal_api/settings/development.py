@@ -3,8 +3,10 @@ from .base import *
 
 DEBUG = True
 
-
+CORS_ORIGIN_ALLOW_ALL = True
 ALLOWED_HOSTS += ["172.21.20.%s" % s for s in range(2, 255)]
+ALLOWED_HOSTS += ["10.12.49.%s" % s for s in range(2, 255)]
+ALLOWED_HOSTS += ["10.12.50.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += [
     "localhost", "test.sentinelportal.com"
 ]
@@ -25,11 +27,6 @@ INSTALLED_APPS += [
 
 
 MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
-
-ELASTICSEARCH_INDEX_NAMES = {
-    'search_indexes.documents.case': env.str('API_ELASTIC_CASE_IDX', 'dev_case'),
-    'search_indexes.documents.indicator': env.str('API_ELASTIC_INDICATOR_IDX', 'dev_indicator'),
-}
 
 
 # Static files (CSS, JavaScript, Images)

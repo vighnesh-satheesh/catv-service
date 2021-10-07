@@ -16,11 +16,11 @@ class AppInit:
         return cls.instance
 
     def __init__(self):
-        env = os.environ.get("PORTAL_API_ENV")
+        env = os.environ.get("CATVMS_API_ENV")
         if env is None or env not in ["development", "production"]:
             raise AttributeError(
-                "Missing environment variable 'PORTAL_API_ENV'."
-                "PORTAL_API_ENV value should be either development or production."
+                "Missing environment variable 'CATVMS_API_ENV'."
+                "CATVMS_API_ENV value should be either development or production."
             )
         if not self.INIT_DONE:
             self.set_allowed_hosts()
@@ -66,18 +66,18 @@ class AppInit:
 
                 next_token = response["NextToken"]
         else:
-            env_file = os.environ.get("PORTAL_API_ENV_PATH")
+            env_file = os.environ.get("CATVMS_API_ENV_PATH")
             os.environ["PORTAL_API_MODE"] = "development"
             if env_file is None or os.path.isfile(env_file) is False:
                 raise AttributeError(
-                    "Please set environ variable 'PORTAL_API_ENV_PATH' for env file path."
-                    "'export PORTAL_API_ENV_PATH=/env/file/path.env'"
+                    "Please set environ variable 'CATVMS_API_ENV_PATH' for env file path."
+                    "'export CATVMS_API_ENV_PATH=/env/file/path.env'"
                 )
 
     @classmethod
     def set_allowed_hosts(self):
         allowed_host = []
-        if os.environ.get("PORTAL_API_ENV") != "development" or os.environ.get("CONTAINER_TYPE") == "portal_admin":
+        if os.environ.get("CATVMS_API_ENV") != "development" or os.environ.get("CONTAINER_TYPE") == "portal_admin":
             try:
                 data = requests.get(self.REQUEST_URL["ECS_PRIVATE_IP"], timeout=0.1).text
                 jdata = json.loads(data)

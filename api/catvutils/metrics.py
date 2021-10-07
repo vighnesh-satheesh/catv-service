@@ -2,11 +2,6 @@ from collections import defaultdict
 from itertools import groupby
 from operator import gt
 
-from django.utils.timezone import now
-
-from api.catvutils.tracking_results import chunks
-from api.models import IndicatorExtraAnnotation
-
 __all__ = ('CatvMetrics',)
 
 def pick_n_unique(iterable, key, n):
@@ -100,23 +95,5 @@ class CatvMetrics:
             "max_sender": max_sender,
             "max_receiver": max_receiver
         }
-    
-    def save_annotations(self):
-        all_nodes = {node["address"]: node for node in self.node_list}
-        all_node_keys = list(all_nodes.keys())
-        for node_chunk in chunks(all_node_keys, 2000):
-            bulk_indicators = []
-            matched_nodes = IndicatorExtraAnnotation.objects.filter(pattern__in=node_chunk)
-            matched_nodes_addr = [node.pattern for node in matched_nodes]
-            missing_nodes_addr = set(node_chunk) - set(matched_nodes_addr)
-            for matched_node in matched_nodes:
-                matched_node.annotation = all_nodes[matched_node.pattern]["annotation"]
-                matched_node.updated = now()
-            for missing in missing_nodes_addr:
-                bulk_indicators.append(
-                    IndicatorExtraAnnotation(pattern=missing, annotation=all_nodes[missing]["annotation"])
-                )
-            IndicatorExtraAnnotation.objects.bulk_create(bulk_indicators)
-            IndicatorExtraAnnotation.objects.bulk_update(matched_nodes, update_fields=['annotation', 'updated'])
 
 

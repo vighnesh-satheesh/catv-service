@@ -151,7 +151,8 @@ class ApiCatvRequestStatus(models.Model):
 
 class ApiCatvResult(models.Model):
     request = models.ForeignKey(ApiCatvRequestStatus, models.DO_NOTHING)
-    result_file = models.ForeignKey('ApiFile', models.DO_NOTHING, blank=True, null=True)
+    # result_file = models.ForeignKey('ApiFile', models.DO_NOTHING, blank=True, null=True)
+    result_file_id = models.IntegerField(null=True)
 
     class Meta:
         managed = False

@@ -68,3 +68,4 @@ python3-logstash==0.4.80
 pdf_reports==0.3.2
 libsass==0.20.1
 korean==0.1.8
+pika==1.0.0

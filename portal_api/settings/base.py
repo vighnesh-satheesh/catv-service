@@ -17,11 +17,11 @@ from corsheaders.defaults import default_headers
 from datetime import timedelta
 
 env = environ.Env()
-env_path = os.environ.get('PORTAL_API_ENV_PATH')
+env_path = os.environ.get('CATVMS_API_ENV_PATH')
 if env_path and os.path.exists(env_path):
-    env.read_env(env.str('PORTAL_API_ENV_PATH', '.env'))
+    env.read_env(env.str('CATVMS_API_ENV_PATH', '.env'))
 
-ENVIRONMENT = env.str('PORTAL_API_ENV', 'development')
+ENVIRONMENT = env.str('CATVMS_API_ENV_PATH', 'development')
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -44,17 +44,12 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'elasticapm.contrib.django',
     'djcelery',
     'corsheaders',
     'rest_framework',
-    'django_elasticsearch_dsl',
-    'django_elasticsearch_dsl_drf',
     'django_filters',
     'django_extensions',
-    'social_django',
-    'api',
-    'search_indexes',
+    'api'
 ]
 
 MIDDLEWARE = [
@@ -94,32 +89,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'portal_api.wsgi.application'
 
-# Password validation
-# https://docs.djangoproject.com/en/2.0/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-        'OPTIONS': {
-            'user_attributes': ('nickname', 'email')
-        }
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
 
 AUTHENTICATION_BACKENDS = (
-    'social_core.backends.open_id.OpenIdAuth',
-    'social_core.backends.google.GoogleOpenId',
-    'social_core.backends.google.GoogleOAuth',
-    'social_core.backends.google.GoogleOAuth2',
     'django.contrib.auth.backends.ModelBackend',
 )
 
@@ -135,14 +106,7 @@ DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
 CACHES = {
     'default': env.cache(),
     'token': env.cache('REDIS_TOKEN_URL'),
-    'uppward': {
-        'BACKEND': 'redis_cache.RedisCache',
-        'LOCATION': env.str('API_UPPWARD_CACHE_SERVER'),
-        "OPTIONS": {
-            "SOCKET_CONNECT_TIMEOUT": 3,
-            "SOCKET_TIMEOUT": 3,
-        }
-    },
+    'user_cache': env.cache('REDIS_USER_CACHE'),
     'local_cache': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
@@ -150,23 +114,9 @@ CACHES = {
     'catv_data': {
         'BACKEND': 'redis_cache.RedisCache',
         'LOCATION': env.str('API_CATV_CACHE_SERVER')
-    }
-}
-
-ELASTICSEARCH_DSL = {
-    'default': {
-        'hosts': env.str('API_ELASTICSEARCH_HOST', 'localhost:9200'),
-        'timeout': env.str('API_ELASTICSEARCH_TIMEOUT', 7200),
-        'http_auth': env.str('API_ELASTICSEARCH_CREDENTIALS', '')
     },
 }
 
-ELASTICSEARCH_DSL_AUTOSYNC = False
-
-ELASTICSEARCH_INDEX_NAMES = {
-    'search_indexes.documents.case': 'case',
-    'search_indexes.documents.indicator': 'indicator',
-}
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
@@ -200,18 +150,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'userLogin': '5/min',
-        'changePassword': '5/min',
-        'fileUpload': '20/min',
-        'casePost': '5/min',
-        "signup": "5/min",
-        'emailVerification': '5/min',
-        'indicatorPost': '20/min',
-        'caraPost': '3/min',
         'catvPost': '5/min',
-        'guestSearchGet': '20/min',
-        'catvInternalPost': '1/min',
-        'upgradePostPut': '5/hour'
+        'catvInternalPost': '1/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -244,27 +184,6 @@ CORS_ALLOW_HEADERS = default_headers + (
 # file stoage
 
 DEFAULT_FILE_STORAGE = "api.storages.s3.S3Storage"
-
-# Python Social Auth (PSA) settings
-SOCIAL_AUTH_POSTGRES_JSONFIELD = True
-SOCIAL_AUTH_USERNAME_IS_FULL_EMAIL = True
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env.str('API_SOCIAL_AUTH_GOOGLE_OAUTH2_KEY', '')
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env.str('API_SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET', '')
-SOCIAL_AUTH_USER_MODEL = 'api.User'
-SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['email', 'profile']
-SOCIAL_AUTH_PIPELINE = (
-    'social_core.pipeline.social_auth.social_details',
-    'social_core.pipeline.social_auth.social_uid',
-    'social_core.pipeline.social_auth.auth_allowed',
-    'social_core.pipeline.social_auth.social_user',
-    'api.social_pipelines.get_username',
-    'social_core.pipeline.social_auth.associate_by_email',
-    'api.social_pipelines.create_user',
-    'social_core.pipeline.social_auth.associate_user',
-    'social_core.pipeline.social_auth.load_extra_data',
-    'social_core.pipeline.user.user_details',
-)
-
 
 # API Settings
 
@@ -348,18 +267,9 @@ API_SETTINGS = {
     "LOCAL_PORT": env.int('LOCAL_PORT', 5432),
     "LOCAL_SSL_MODE": env.str('LOCAL_SSL_MODE', 'prefer'),
     "TIME_INTERVAL": env.int('TIME_INTERVAL', 24),
-    "KAFKA_USER_TOPIC": env.str('KAFKA_USER_TOPIC', 'cara-address'),
-    "KAFKA_BATCH_TOPIC": env.str('KAFKA_BATCH_TOPIC', 'cara-indicator'),
-    "KAFKA_CONSUMER_TOPIC": env.str('KAFKA_CONSUMER_TOPIC', 'cara-address-results-test'),
     "SWITCH_ES_SEARCH": env.bool('API_SWITCH_ES_SEARCH', True),
     "BASE_API_URL": env.str('API_BASE_URL', 'http://localhost:8000/'),
     "LYZE_API_KEY": env.str('API_LYZE_KEY'),
-    "ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', 'http://localhost:9200'),
-    "ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
-    "ELASTICSEARCH_INDICATOR_IDX": env.str("API_ELASTIC_INDICATOR_IDX", 'dev_indicator'),
-    "KAFKA_CRAWLED_CASE_TOPIC": env.str("API_KAFKA_CRAWLED_CASE_TOPIC", "crawled-cases"),
-    "KAFKA_PORTAL_CASE_TOPIC": env.str("API_KAFKA_PORTAL_CASE_TOPIC", "portal-cases"),
-    "KAFKA_DELAYED_CASE_TOPIC": env.str("API_KAFKA_DELAYED_CASE_TOPIC", "crawled-delayed-cases"),
     "KAFKA_CATV_TOPIC": env.str("API_KAFKA_CATV_TOPIC", "catv-requests"),
     "SWITCH_CATV_KAFKA": env.bool("API_SWITCH_CATV_KAFKA", True),
     "CATV_TX_LIMIT": env.int("API_CATV_TX_LIMIT", 50000),
@@ -367,11 +277,12 @@ API_SETTINGS = {
     "CATV_MAX_SCALED_NODES": env.int("API_CATV_MAX_SCALED_NODES", 500),
     "CATV_GRAPH_NODES_CUTOFF": env.int("API_CATV_GRAPH_NODES_CUTOFF", 1000),
     "CATV_NUM_JOBS_PICK": env.int("API_CATV_NUM_JOBS_PICK", 3),
-    "ELASTICSEARCH_CASE_IDX": env.str("API_ELASTIC_CASE_IDX", 'dev_case'),
     "SEARCH_BACKEND_URL": env.str("API_SEARCH_BACKEND_URL", "http://localhost:8000/"),
     "MAINNET_URL": env.str("API_MAINNET_URL", "https://mainnet.infura.io/v3/acc7e98bea464efa91f383ce2dd3d764"),
     "VERIFY_TX_AMT": env.str("API_VERIFY_TX_AMT", "0.000118"),
     "MAB_USER_UPGRADE": env.int("API_MAB_USER_UPGRADE", 10000),
+    "RABBIT_MQ_URL": env.str("RABBIT_MQ_URL", 'localhost:5672'),
+    "API_USER_CACHE": env.str('API_USER_CACHE_DB', 'user_cache'),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
@@ -383,75 +294,24 @@ BROKER_URL = API_SETTINGS['CELERY_BROKER_URL']
 CELERY_RESULT_BACKEND = API_SETTINGS['CELERY_BROKER_URL']
 CELERYD_CONCURRENCY = 2
 CELERY_IMPORTS = ('api.tasks',)
-CELERYBEAT_SCHEDULE = {
-    'check-quota-every-thirty-minutes': {
-        'task': 'api.tasks.CheckUpdateUsageQuotaTask',
-        'schedule': timedelta(minutes=30),
-    },
-    'check-invites-every-45-minutes': {
-        'task': 'api.tasks.CheckDeleteInvitesTask',
-        'schedule': timedelta(minutes=45),
-    },
-    'check-user-upgrade-every-hour': {
-        'task': 'api.tasks.CheckUserUpgradeTask',
-        'schedule': timedelta(minutes=60),
-    },
-    'check-quota-every-year': {
-        'task': 'api.tasks.RefillCreditsYearlyTask',
-        'schedule': timedelta(minutes=30),
-    }
-}
-# email
-EMAIL_BACK_END = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_USE_TLS = True
-EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
-EMAIL_PORT = 587
-EMAIL_HOST_USER = API_SETTINGS['EMAIL_HOST_USER']
-EMAIL_HOST_PASSWORD = API_SETTINGS['EMAIL_HOST_PASSWORD']
+
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/outbound_graph_with_stat')
-BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/inbound_graph_with_stat')
-BLOXY_BTC_SRC_ENDPOINT = env.str('API_BLOXY_BTC_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/bitcoin:coinpath/inbound_graph')
-BLOXY_BTC_DIST_ENDPOINT = env.str('API_BLOXY_BTC_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/bitcoin:coinpath/outbound_graph')
-BLOXY_ETHCOINPATH_ENDPOINT = env.str('API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://apisentinel.bloxy.info/coinpath/paths')
-BLOXY_BTCCOINPATH_ENDPOINT = env.str('API_BLOXY_BTCCOINPATH_ENDPOINT', 'https://apisentinel.bloxy.info/bitcoin:coinpath/paths')
-BLOXY_ETH_DIST_ENDPOINT = env.str('API_BLOXY_ETH_DIST_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/outbound_graph_with_stat')
-BLOXY_ETH_SRC_ENDPOINT = env.str('API_BLOXY_ETH_SRC_ENDPOINT', 'https://apisentinel.bloxy.info/sentinel/inbound_graph_with_stat')
+
+BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
+BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/inbound_graph')
+BLOXY_BTC_SRC_ENDPOINT = env.str('API_BLOXY_BTC_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/inbound_graph')
+BLOXY_BTC_DIST_ENDPOINT = env.str('API_BLOXY_BTC_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/outbound_graph')
+BLOXY_ETHCOINPATH_ENDPOINT = env.str('API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/paths')
+BLOXY_BTCCOINPATH_ENDPOINT = env.str('API_BLOXY_BTCCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/paths')
+BLOXY_ETH_DIST_ENDPOINT = env.str('API_BLOXY_ETH_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/outbound_graph_with_stat')
+BLOXY_ETH_SRC_ENDPOINT = env.str('API_BLOXY_ETH_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/inbound_graph_with_stat')
+
 LYZE_API_KEY = env.str('API_LYZE_KEY')
 LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'https://upp.lyze.ai/btc_forward_tracking')
 LYZE_SRC_ENDPOINT = env.str('API_LYZE_SRC_ENDPOINT', 'https://upp.lyze.ai/btc_backward_tracking')
 LYZE_TXLIST_ENDPOINT = env.str('API_LYZE_TXLIST_ENDPOINT', 'https://upp.lyze.ai/btc_address_transfers')
 
-#CARA KAFKA
-KAFKA_BROKER_1 = API_SETTINGS['KAFKA_BROKER_1']
-KAFKA_BROKER_2 = API_SETTINGS['KAFKA_BROKER_2']
-KAFKA_BROKER_3 = API_SETTINGS['KAFKA_BROKER_3']
-KAFKA_USER_TOPIC = API_SETTINGS['KAFKA_USER_TOPIC']
-KAFKA_BATCH_TOPIC = API_SETTINGS['KAFKA_BATCH_TOPIC']
-KAFKA_CONSUMER_TOPIC = API_SETTINGS['KAFKA_CONSUMER_TOPIC']
-
-#CARA LISTENER
-TRDB_HOST = API_SETTINGS['TRDB_HOST']
-TRDB_USERNAME = API_SETTINGS['TRDB_USERNAME']
-TRDB_PASSWORD = API_SETTINGS['TRDB_PASSWORD']
-TRDB_PORT = API_SETTINGS['TRDB_PORT']
-TRDB_DBNAME = API_SETTINGS['TRDB_DBNAME']
-TRDB_SSL_MODE = API_SETTINGS['TRDB_SSL_MODE']
-LOCAL_HOST = API_SETTINGS['LOCAL_HOST']
-LOCAL_DBNAME = API_SETTINGS['LOCAL_DBNAME']
-LOCAL_USERNAME = API_SETTINGS['LOCAL_USERNAME']
-LOCAL_PASSWORD = API_SETTINGS['LOCAL_PASSWORD']
-LOCAL_PORT = API_SETTINGS['LOCAL_PORT']
-LOCAL_SSL_MODE = API_SETTINGS['LOCAL_SSL_MODE']
-TIME_INTERVAL = API_SETTINGS['TIME_INTERVAL']
-
-#REWARDS ADMIN
-ADMIN_WALLET_ADDRESS = API_SETTINGS['ADMIN_WALLET_ADDRESS']
-ADMIN_WALLET_KEY = API_SETTINGS['ADMIN_WALLET_KEY']
-CONTRACT_ADDRESS = API_SETTINGS['CONTRACT_ADDRESS']
-CONTRACT_ABI = API_SETTINGS['CONTRACT_ABI']
-REWARDS_URL = API_SETTINGS['REWARDS_URL']
-TOKEN_ADDRESS = API_SETTINGS['TOKEN_ADDRESS']
-TOKEN_ABI = API_SETTINGS['TOKEN_ABI']
+#RABBIT MQ URL
+RABBIT_MQ_URL = API_SETTINGS['RABBIT_MQ_URL']
