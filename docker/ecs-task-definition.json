@@ -1,0 +1,52 @@
+{
+    "containerDefinitions": [
+        {
+            "secrets": null,
+            "name": "${DEPLOYMENT_NAME}",
+            "image": "${DOCKER_IMAGE}",
+            "cpu": 0,
+            "memoryReservation": 800,
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "PORTAL_API_PARAM_PATH",
+                    "value": "/UPP/${BUILD_ENV}/PORTAL-CATV-SERVICE"
+                },
+                {
+                    "name": "SENTRY_ENVIRONMENT",
+                    "value": "${SENTRY_ENVIRONMENT}"
+                },
+                {
+                    "name": "AWS_REGION",
+                    "value": "ap-southeast-1"
+                },
+                {
+                    "name": "APM_SERVICE_NAME",
+                    "value": "${APM_SERVICE_NAME}"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/${DEPLOYMENT_NAME}",
+                    "awslogs-region": "ap-southeast-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ],
+    "family": "${DEPLOYMENT_NAME}",
+    "taskRoleArn": "arn:aws:iam::821988754834:role/ap-southeast-1-UPP-${BUILD_ENV}-ECSTaskExecutionRoleS3",
+    "executionRoleArn": "arn:aws:iam::821988754834:role/ap-southeast-1-UPP-${BUILD_ENV}-ECSTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "EC2"
+    ]
+}
