@@ -10,7 +10,7 @@ ALLOWED_HOSTS += ["10.12.50.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += [
     "localhost", "test.sentinelportal.com"
 ]
-​
+
 ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 
 

@@ -419,7 +419,8 @@ class CATVReportView(APIView):
             "Stellar": CatvTokens.XLM.value,
             "Binance Coin": CatvTokens.BNB.value,
             "Cardano": CatvTokens.ADA.value,
-            "Binance Smart Chain": CatvTokens.BSC.value
+            "Binance Smart Chain": CatvTokens.BSC.value,
+            "Bitcoin Cash": CatvTokens.BCH.value
         }
         
         token_type = utils.determine_wallet_type(obj.token_type)
