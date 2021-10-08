@@ -7,7 +7,7 @@ DEBUG = False
 
 ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "https://stgcatv-service.api.sentinelprotocol.io/"
+    "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io"
 ]
 
 # Sentry
