@@ -17,7 +17,7 @@ from ..models import (
     BloxyDistribution, BloxySource,
     CatvTokens
 )
-from ..rpc.RPCClient import RPCClientFetchIndicators
+from ..rpc.RPCClient import RPCClientCATVFetchIndicators
 
 
 def chunks(iterable, size):
@@ -148,7 +148,7 @@ class TrackingResults:
         addr_list = [addr.lower() for addr in addr_list]
 
         request_dict = {'addr_list': addr_list, 'token_type': str(token_type)}
-        rpc = RPCClientFetchIndicators()
+        rpc = RPCClientCATVFetchIndicators()
         res = rpc.call(request_dict).decode("utf-8")
         indicators = ast.literal_eval(res)
         print("indicators:- ", indicators)

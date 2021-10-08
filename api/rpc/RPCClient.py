@@ -73,7 +73,7 @@ class RPCClientFetchFile:
         self.connection.close()
         return self.response
 
-class RPCClientFetchIndicators:
+class RPCClientCATVFetchIndicators:
     def __init__(self):
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(host='10.12.50.101'))
@@ -97,7 +97,7 @@ class RPCClientFetchIndicators:
         self.corr_id = str(uuid.uuid4())
         self.channel.basic_publish(
             exchange='',
-            routing_key='rpc_catv_fetch_indicators',
+            routing_key='rpc_catvms_fetch_indicators',
             properties=pika.BasicProperties(
                 reply_to=self.callback_queue,
                 correlation_id=self.corr_id,
