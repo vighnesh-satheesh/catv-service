@@ -251,7 +251,6 @@ API_SETTINGS = {
     "ADMIN_WALLET_KEY": env.str('ADMIN_WALLET_KEY', None),
     "CONTRACT_ADDRESS": env.str('CONTRACT_ADDRESS', None),
     "CONTRACT_ABI": env.str('CONTRACT_ABI', None),
-    "REWARDS_URL": env.str('REWARDS_URL', None),
     "TOKEN_ADDRESS": env.str('TOKEN_ADDRESS', None),
     "TOKEN_ABI": env.str('TOKEN_ABI', None),
     "TRDB_HOST": env.str('TRDB_HOST', None),
