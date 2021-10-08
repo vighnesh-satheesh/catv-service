@@ -8,7 +8,7 @@ ALLOWED_HOSTS += ["172.21.20.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["10.12.49.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["10.12.50.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com"
+    "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io"
 ]
 
 ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
