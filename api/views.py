@@ -380,7 +380,7 @@ class CATVReportView(APIView):
         rpc = RPCClientFetchFile()
         res = (rpc.call(file_id)).decode("UTF-8")
         print(res)
-        filename = 'file/'+res
+        filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
         s3 = boto3.resource('s3')
         s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
