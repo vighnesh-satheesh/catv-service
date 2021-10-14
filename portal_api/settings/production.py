@@ -4,7 +4,7 @@ import environ
 env = environ.Env()
 
 DEBUG = False
-
+CORS_ORIGIN_ALLOW_ALL = True
 ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 
 # Sentry
