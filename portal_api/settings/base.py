@@ -34,7 +34,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '*b^y4z-ive9&&^zb*p4_ais$l2l08a(5^-40t&*lhyx54c=v^x'
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["stgcatv-service.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io"]
 
 
 # Application definition
