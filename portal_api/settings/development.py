@@ -3,15 +3,18 @@ from .base import *
 
 DEBUG = True
 
-CORS_ORIGIN_ALLOW_ALL = True
-ALLOWED_HOSTS += ["172.21.20.%s" % s for s in range(2, 255)]
-ALLOWED_HOSTS += ["10.12.49.%s" % s for s in range(2, 255)]
-ALLOWED_HOSTS += ["10.12.50.%s" % s for s in range(2, 255)]
-ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io"
-]
+ALLOWED_HOSTS = ['localhost', 'localhost:8000',
+                "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io"]
 
-ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
+# CORS_ORIGIN_ALLOW_ALL = True
+# ALLOWED_HOSTS += ["172.21.20.%s" % s for s in range(2, 255)]
+# ALLOWED_HOSTS += ["10.12.49.%s" % s for s in range(2, 255)]
+# ALLOWED_HOSTS += ["10.12.50.%s" % s for s in range(2, 255)]
+# ALLOWED_HOSTS += [
+#     "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io"
+# ]
+
+# ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 
 
 INSTALLED_APPS = [
