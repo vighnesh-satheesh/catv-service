@@ -21,6 +21,7 @@ jobs:
       UPP_HOST: stgcatv-service.api.sentinelprotocol.io
       DATABASE_URL: "psql://uppsala:uppsala4$@upp-stg-micro-catv-db.csojvsvix6tg.ap-southeast-1.rds.amazonaws.com:5432/portal"
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      DOCKERFILE_PATH: docker/Dockerfile_stg
 
     steps:
       - uses: actions/checkout@v2
@@ -54,7 +55,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t ${{ env.ECR_REPO_NAME }}:latest -f docker/Dockerfile .
+          docker build -t ${{ env.ECR_REPO_NAME }}:latest -f ${{env.DOCKERFILE_PATH}} .
           docker tag ${{ env.ECR_REPO_NAME }}:latest ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
           docker tag ${{ env.ECR_REPO_NAME }}:latest ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:latest
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
