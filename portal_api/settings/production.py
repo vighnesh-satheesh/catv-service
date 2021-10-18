@@ -5,9 +5,7 @@ env = environ.Env()
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', 'localhost:8000',
-                "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io"]
-# ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
+ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 
 # Sentry
 # TODO: version file or tag?
