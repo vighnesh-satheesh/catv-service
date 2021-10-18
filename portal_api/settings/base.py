@@ -147,7 +147,7 @@ REST_FRAMEWORK = {
         'api.multitoken.tokens_auth.CachedTokenAuthentication'
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsCATVAuthenticated',
+        'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_THROTTLE_RATES': {
         'catvPost': '5/min',
@@ -162,7 +162,6 @@ REST_FRAMEWORK = {
 
 
 # cross origin setting
-CORS_ORIGIN_ALLOW_ALL = True
 CORS_ORIGIN_WHITELIST = env.str('CORS_ORIGIN_WHITELIST', default="").split(",")
 if not CORS_ORIGIN_WHITELIST:
     CORS_ORIGIN_ALLOW_ALL = True
