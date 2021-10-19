@@ -1,11 +1,12 @@
 import uuid
-
 import pika
+
+from ..settings import api_settings
 
 class RPCClientUpdateUsageCatvCall:
     def __init__(self):
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host='10.12.50.101'))
+            pika.ConnectionParameters(host=api_settings.RABBIT_MQ_URL))
 
         self.channel = self.connection.channel()
 
@@ -41,7 +42,7 @@ class RPCClientUpdateUsageCatvCall:
 class RPCClientFetchFile:
     def __init__(self):
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host='10.12.50.101'))
+            pika.ConnectionParameters(host=api_settings.RABBIT_MQ_URL))
 
         self.channel = self.connection.channel()
 
@@ -76,7 +77,7 @@ class RPCClientFetchFile:
 class RPCClientCATVFetchIndicators:
     def __init__(self):
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host='10.12.50.101'))
+            pika.ConnectionParameters(host=api_settings.RABBIT_MQ_URL))
 
         self.channel = self.connection.channel()
 
