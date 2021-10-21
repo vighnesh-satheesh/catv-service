@@ -126,7 +126,8 @@ def determine_wallet_type(token_type):
         "XRP": "Ripple",
         "BNB": "Binance Coin",
         "ADA": "Cardano",
-        "BSC": "Binance Smart Chain"
+        "BSC": "Binance Smart Chain",
+        "KLAY": "Klaytn"
     }
 
     if address_mapping.__contains__(token_type.value):
@@ -148,6 +149,7 @@ def pattern_matches_token(address, token_type):
         CatvTokens.BNB.value: "^(bnb1)[0-9a-z]{38}$",
         CatvTokens.ADA.value: "^[0-9a-zA-Z]+$",
         CatvTokens.BSC.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.KLAY.value: "^0x[a-fA-F0-9]{40}$",
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:
