@@ -13,7 +13,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchFile
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList
 from . import exceptions
 from . import utils
 from .cache.catv import TrackingCache
@@ -381,7 +381,7 @@ class CATVReportView(APIView):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
 
-        rpc = RPCClientFetchFile()
+        rpc = RPCClientFetchResultFileUid()
         res = (rpc.call(file_id)).decode("UTF-8")
         print(res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
@@ -466,9 +466,10 @@ class CATVMultiReportView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsCATVAuthenticated,)
 
-    def get_object(self, pk):
+    def get_objects(self, pks):
         try:
-            return CatvResult.objects.select_related('request').get(request__uid__iexact=pk)
+            # return CatvResult.objects.select_related('request').get(request__uid__iexact=pk)
+            return CatvResult.objects.select_related('request').filter(request__uid__in=pks).order_by('result_file_id')
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
         except CatvResult.DoesNotExist:
@@ -476,38 +477,73 @@ class CATVMultiReportView(APIView):
 
     def get(self, request, pk=None):
         ids = self.request.query_params.get('ids', None)
-        finalResult = []
-        isDistValue = []
-        isSourceValue = []
+        final_result = []
+        is_dist_value = []
+        is_source_value = []
+        result_file_ids = []
         if ids is not None:
-            mainIds = [x.strip() for x in ids.split(',')]
-            for m in mainIds:
-                obj = self.get_object(m)
-                if not obj.result_file:
+            main_ids = [x.strip() for x in ids.split(',')]
+            catv_results = self.get_objects(main_ids)
+
+            # for m in mainIds:
+            #     obj = self.get_object(m)
+            #     if not obj.result_file_id:
+            #         return APIResponse({
+            #             "data": {},
+            #             "messages": {
+            #                 "source": "Results not generated yet. Please try again later."
+            #             }
+            #         })
+            #     catv_results.append(obj)
+            #     result_file_ids.append(obj.result_file_id)
+
+            for obj in catv_results:
+                if not obj.result_file_id:
                     return APIResponse({
                         "data": {},
                         "messages": {
                             "source": "Results not generated yet. Please try again later."
                         }
                     })
-                file_obj = obj.result_file.file.open(mode="rb")
-                buf = file_obj.read()
-                results = json.loads(buf.decode("UTF-8"))
-                if "messages" in results.keys():
-                    for k, v in results["messages"].items():
-                        results["messages"][k] = _(v)
-                serializer = CATVRequestListSerializer(obj.request)
-                depthSplited = serializer.data["depth"].split('/')
-                isDistValue.append(int(depthSplited[1]))
-                isSourceValue.append(int(depthSplited[0]))
-                for i in range(len(results["data"]["item_list"])):
-                    results["data"]["item_list"][i].update({'id': serializer.data['id']})
-                finalResult.extend(results["data"]["item_list"])
-        results["data"]["item_list"] = finalResult
+                result_file_ids.append(obj.result_file_id)
+
+            rpc = RPCClientFetchResultFileList()
+            res = (rpc.call(result_file_ids)).decode('UTF-8')
+            result_files = ast.literal_eval(res)
+            print("result_files:- ", result_files)
+            if len(result_files) > 0:
+                for catv_result, result_file in zip(catv_results, result_files):
+
+                    print('result_file[id]', result_file['id'])
+                    print('catv_result[result_file_id]', catv_result.result_file_id)
+                    # file_obj = result_file.file.open(mode="rb")
+                    # file_obj = urlopen(result_file['file']).read()
+                    # buf = file_obj.read()
+                    filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + result_file['uid']
+
+                    s3 = boto3.resource('s3')
+                    s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+                    body = s3_obj.get()['Body'].read()
+
+                    results = json.loads(body)
+                    if isinstance(results, str):
+                        results = ast.literal_eval(results)
+
+                    if "messages" in results.keys():
+                        for k, v in results["messages"].items():
+                            results["messages"][k] = _(v)
+                    serializer = CATVRequestListSerializer(catv_result.request)
+                    depth_arr = serializer.data["depth"].split('/')
+                    is_dist_value.append(int(depth_arr[1]))
+                    is_source_value.append(int(depth_arr[0]))
+                    for i in range(len(results["data"]["item_list"])):
+                        results["data"]["item_list"][i].update({'id': serializer.data['id']})
+                    final_result.extend(results["data"]["item_list"])
+        results["data"]["item_list"] = final_result
         return APIResponse({
             **results,
-            "isDistValue": isDistValue,
-            "isSourceValue": isSourceValue,
+            "isDistValue": is_dist_value,
+            "isSourceValue": is_source_value,
             "request_params": serializer.data
         })
 
