@@ -22,6 +22,7 @@ class CatvTokens(Enum):
     BNB = 'BNB'
     ADA = 'ADA'
     BSC = 'BSC'
+    KLAY = 'KLAY'
 
 
 class CatvSearchType(Enum):
