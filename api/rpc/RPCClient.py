@@ -39,7 +39,7 @@ class RPCClientUpdateUsageCatvCall:
         return self.response
 
 
-class RPCClientFetchFile:
+class RPCClientFetchResultFileUid:
     def __init__(self):
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(host=api_settings.RABBIT_MQ_URL))
@@ -63,12 +63,47 @@ class RPCClientFetchFile:
         self.corr_id = str(uuid.uuid4())
         self.channel.basic_publish(
             exchange='',
-            routing_key='rpc_catv_fetch_file',
+            routing_key='rpc_catv_fetch_result_file_uid',
             properties=pika.BasicProperties(
                 reply_to=self.callback_queue,
                 correlation_id=self.corr_id,
             ),
             body=str(file_id))
+        while self.response is None:
+            self.connection.process_data_events()
+        self.connection.close()
+        return self.response
+
+class RPCClientFetchResultFileList:
+    def __init__(self):
+        self.connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=api_settings.RABBIT_MQ_URL))
+
+        self.channel = self.connection.channel()
+
+        result = self.channel.queue_declare(queue='', exclusive=True)
+        self.callback_queue = result.method.queue
+
+        self.channel.basic_consume(
+            queue=self.callback_queue,
+            on_message_callback=self.on_response,
+            auto_ack=True)
+
+    def on_response(self, ch, method, props, body):
+        if self.corr_id == props.correlation_id:
+            self.response = body
+
+    def call(self, result_file_ids):
+        self.response = None
+        self.corr_id = str(uuid.uuid4())
+        self.channel.basic_publish(
+            exchange='',
+            routing_key='rpc_catv_fetch_result_file',
+            properties=pika.BasicProperties(
+                reply_to=self.callback_queue,
+                correlation_id=self.corr_id,
+            ),
+            body=str(result_file_ids))
         while self.response is None:
             self.connection.process_data_events()
         self.connection.close()
