@@ -45,6 +45,8 @@ class PostgresILike(IContains):
         params = lhs_params + rhs_params
         return '%s ILIKE %s' % (lhs, rhs), params
 
+class ProductType(Enum):
+    CATV = 'catv'
 
 class PostgresArrayILike(IContains):
     lookup_name = 'arrayilike'
