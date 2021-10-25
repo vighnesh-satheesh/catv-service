@@ -33,5 +33,6 @@ if settings.EXPOSE_GENERAL_API:
         url(r'^catvreport/(?P<pk>[0-9a-z\-]+)/?$', views.CATVReportView.as_view(), name='catv-report'),
         url(r'^catvmultireport/?$', views.CATVMultiReportView.as_view(), name='catv-multi-report'),
         url(r'^catvrequests/(?P<pk>[0-9a-z\-]+)/?$', views.CATVRequestDetailView.as_view(),
-            name='catv-request-detail')
+            name='catv-request-detail'),
+        url(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
     ]

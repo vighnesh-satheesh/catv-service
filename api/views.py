@@ -20,10 +20,11 @@ from .cache.catv import TrackingCache
 from .catvutils.metrics import CatvMetrics
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
-    CatvRequestStatus, CatvTaskStatusType, CatvResult
+    CatvRequestStatus, CatvTaskStatusType, CatvResult,
+    ProductType
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
-from .pagination import CatvRequestPagination
+from .pagination import CatvRequestPagination, CustomPagination
 from .response import APIResponse
 from .serializers import (
     CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer,
@@ -394,6 +395,8 @@ class CATVReportView(APIView):
         if isinstance(results, str):
             results = ast.literal_eval(results)
 
+        print(results)
+
         if "messages" in results.keys():
             for k, v in results["messages"].items():
                 results["messages"][k] = _(v)
@@ -583,3 +586,59 @@ class CATVRequestDetailView(APIView):
                 'request': data
             }
         })
+
+class RequestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsCATVAuthenticated,)
+    pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    def list(self, request, *args, **kwargs):
+        valid_search_types = [ProductType.CATV.value]
+        search_type = self.request.query_params.get("type", "catv")
+        query = self.request.query_params.get("q", None)
+        status = self.request.query_params.get("status", None)
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        order_by = order_by.split('_')
+        order_key = '-id'
+        if order_by[1] == 'asc':
+            order_key = 'id'
+        if search_type not in valid_search_types:
+            raise exceptions.ValidationError(
+                f"Invalid search type parameter. Valid values: {', '.join(valid_search_types)}")
+        if not query:
+            raise exceptions.ValidationError("q is required.")
+        if len(query) > 1024:
+            raise exceptions.ValidationError("q is too long.")
+        if status and status not in \
+            [CatvTaskStatusType.PROGRESS.value,
+             CatvTaskStatusType.RELEASED.value,
+             CatvTaskStatusType.FAILED.value]:
+            raise exceptions.ValidationError("Invalid status type parameter")
+
+        serializer_cls = CATVRequestListSerializer
+        queryset = self.filter_queryset(self.get_queryset(search_type, query, status, order_key))
+
+        page = self.paginate_queryset(queryset)
+        serializer = serializer_cls(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    def get_catv_queryset(self, query, status, order_key):
+        filter_queries = Q(params__icontains=query)
+        filter_queries |= Q(labels__arrayilike=query)
+        if status:
+            filter_queries &= Q(status=status)
+        user_details, verified_token = MultiToken.get_user_from_key(self.request)
+        filter_queries &= Q(user_id=user_details['user_id'])
+        objs = CatvRequestStatus.objects.filter(filter_queries).distinct('id').order_by(order_key)
+        return objs
+
+    def get_queryset(self, search_type, query, status, order_key):
+        objs = None
+        if search_type == ProductType.CATV.value:
+            return self.get_catv_queryset(query, status, order_key)
+        return objs
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")
