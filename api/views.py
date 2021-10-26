@@ -395,12 +395,6 @@ class CATVReportView(APIView):
         if isinstance(results, str):
             results = ast.literal_eval(results)
 
-        print(results)
-
-        if "messages" in results.keys():
-            for k, v in results["messages"].items():
-                results["messages"][k] = _(v)
-
         if results == "False":
             return APIResponse({
                 "data": {},
@@ -408,6 +402,11 @@ class CATVReportView(APIView):
                     "source": "Results not generated yet. Please try again later."
                 }
             })
+
+        if "messages" in results.keys():
+            for k, v in results["messages"].items():
+                results["messages"][k] = _(v)
+
         serializer = CATVRequestListSerializer(obj.request)
         return APIResponse({
             **results,
@@ -557,8 +556,9 @@ class CATVRequestDetailView(APIView):
 
     def get_object(self, request, pk):
         try:
+            user_details, verified_token = MultiToken.get_user_from_key(self.request)
             obj = CatvRequestStatus.objects.get(uid=pk)
-            if obj.user != request.user:
+            if obj.user_id != user_details['user_id']:
                 raise exceptions.NotAllowedError(detail="You are only allowed to access your requests")
             return obj
         except CatvRequestStatus.DoesNotExist:
