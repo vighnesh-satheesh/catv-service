@@ -113,7 +113,7 @@ class CATVView(APIView):
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
             },
-            CatvTokens.KLAYTN.value: {
+            CatvTokens.KLAY.value: {
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
             }
@@ -426,7 +426,7 @@ class CATVReportView(APIView):
             "Binance Coin": CatvTokens.BNB.value,
             "Cardano": CatvTokens.ADA.value,
             "Binance Smart Chain": CatvTokens.BSC.value,
-            "Klaytn": CatvTokens.KLAYTN.value,
+            "Klaytn": CatvTokens.KLAY.value,
             "Bitcoin Cash": CatvTokens.BCH.value
         }
         
