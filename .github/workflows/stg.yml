@@ -19,7 +19,6 @@ jobs:
       CONTAINER_NAME: UPP-STG-API-CATV
       TASK_DEF_NAME: UPP-STG-API-CATV
       UPP_HOST: stgcatv-service.api.sentinelprotocol.io
-      DATABASE_URL: "psql://uppsala:uppsala4$@upp-stg-micro-catv-db.csojvsvix6tg.ap-southeast-1.rds.amazonaws.com:5432/portal"
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
       DOCKERFILE_PATH: docker/Dockerfile_stg
 
