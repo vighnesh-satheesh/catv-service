@@ -69,7 +69,6 @@ jobs:
           SENTRY_ENVIRONMENT: ${{env.SENTRY_ENV}}
           APM_SERVICE_NAME: ${{env.APM_SERVICE_NAME}}
           UPP_HOST: ${{env.UPP_HOST}}
-          DATABASE_URL: ${{env.DATABASE_URL}}
         with:
           from_file: "docker/ecs-task-definition.json"
           to_file: "docker/${{env.TASK_DEF_NAME}}-task-def_${{ github.run_id }}.json"
