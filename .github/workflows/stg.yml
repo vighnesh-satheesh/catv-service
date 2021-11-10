@@ -21,7 +21,7 @@ jobs:
       UPP_HOST: stgcatv-service.api.sentinelprotocol.io
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
       DOCKERFILE_PATH: docker/Dockerfile_stg
-      SCANTISTTOKEN: ${{ secrets.upphubscantisttoken }}
+      SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
 
     steps:
       - uses: actions/checkout@v2
