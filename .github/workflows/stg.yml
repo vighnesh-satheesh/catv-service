@@ -21,6 +21,7 @@ jobs:
       UPP_HOST: stgcatv-service.api.sentinelprotocol.io
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
       DOCKERFILE_PATH: docker/Dockerfile_stg
+      SCANTISTTOKEN: ${{ secrets.upphubscantisttoken }}
 
     steps:
       - uses: actions/checkout@v2
@@ -102,3 +103,9 @@ jobs:
           cancelled_text: "Build (#${env.GITHUB_RUN_NUMBER}) was cancelled :face_with_rolling_eyes:"
           fields: |
             [{ "title": "GitHub Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"}]
+            
+      - name: Download Scantist-Bom-Detect
+        run: curl -s https://scripts.scantist.com/scantist-bom-detect.jar --output scantist-bom-detect.jar
+      
+      - name: Upload to Scantist         
+        run: java -jar scantist-bom-detect.jar
