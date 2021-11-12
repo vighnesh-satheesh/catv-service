@@ -108,4 +108,4 @@ jobs:
         run: curl -s https://scripts.scantist.com/scantist-bom-detect.jar --output scantist-bom-detect.jar
       
       - name: Upload to Scantist         
-        run: java -jar scantist-bom-detect.jar
+        run: java -jar scantist-bom-detect.jar -pipRequirementFile "development.txt"
