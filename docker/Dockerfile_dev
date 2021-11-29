@@ -1,4 +1,6 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.6.5-stretch
+# FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.6.5-stretch
+FROM python:3.6.5-stretch
+FROM python:3.6.5-stretch
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
