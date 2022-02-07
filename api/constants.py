@@ -15,4 +15,12 @@ class Constants:
                                    "WHERE j1.id = (SELECT j2.id FROM api_catv_job_queue j2 WHERE j2.retries_remaining > 0 "
                                    "ORDER BY j2.created FOR UPDATE SKIP LOCKED LIMIT {0}) "
                                    "RETURNING j1.id, j1.message, j1.retries_remaining, j1.created;",
+        "CATV_USAGE_QUERY": "SELECT d::date, coalesce(searches, 0) from "
+                            "generate_series((now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date, "
+                            "now()::date at TIME ZONE '{0}', '1 day') as ts(d) left outer join ("
+                            "select count(id) as searches, date_trunc('day', logged_time at TIME ZONE '{0}')::date "
+                            "as tz_date from api_catv_history where logged_time at TIME ZONE '{0}' >= "
+                            "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
+                            "user_id = '{2}' group by tz_date)"
+                            "x(searches, tz_date) on ts.d = x.tz_date",                          
     }

@@ -25,10 +25,18 @@ class BloxyAPIInterface:
                         till_time=datetime.now(),
                         token_address=None, source=True, chain='ETH'):
         if source:
-            api_url = settings.BLOXY_ETH_SRC_ENDPOINT if (chain == 'ETH' or chain == 'BSC') else self._source_endpoint
+            api_url = settings.BLOXY_ETH_SRC_ENDPOINT if (
+                                            chain == 'ETH' or 
+                                            chain == 'BSC' or 
+                                            chain == 'KLAY'
+                                        ) else self._source_endpoint
             depth = depth_limit
         else:
-            api_url = settings.BLOXY_ETH_DIST_ENDPOINT if (chain == 'ETH' or chain == 'BSC') else self._distribution_endpoint
+            api_url = settings.BLOXY_ETH_DIST_ENDPOINT if (
+                                            chain == 'ETH' or 
+                                            chain == 'BSC' or 
+                                            chain == 'KLAY'
+                                        ) else self._distribution_endpoint
             depth = depth_limit
         
         updated_chain_map = {
@@ -50,7 +58,7 @@ class BloxyAPIInterface:
                    'from_date': from_time, 'till_date': till_time, 'snapshot_time': from_time if source else till_time,
                    'limit_address_tx_count': tx_limit, 'limit': limit, 'chain': updated_chain}
         if token_address:
-            if chain == 'ETH' or chain == 'BSC':
+            if chain == 'ETH' or chain == 'BSC' or chain == 'KLAY':
                 payload['token_address'] = token_address
             else:
                 payload['token'] = token_address

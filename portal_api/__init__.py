@@ -31,7 +31,7 @@ class AppInit:
     def set_environment_variables_from_parameter_store(cls):
         ssm_path = os.environ.get("PORTAL_API_PARAM_PATH")
         if ssm_path:
-            if ssm_path == "/UPP/PRD/portal-api":
+            if ssm_path == "/UPP/PRD/PORTAL-CATV-SERVICE":
                 os.environ["PORTAL_API_MODE"] = "production"
             else:
                 os.environ["PORTAL_API_MODE"] = "staging"
@@ -96,6 +96,10 @@ class AppInit:
                 'prdadmin.prdsentinelportal.com'
             ])            
         allowed_host.extend([
+            'admin.prdsentinelportal.com',
+            'admin.stgsentinelportal.com',
+            'stgadmin.stgsentinelportal.com',
+            'prdadmin.prdsentinelportal.com',
             'stgportal.sentinelportal.com',
             'prdportal.sentinelportal.com',
             'prdportal.prdsentinelportal.com',

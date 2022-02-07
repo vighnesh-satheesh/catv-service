@@ -13,17 +13,18 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchFile
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList
 from . import exceptions
 from . import utils
 from .cache.catv import TrackingCache
 from .catvutils.metrics import CatvMetrics
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
-    CatvRequestStatus, CatvTaskStatusType, CatvResult
+    CatvRequestStatus, CatvTaskStatusType, CatvResult,
+    ProductType
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
-from .pagination import CatvRequestPagination
+from .pagination import CatvRequestPagination, CustomPagination
 from .response import APIResponse
 from .serializers import (
     CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer,
@@ -109,6 +110,10 @@ class CATVView(APIView):
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
             },
             CatvTokens.BSC.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.KLAY.value: {
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
             }
@@ -377,7 +382,7 @@ class CATVReportView(APIView):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
 
-        rpc = RPCClientFetchFile()
+        rpc = RPCClientFetchResultFileUid()
         res = (rpc.call(file_id)).decode("UTF-8")
         print(res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
@@ -390,10 +395,6 @@ class CATVReportView(APIView):
         if isinstance(results, str):
             results = ast.literal_eval(results)
 
-        if "messages" in results.keys():
-            for k, v in results["messages"].items():
-                results["messages"][k] = _(v)
-
         if results == "False":
             return APIResponse({
                 "data": {},
@@ -401,6 +402,11 @@ class CATVReportView(APIView):
                     "source": "Results not generated yet. Please try again later."
                 }
             })
+
+        if "messages" in results.keys():
+            for k, v in results["messages"].items():
+                results["messages"][k] = _(v)
+
         serializer = CATVRequestListSerializer(obj.request)
         return APIResponse({
             **results,
@@ -420,6 +426,7 @@ class CATVReportView(APIView):
             "Binance Coin": CatvTokens.BNB.value,
             "Cardano": CatvTokens.ADA.value,
             "Binance Smart Chain": CatvTokens.BSC.value,
+            "Klaytn": CatvTokens.KLAY.value,
             "Bitcoin Cash": CatvTokens.BCH.value
         }
         
@@ -461,9 +468,10 @@ class CATVMultiReportView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsCATVAuthenticated,)
 
-    def get_object(self, pk):
+    def get_objects(self, pks):
         try:
-            return CatvResult.objects.select_related('request').get(request__uid__iexact=pk)
+            # return CatvResult.objects.select_related('request').get(request__uid__iexact=pk)
+            return CatvResult.objects.select_related('request').filter(request__uid__in=pks).order_by('result_file_id')
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
         except CatvResult.DoesNotExist:
@@ -471,38 +479,73 @@ class CATVMultiReportView(APIView):
 
     def get(self, request, pk=None):
         ids = self.request.query_params.get('ids', None)
-        finalResult = []
-        isDistValue = []
-        isSourceValue = []
+        final_result = []
+        is_dist_value = []
+        is_source_value = []
+        result_file_ids = []
         if ids is not None:
-            mainIds = [x.strip() for x in ids.split(',')]
-            for m in mainIds:
-                obj = self.get_object(m)
-                if not obj.result_file:
+            main_ids = [x.strip() for x in ids.split(',')]
+            catv_results = self.get_objects(main_ids)
+
+            # for m in mainIds:
+            #     obj = self.get_object(m)
+            #     if not obj.result_file_id:
+            #         return APIResponse({
+            #             "data": {},
+            #             "messages": {
+            #                 "source": "Results not generated yet. Please try again later."
+            #             }
+            #         })
+            #     catv_results.append(obj)
+            #     result_file_ids.append(obj.result_file_id)
+
+            for obj in catv_results:
+                if not obj.result_file_id:
                     return APIResponse({
                         "data": {},
                         "messages": {
                             "source": "Results not generated yet. Please try again later."
                         }
                     })
-                file_obj = obj.result_file.file.open(mode="rb")
-                buf = file_obj.read()
-                results = json.loads(buf.decode("UTF-8"))
-                if "messages" in results.keys():
-                    for k, v in results["messages"].items():
-                        results["messages"][k] = _(v)
-                serializer = CATVRequestListSerializer(obj.request)
-                depthSplited = serializer.data["depth"].split('/')
-                isDistValue.append(int(depthSplited[1]))
-                isSourceValue.append(int(depthSplited[0]))
-                for i in range(len(results["data"]["item_list"])):
-                    results["data"]["item_list"][i].update({'id': serializer.data['id']})
-                finalResult.extend(results["data"]["item_list"])
-        results["data"]["item_list"] = finalResult
+                result_file_ids.append(obj.result_file_id)
+
+            rpc = RPCClientFetchResultFileList()
+            res = (rpc.call(result_file_ids)).decode('UTF-8')
+            result_files = ast.literal_eval(res)
+            print("result_files:- ", result_files)
+            if len(result_files) > 0:
+                for catv_result, result_file in zip(catv_results, result_files):
+
+                    print('result_file[id]', result_file['id'])
+                    print('catv_result[result_file_id]', catv_result.result_file_id)
+                    # file_obj = result_file.file.open(mode="rb")
+                    # file_obj = urlopen(result_file['file']).read()
+                    # buf = file_obj.read()
+                    filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + result_file['uid']
+
+                    s3 = boto3.resource('s3')
+                    s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+                    body = s3_obj.get()['Body'].read()
+
+                    results = json.loads(body)
+                    if isinstance(results, str):
+                        results = ast.literal_eval(results)
+
+                    if "messages" in results.keys():
+                        for k, v in results["messages"].items():
+                            results["messages"][k] = _(v)
+                    serializer = CATVRequestListSerializer(catv_result.request)
+                    depth_arr = serializer.data["depth"].split('/')
+                    is_dist_value.append(int(depth_arr[1]))
+                    is_source_value.append(int(depth_arr[0]))
+                    for i in range(len(results["data"]["item_list"])):
+                        results["data"]["item_list"][i].update({'id': serializer.data['id']})
+                    final_result.extend(results["data"]["item_list"])
+        results["data"]["item_list"] = final_result
         return APIResponse({
             **results,
-            "isDistValue": isDistValue,
-            "isSourceValue": isSourceValue,
+            "isDistValue": is_dist_value,
+            "isSourceValue": is_source_value,
             "request_params": serializer.data
         })
 
@@ -513,8 +556,9 @@ class CATVRequestDetailView(APIView):
 
     def get_object(self, request, pk):
         try:
+            user_details, verified_token = MultiToken.get_user_from_key(self.request)
             obj = CatvRequestStatus.objects.get(uid=pk)
-            if obj.user != request.user:
+            if obj.user_id != user_details['user_id']:
                 raise exceptions.NotAllowedError(detail="You are only allowed to access your requests")
             return obj
         except CatvRequestStatus.DoesNotExist:
@@ -542,3 +586,59 @@ class CATVRequestDetailView(APIView):
                 'request': data
             }
         })
+
+class RequestSearchView(generics.ListAPIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsCATVAuthenticated,)
+    pagination_class = CustomPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+
+    def list(self, request, *args, **kwargs):
+        valid_search_types = [ProductType.CATV.value]
+        search_type = self.request.query_params.get("type", "catv")
+        query = self.request.query_params.get("q", None)
+        status = self.request.query_params.get("status", None)
+        order_by = self.request.GET.get('order_by', 'id_desc')
+        order_by = order_by.split('_')
+        order_key = '-id'
+        if order_by[1] == 'asc':
+            order_key = 'id'
+        if search_type not in valid_search_types:
+            raise exceptions.ValidationError(
+                f"Invalid search type parameter. Valid values: {', '.join(valid_search_types)}")
+        if not query:
+            raise exceptions.ValidationError("q is required.")
+        if len(query) > 1024:
+            raise exceptions.ValidationError("q is too long.")
+        if status and status not in \
+            [CatvTaskStatusType.PROGRESS.value,
+             CatvTaskStatusType.RELEASED.value,
+             CatvTaskStatusType.FAILED.value]:
+            raise exceptions.ValidationError("Invalid status type parameter")
+
+        serializer_cls = CATVRequestListSerializer
+        queryset = self.filter_queryset(self.get_queryset(search_type, query, status, order_key))
+
+        page = self.paginate_queryset(queryset)
+        serializer = serializer_cls(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    def get_catv_queryset(self, query, status, order_key):
+        filter_queries = Q(params__icontains=query)
+        filter_queries |= Q(labels__arrayilike=query)
+        if status:
+            filter_queries &= Q(status=status)
+        user_details, verified_token = MultiToken.get_user_from_key(self.request)
+        filter_queries &= Q(user_id=user_details['user_id'])
+        objs = CatvRequestStatus.objects.filter(filter_queries).distinct('id').order_by(order_key)
+        return objs
+
+    def get_queryset(self, search_type, query, status, order_key):
+        objs = None
+        if search_type == ProductType.CATV.value:
+            return self.get_catv_queryset(query, status, order_key)
+        return objs
+
+    def get_paginated_response(self, data):
+        assert self.paginator is not None
+        return self.paginator.get_paginated_response(data, data_key="items")
