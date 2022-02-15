@@ -358,14 +358,19 @@ class CATVRequestsView(generics.ListAPIView):
 class CATVReportView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsCATVAuthenticated,)
+    print("CATV-report-1")
 
     def get_throttles(self):
+        print("CATV-report-2")
         if self.request.method.lower() in ['put', 'post']:
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
         return [CatvNoThrottle(), ]
+        print("CATV-report-3")
     
     def get_object(self, pk):
+        print("CATV-report-4")
         try:
+            print("CATV-report-5")
             return CatvResult.objects.select_related('request').get(request__uid__iexact=pk)
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
@@ -373,7 +378,9 @@ class CATVReportView(APIView):
             raise exceptions.CATVReportNotFound()
     
     def get_related_object(self, pk):
+        print("CATV-report-6")
         try:
+            print("CATV-report-7")
             return CatvRequestStatus.objects.get(uid__iexact=pk)
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
@@ -382,14 +389,20 @@ class CATVReportView(APIView):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
 
+        print("Before RPCClientFetchResultFileUid")
         rpc = RPCClientFetchResultFileUid()
+        print("After RPCClientFetchResultFileUid")
         res = (rpc.call(file_id)).decode("UTF-8")
         print(res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
+        print("Reading from S3")
         s3 = boto3.resource('s3')
+        print("Reading from S3-1")
         s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+        print("Reading from S3-2")
         body = s3_obj.get()['Body'].read()
+        print("Reading from S3-3")
 
         results = json.loads(body)
         if isinstance(results, str):
