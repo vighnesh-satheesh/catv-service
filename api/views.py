@@ -358,19 +358,14 @@ class CATVRequestsView(generics.ListAPIView):
 class CATVReportView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsCATVAuthenticated,)
-    print("CATV-report-1")
 
     def get_throttles(self):
-        print("CATV-report-2")
         if self.request.method.lower() in ['put', 'post']:
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
         return [CatvNoThrottle(), ]
-        print("CATV-report-3")
     
     def get_object(self, pk):
-        print("CATV-report-4")
         try:
-            print("CATV-report-5")
             return CatvResult.objects.select_related('request').get(request__uid__iexact=pk)
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
@@ -378,9 +373,7 @@ class CATVReportView(APIView):
             raise exceptions.CATVReportNotFound()
     
     def get_related_object(self, pk):
-        print("CATV-report-6")
         try:
-            print("CATV-report-7")
             return CatvRequestStatus.objects.get(uid__iexact=pk)
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
@@ -392,8 +385,9 @@ class CATVReportView(APIView):
         print("Before RPCClientFetchResultFileUid")
         rpc = RPCClientFetchResultFileUid()
         print("After RPCClientFetchResultFileUid")
+        print("RPC", rpc)
         res = (rpc.call(file_id)).decode("UTF-8")
-        print(res)
+        print("RES", res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
         print("Reading from S3")
