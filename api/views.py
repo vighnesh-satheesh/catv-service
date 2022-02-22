@@ -382,23 +382,14 @@ class CATVReportView(APIView):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
 
-        print("Before RPCClientFetchResultFileUid")
-        # rpc = RPCClientFetchResultFileUid()
         res = (RPCClientFetchResultFileUid().call(file_id)).decode("UTF-8")
         print("RES", res)
-        print("After RPCClientFetchResultFileUid")
-        # print("RPC", rpc)
-        # res = (rpc.call(file_id)).decode("UTF-8")
-        # print("RES", res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
-        print("Reading from S3")
+
         s3 = boto3.resource('s3')
-        print("Reading from S3-1")
         s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
-        print("Reading from S3-2")
         body = s3_obj.get()['Body'].read()
-        print("Reading from S3-3")
 
         results = json.loads(body)
         if isinstance(results, str):
