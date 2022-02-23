@@ -19,14 +19,9 @@ from api.constants import Constants
 from api.multitoken.tokens_auth import MultiToken
 
 from api.settings import api_settings
+from .BasicPikaClient import PikaRabbitMQConfig
 
 class AMQPCATVConsuming(threading.Thread):
-
-    @staticmethod
-    def _get_connection():
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=api_settings.RABBIT_MQ_URL))
-        return connection
 
     def catv_usage(self, user, tz, date_range):
         try:
@@ -41,9 +36,7 @@ class AMQPCATVConsuming(threading.Thread):
             return False
         return result
 
-    def on_request_portalCatv_call(self, ch, method, props, body):
-        
-        # response = body.decode('utf-8')
+    def on_request_portal_catv_call(self, ch, method, props, body):
         result = ast.literal_eval(body.decode('utf-8'))
         user = result['user_id']
         tz = result['tz']
@@ -66,8 +59,14 @@ class AMQPCATVConsuming(threading.Thread):
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
-        # time.sleep(60)
-        connection = self._get_connection()
+        basic_pika_publisher = PikaRabbitMQConfig(
+            api_settings.RABBIT_MQ_BROKER_ID, 
+            api_settings.RABBIT_MQ_USERNAME, 
+            api_settings.RABBIT_MQ_PASSWORD, 
+            api_settings.RABBIT_MQ_REGION
+        )
+
+        connection = basic_pika_publisher._get_connection()
         channel = connection.channel()
 
         channel.queue_declare(queue='rpc_portal_catv_call')
@@ -75,7 +74,7 @@ class AMQPCATVConsuming(threading.Thread):
         channel.basic_qos(prefetch_count=20)
 
         channel.basic_consume(queue='rpc_portal_catv_call',
-                on_message_callback=self.on_request_portalCatv_call)
+                on_message_callback=self.on_request_portal_catv_call)
 
         print("[x] Awaiting Portal RPC requests")
         channel.start_consuming()
