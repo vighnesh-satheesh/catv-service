@@ -6,14 +6,19 @@ from .BasicPikaClient import PikaRabbitMQConfig
 
 class RPCClientUpdateUsageCatvCall:
     def __init__(self):
-        basic_pika_publisher = PikaRabbitMQConfig(
-            api_settings.RABBIT_MQ_BROKER_ID, 
-            api_settings.RABBIT_MQ_USERNAME, 
-            api_settings.RABBIT_MQ_PASSWORD, 
-            api_settings.RABBIT_MQ_REGION
-        )
-
-        self.connection = basic_pika_publisher._get_connection()
+        if api_settings.RABBIT_MQ_ENV == "local":
+            self.connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
+        
+        else:
+            basic_pika_publisher = PikaRabbitMQConfig(
+                api_settings.RABBIT_MQ_BROKER_ID, 
+                api_settings.RABBIT_MQ_USERNAME, 
+                api_settings.RABBIT_MQ_PASSWORD, 
+                api_settings.RABBIT_MQ_REGION
+            )
+            self.connection = basic_pika_publisher._get_connection()
+            
         self.channel = self.connection.channel()
 
         result = self.channel.queue_declare(queue='', exclusive=True)
@@ -47,14 +52,19 @@ class RPCClientUpdateUsageCatvCall:
 
 class RPCClientFetchResultFileUid:
     def __init__(self):
-        basic_pika_publisher = PikaRabbitMQConfig(
-            api_settings.RABBIT_MQ_BROKER_ID, 
-            api_settings.RABBIT_MQ_USERNAME, 
-            api_settings.RABBIT_MQ_PASSWORD, 
-            api_settings.RABBIT_MQ_REGION
-        )
-
-        self.connection = basic_pika_publisher._get_connection()
+        if api_settings.RABBIT_MQ_ENV == "local":
+            self.connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
+        
+        else:
+            basic_pika_publisher = PikaRabbitMQConfig(
+                api_settings.RABBIT_MQ_BROKER_ID, 
+                api_settings.RABBIT_MQ_USERNAME, 
+                api_settings.RABBIT_MQ_PASSWORD, 
+                api_settings.RABBIT_MQ_REGION
+            )
+            self.connection = basic_pika_publisher._get_connection()
+            
         self.channel = self.connection.channel()
 
         result = self.channel.queue_declare(queue='', exclusive=True)
@@ -87,14 +97,19 @@ class RPCClientFetchResultFileUid:
 
 class RPCClientFetchResultFileList:
     def __init__(self):
-        basic_pika_publisher = PikaRabbitMQConfig(
-            api_settings.RABBIT_MQ_BROKER_ID, 
-            api_settings.RABBIT_MQ_USERNAME, 
-            api_settings.RABBIT_MQ_PASSWORD, 
-            api_settings.RABBIT_MQ_REGION
-        )
-
-        self.connection = basic_pika_publisher._get_connection()
+        if api_settings.RABBIT_MQ_ENV == "local":
+            self.connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
+        
+        else:
+            basic_pika_publisher = PikaRabbitMQConfig(
+                api_settings.RABBIT_MQ_BROKER_ID, 
+                api_settings.RABBIT_MQ_USERNAME, 
+                api_settings.RABBIT_MQ_PASSWORD, 
+                api_settings.RABBIT_MQ_REGION
+            )
+            self.connection = basic_pika_publisher._get_connection()
+            
         self.channel = self.connection.channel()
 
         result = self.channel.queue_declare(queue='', exclusive=True)
@@ -127,14 +142,19 @@ class RPCClientFetchResultFileList:
 
 class RPCClientCATVFetchIndicators:
     def __init__(self):
-        basic_pika_publisher = PikaRabbitMQConfig(
-            api_settings.RABBIT_MQ_BROKER_ID, 
-            api_settings.RABBIT_MQ_USERNAME, 
-            api_settings.RABBIT_MQ_PASSWORD, 
-            api_settings.RABBIT_MQ_REGION
-        )
-
-        self.connection = basic_pika_publisher._get_connection()
+        if api_settings.RABBIT_MQ_ENV == "local":
+            self.connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
+        
+        else:
+            basic_pika_publisher = PikaRabbitMQConfig(
+                api_settings.RABBIT_MQ_BROKER_ID, 
+                api_settings.RABBIT_MQ_USERNAME, 
+                api_settings.RABBIT_MQ_PASSWORD, 
+                api_settings.RABBIT_MQ_REGION
+            )
+            self.connection = basic_pika_publisher._get_connection()
+            
         self.channel = self.connection.channel()
 
         result = self.channel.queue_declare(queue='', exclusive=True)

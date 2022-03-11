@@ -59,14 +59,19 @@ class AMQPCATVConsuming(threading.Thread):
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
-        basic_pika_publisher = PikaRabbitMQConfig(
-            api_settings.RABBIT_MQ_BROKER_ID, 
-            api_settings.RABBIT_MQ_USERNAME, 
-            api_settings.RABBIT_MQ_PASSWORD, 
-            api_settings.RABBIT_MQ_REGION
-        )
+        if api_settings.RABBIT_MQ_ENV == "local":
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
 
-        connection = basic_pika_publisher._get_connection()
+        else:
+            basic_pika_publisher = PikaRabbitMQConfig(
+                api_settings.RABBIT_MQ_BROKER_ID, 
+                api_settings.RABBIT_MQ_USERNAME, 
+                api_settings.RABBIT_MQ_PASSWORD, 
+                api_settings.RABBIT_MQ_REGION
+            )
+            connection = basic_pika_publisher._get_connection()
+            
         channel = connection.channel()
 
         channel.queue_declare(queue='rpc_portal_catv_call')
