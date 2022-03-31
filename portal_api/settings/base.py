@@ -285,8 +285,8 @@ API_SETTINGS = {
     "RABBIT_MQ_USERNAME": env.str("RABBIT_MQ_USERNAME", 'guest'),
     "RABBIT_MQ_PASSWORD": env.str("RABBIT_MQ_PASSWORD", 'guest'),
     "RABBIT_MQ_REGION": env.str("RABBIT_MQ_REGION", 'ap-southeast-1'),
-    "RABBIT_MQ_BROKER_ID":env.str("RABBIT_MQ_BROKER_ID", 'b-b8abfdf2-b2b3-4da8-8674-eb81e3394e1f'),
-    "RABBIT_MQ_ENV":env.str("RABBIT_MQ_ENV", "development"),
+    "RABBIT_MQ_BROKER_ID":env.str("RABBIT_MQ_BROKER_ID", 'b-8d90beb2-5764-4bf6-bff6-c480c228568c'),
+    "RABBIT_MQ_ENV":env.str("RABBIT_MQ_ENV", "production"),
     "RABBIT_MQ_LOCAL_URL":env.str("RABBIT_MQ_LOCAL_URL", "rabbitmq"),
     "API_USER_CACHE": env.str('API_USER_CACHE_DB', 'user_cache'),
 }
