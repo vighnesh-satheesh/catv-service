@@ -1,0 +1,1120 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-11-12 17:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: authentication.py:70
+msgid "Invalid basic header. No credentials provided."
+msgstr ""
+
+#: authentication.py:73
+msgid "Invalid basic header. Credentials string should not contain spaces."
+msgstr ""
+
+#: authentication.py:83
+msgid "Invalid basic header. Credentials not correctly base64 encoded."
+msgstr ""
+
+#: authentication.py:101
+msgid "Invalid username/password."
+msgstr ""
+
+#: authentication.py:104 authentication.py:206
+msgid "User inactive or deleted."
+msgstr ""
+
+#: authentication.py:184
+msgid "Invalid token header. No credentials provided."
+msgstr ""
+
+#: authentication.py:187
+msgid "Invalid token header. Token string should not contain spaces."
+msgstr ""
+
+#: authentication.py:193
+msgid ""
+"Invalid token header. Token string should not contain invalid characters."
+msgstr ""
+
+#: authentication.py:203
+msgid "Invalid token."
+msgstr ""
+
+#: authtoken/apps.py:7
+msgid "Auth Token"
+msgstr ""
+
+#: authtoken/models.py:13
+msgid "Key"
+msgstr ""
+
+#: authtoken/models.py:16
+msgid "User"
+msgstr ""
+
+#: authtoken/models.py:18
+msgid "Created"
+msgstr ""
+
+#: authtoken/models.py:27 authtoken/serializers.py:19
+msgid "Token"
+msgstr ""
+
+#: authtoken/models.py:28
+msgid "Tokens"
+msgstr ""
+
+#: authtoken/serializers.py:9
+msgid "Username"
+msgstr ""
+
+#: authtoken/serializers.py:13
+msgid "Password"
+msgstr ""
+
+#: authtoken/serializers.py:35
+msgid "Unable to log in with provided credentials."
+msgstr ""
+
+#: authtoken/serializers.py:38
+msgid "Must include \"username\" and \"password\"."
+msgstr ""
+
+#: exceptions.py:102
+msgid "A server error occurred."
+msgstr ""
+
+#: exceptions.py:142
+msgid "Invalid input."
+msgstr ""
+
+#: exceptions.py:161
+msgid "Malformed request."
+msgstr ""
+
+#: exceptions.py:167
+msgid "Incorrect authentication credentials."
+msgstr ""
+
+#: exceptions.py:173
+msgid "Authentication credentials were not provided."
+msgstr "認証情報が提供されませんでした。"
+
+#: exceptions.py:179
+msgid "You do not have permission to perform this action."
+msgstr ""
+
+#: exceptions.py:185
+msgid "Not found."
+msgstr ""
+
+#: exceptions.py:191
+#, python-brace-format
+msgid "Method \"{method}\" not allowed."
+msgstr ""
+
+#: exceptions.py:202
+msgid "Could not satisfy the request Accept header."
+msgstr ""
+
+#: exceptions.py:212
+#, python-brace-format
+msgid "Unsupported media type \"{media_type}\" in request."
+msgstr ""
+
+#: exceptions.py:223
+msgid "Request was throttled."
+msgstr ""
+
+#: exceptions.py:224
+#, python-brace-format
+msgid "Expected available in {wait} second."
+msgstr ""
+
+#: exceptions.py:225
+#, python-brace-format
+msgid "Expected available in {wait} seconds."
+msgstr ""
+
+#: fields.py:316 relations.py:245 relations.py:279 validators.py:90
+#: validators.py:183
+msgid "This field is required."
+msgstr ""
+
+#: fields.py:317
+msgid "This field may not be null."
+msgstr ""
+
+#: fields.py:701
+msgid "Must be a valid boolean."
+msgstr ""
+
+#: fields.py:766
+msgid "Not a valid string."
+msgstr ""
+
+#: fields.py:767
+msgid "This field may not be blank."
+msgstr ""
+
+#: fields.py:768 fields.py:1881
+#, python-brace-format
+msgid "Ensure this field has no more than {max_length} characters."
+msgstr ""
+
+#: fields.py:769
+#, python-brace-format
+msgid "Ensure this field has at least {min_length} characters."
+msgstr ""
+
+#: fields.py:816
+msgid "Enter a valid email address."
+msgstr ""
+
+#: fields.py:827
+msgid "This value does not match the required pattern."
+msgstr ""
+
+#: fields.py:838
+msgid ""
+"Enter a valid \"slug\" consisting of letters, numbers, underscores or "
+"hyphens."
+msgstr ""
+
+#: fields.py:839
+msgid ""
+"Enter a valid \"slug\" consisting of Unicode letters, numbers, underscores, "
+"or hyphens."
+msgstr ""
+
+#: fields.py:854
+msgid "Enter a valid URL."
+msgstr ""
+
+#: fields.py:867
+msgid "Must be a valid UUID."
+msgstr ""
+
+#: fields.py:903
+msgid "Enter a valid IPv4 or IPv6 address."
+msgstr ""
+
+#: fields.py:931
+msgid "A valid integer is required."
+msgstr ""
+
+#: fields.py:932 fields.py:969 fields.py:1005 fields.py:1366
+#, python-brace-format
+msgid "Ensure this value is less than or equal to {max_value}."
+msgstr ""
+
+#: fields.py:933 fields.py:970 fields.py:1006 fields.py:1367
+#, python-brace-format
+msgid "Ensure this value is greater than or equal to {min_value}."
+msgstr ""
+
+#: fields.py:934 fields.py:971 fields.py:1010
+msgid "String value too large."
+msgstr ""
+
+#: fields.py:968 fields.py:1004
+msgid "A valid number is required."
+msgstr ""
+
+#: fields.py:1007
+#, python-brace-format
+msgid "Ensure that there are no more than {max_digits} digits in total."
+msgstr ""
+
+#: fields.py:1008
+#, python-brace-format
+msgid "Ensure that there are no more than {max_decimal_places} decimal places."
+msgstr ""
+
+#: fields.py:1009
+#, python-brace-format
+msgid ""
+"Ensure that there are no more than {max_whole_digits} digits before the "
+"decimal point."
+msgstr ""
+
+#: fields.py:1148
+#, python-brace-format
+msgid "Datetime has wrong format. Use one of these formats instead: {format}."
+msgstr ""
+
+#: fields.py:1149
+msgid "Expected a datetime but got a date."
+msgstr ""
+
+#: fields.py:1150
+#, python-brace-format
+msgid "Invalid datetime for the timezone \"{timezone}\"."
+msgstr ""
+
+#: fields.py:1151
+msgid "Datetime value out of range."
+msgstr ""
+
+#: fields.py:1236
+#, python-brace-format
+msgid "Date has wrong format. Use one of these formats instead: {format}."
+msgstr ""
+
+#: fields.py:1237
+msgid "Expected a date but got a datetime."
+msgstr ""
+
+#: fields.py:1303
+#, python-brace-format
+msgid "Time has wrong format. Use one of these formats instead: {format}."
+msgstr ""
+
+#: fields.py:1365
+#, python-brace-format
+msgid "Duration has wrong format. Use one of these formats instead: {format}."
+msgstr ""
+
+#: fields.py:1399 fields.py:1456
+#, python-brace-format
+msgid "\"{input}\" is not a valid choice."
+msgstr ""
+
+#: fields.py:1402
+#, python-brace-format
+msgid "More than {count} items..."
+msgstr ""
+
+#: fields.py:1457 fields.py:1603 relations.py:485 serializers.py:570
+#, python-brace-format
+msgid "Expected a list of items but got type \"{input_type}\"."
+msgstr ""
+
+#: fields.py:1458
+msgid "This selection may not be empty."
+msgstr ""
+
+#: fields.py:1495
+#, python-brace-format
+msgid "\"{input}\" is not a valid path choice."
+msgstr ""
+
+#: fields.py:1514
+msgid "No file was submitted."
+msgstr ""
+
+#: fields.py:1515
+msgid "The submitted data was not a file. Check the encoding type on the form."
+msgstr ""
+
+#: fields.py:1516
+msgid "No filename could be determined."
+msgstr ""
+
+#: fields.py:1517
+msgid "The submitted file is empty."
+msgstr ""
+
+#: fields.py:1518
+#, python-brace-format
+msgid ""
+"Ensure this filename has at most {max_length} characters (it has {length})."
+msgstr ""
+
+#: fields.py:1566
+msgid ""
+"Upload a valid image. The file you uploaded was either not an image or a "
+"corrupted image."
+msgstr ""
+
+#: fields.py:1604 relations.py:486 serializers.py:571
+msgid "This list may not be empty."
+msgstr ""
+
+#: fields.py:1605
+#, python-brace-format
+msgid "Ensure this field has at least {min_length} elements."
+msgstr ""
+
+#: fields.py:1606
+#, python-brace-format
+msgid "Ensure this field has no more than {max_length} elements."
+msgstr ""
+
+#: fields.py:1682
+#, python-brace-format
+msgid "Expected a dictionary of items but got type \"{input_type}\"."
+msgstr ""
+
+#: fields.py:1683
+msgid "This dictionary may not be empty."
+msgstr ""
+
+#: fields.py:1755
+msgid "Value must be valid JSON."
+msgstr ""
+
+#: filters.py:49 templates/rest_framework/filters/search.html:2
+msgid "Search"
+msgstr ""
+
+#: filters.py:50
+msgid "A search term."
+msgstr ""
+
+#: filters.py:180 templates/rest_framework/filters/ordering.html:3
+msgid "Ordering"
+msgstr ""
+
+#: filters.py:181
+msgid "Which field to use when ordering the results."
+msgstr ""
+
+#: filters.py:287
+msgid "ascending"
+msgstr ""
+
+#: filters.py:288
+msgid "descending"
+msgstr ""
+
+#: pagination.py:174
+msgid "A page number within the paginated result set."
+msgstr ""
+
+#: pagination.py:179 pagination.py:372 pagination.py:590
+msgid "Number of results to return per page."
+msgstr ""
+
+#: pagination.py:189
+msgid "Invalid page."
+msgstr ""
+
+#: pagination.py:374
+msgid "The initial index from which to return the results."
+msgstr ""
+
+#: pagination.py:581
+msgid "The pagination cursor value."
+msgstr ""
+
+#: pagination.py:583
+msgid "Invalid cursor"
+msgstr ""
+
+#: relations.py:246
+#, python-brace-format
+msgid "Invalid pk \"{pk_value}\" - object does not exist."
+msgstr ""
+
+#: relations.py:247
+#, python-brace-format
+msgid "Incorrect type. Expected pk value, received {data_type}."
+msgstr ""
+
+#: relations.py:280
+msgid "Invalid hyperlink - No URL match."
+msgstr ""
+
+#: relations.py:281
+msgid "Invalid hyperlink - Incorrect URL match."
+msgstr ""
+
+#: relations.py:282
+msgid "Invalid hyperlink - Object does not exist."
+msgstr ""
+
+#: relations.py:283
+#, python-brace-format
+msgid "Incorrect type. Expected URL string, received {data_type}."
+msgstr ""
+
+#: relations.py:448
+#, python-brace-format
+msgid "Object with {slug_name}={value} does not exist."
+msgstr ""
+
+#: relations.py:449
+msgid "Invalid value."
+msgstr ""
+
+#: schemas/utils.py:32
+msgid "unique integer value"
+msgstr ""
+
+#: schemas/utils.py:34
+msgid "UUID string"
+msgstr ""
+
+#: schemas/utils.py:36
+msgid "unique value"
+msgstr ""
+
+#: schemas/utils.py:38
+#, python-brace-format
+msgid "A {value_type} identifying this {name}."
+msgstr ""
+
+#: serializers.py:337
+#, python-brace-format
+msgid "Invalid data. Expected a dictionary, but got {datatype}."
+msgstr ""
+
+#: templates/rest_framework/admin.html:116
+#: templates/rest_framework/base.html:136
+msgid "Extra Actions"
+msgstr ""
+
+#: templates/rest_framework/admin.html:130
+#: templates/rest_framework/base.html:150
+msgid "Filters"
+msgstr ""
+
+#: templates/rest_framework/base.html:37
+msgid "navbar"
+msgstr ""
+
+#: templates/rest_framework/base.html:75
+msgid "content"
+msgstr ""
+
+#: templates/rest_framework/base.html:78
+msgid "request form"
+msgstr ""
+
+#: templates/rest_framework/base.html:157
+msgid "main content"
+msgstr ""
+
+#: templates/rest_framework/base.html:173
+msgid "request info"
+msgstr ""
+
+#: templates/rest_framework/base.html:177
+msgid "response info"
+msgstr ""
+
+#: templates/rest_framework/horizontal/radio.html:4
+#: templates/rest_framework/inline/radio.html:3
+#: templates/rest_framework/vertical/radio.html:3
+msgid "None"
+msgstr ""
+
+#: templates/rest_framework/horizontal/select_multiple.html:4
+#: templates/rest_framework/inline/select_multiple.html:3
+#: templates/rest_framework/vertical/select_multiple.html:3
+msgid "No items to select."
+msgstr ""
+
+#: validators.py:39
+msgid "This field must be unique."
+msgstr ""
+
+#: validators.py:89
+#, python-brace-format
+msgid "The fields {field_names} must make a unique set."
+msgstr ""
+
+#: validators.py:171
+#, python-brace-format
+msgid "Surrogate characters are not allowed: U+{code_point:X}."
+msgstr ""
+
+#: validators.py:243
+#, python-brace-format
+msgid "This field must be unique for the \"{date_field}\" date."
+msgstr ""
+
+#: validators.py:258
+#, python-brace-format
+msgid "This field must be unique for the \"{date_field}\" month."
+msgstr ""
+
+#: validators.py:271
+#, python-brace-format
+msgid "This field must be unique for the \"{date_field}\" year."
+msgstr ""
+
+#: versioning.py:40
+msgid "Invalid version in \"Accept\" header."
+msgstr ""
+
+#: versioning.py:71
+msgid "Invalid version in URL path."
+msgstr ""
+
+#: versioning.py:116
+msgid "Invalid version in URL path. Does not match any version namespace."
+msgstr ""
+
+#: versioning.py:148
+msgid "Invalid version in hostname."
+msgstr ""
+
+#: versioning.py:170
+msgid "Invalid version in query parameter."
+msgstr ""
+
+#: .\admin.py:40
+msgid "All"
+msgstr ""
+
+#: .\exceptions.py:18
+msgid "valid email and password are required."
+msgstr ""
+
+#: .\exceptions.py:22
+msgid "email is not valid"
+msgstr ""
+
+#: .\exceptions.py:26
+msgid "not supported case filter."
+msgstr ""
+
+#: .\exceptions.py:30
+#, python-brace-format
+msgid "{from_status} cannot be changed to {to_status}"
+msgstr ""
+
+#: .\exceptions.py:40
+msgid "case should be in progress status."
+msgstr ""
+
+#: .\exceptions.py:44
+msgid "the length of filename should be less than 255."
+msgstr ""
+
+#: .\exceptions.py:48
+msgid "the size of file should be larger than 50 bytes."
+msgstr ""
+
+#: .\exceptions.py:53
+msgid "Incorrect file type passed"
+msgstr ""
+
+#: .\exceptions.py:57
+msgid "icf api already exists."
+msgstr ""
+
+#: .\exceptions.py:61
+msgid "password reset code is not valid"
+msgstr ""
+
+#: .\exceptions.py:64
+msgid "Invalid eth checksum address"
+msgstr ""
+
+#: .\exceptions.py:71
+msgid "user not exist or password wrong."
+msgstr ""
+
+#: .\exceptions.py:79
+msgid "user not found"
+msgstr ""
+
+#: .\exceptions.py:83
+msgid "case not found"
+msgstr ""
+
+#: .\exceptions.py:87
+msgid "indicator not found"
+msgstr ""
+
+#: .\exceptions.py:91
+msgid "ico not found"
+msgstr ""
+
+#: .\exceptions.py:95
+msgid "file not found"
+msgstr ""
+
+#: .\exceptions.py:98
+msgid "api not found"
+msgstr ""
+
+#: .\exceptions.py:102
+msgid "organization not found"
+msgstr "조직을 찾을 수 없음"
+
+#: .\exceptions.py:105
+msgid "CATV Report not found"
+msgstr ""
+
+#: .\exceptions.py:112
+msgid "no permission."
+msgstr ""
+
+#: .\exceptions.py:116
+msgid "supersentinel permission required."
+msgstr ""
+
+#: .\exceptions.py:120
+msgid "case owner required."
+msgstr ""
+
+#: .\exceptions.py:124
+msgid "no access to change the status"
+msgstr ""
+
+#: .\exceptions.py:133
+msgid "data conflict"
+msgstr ""
+
+#: .\exceptions.py:138
+msgid "request timeout"
+msgstr ""
+
+#: .\exceptions.py:143
+msgid "Something went wrong"
+msgstr ""
+
+#: .\pagination.py:15
+msgid "invalid page number."
+msgstr "無効なページ番号。"
+
+msgid "Covid-19"
+msgstr "Covid-19"
+
+msgid "Adware"
+msgstr "アドウェア"
+
+msgid "Black Market"
+msgstr "ブラックマーケット"
+
+msgid "Child Sexual Exploitation"
+msgstr "児童性的搾取"
+
+msgid "Community"
+msgstr "コミュニティ"
+
+msgid "Counterfeit Money"
+msgstr "偽札"
+
+msgid "Credit Card Fraud"
+msgstr "クレジットカード詐欺"
+
+msgid "Cryptocurrency"
+msgstr "暗号資産"
+
+msgid "Cryptocurrency Laundering"
+msgstr "暗号資産ロンダリング"
+
+msgid "Cryptojacking"
+msgstr "クリプトジャック"
+
+msgid "Darknet"
+msgstr "ダークネット"
+
+msgid "Double Spend Attack"
+msgstr "ダブルスペンドアタック"
+
+msgid "Drug"
+msgstr "ドラッグ"
+
+msgid "Escrow"
+msgstr "エスクロー"
+
+msgid "Exploits"
+msgstr "エクスプロイト"
+
+msgid "Fake ICO"
+msgstr "偽のICO"
+
+msgid "Gambling"
+msgstr "ギャンブル"
+
+msgid "Hack"
+msgstr "ハック"
+
+msgid "Hosting"
+msgstr "ホスティング"
+
+msgid "Impersonation"
+msgstr "なりすまし"
+
+msgid "Information Leakage"
+msgstr "情報漏えい"
+
+msgid "Lazarus"
+msgstr "ラザルス"
+
+msgid "Locked"
+msgstr "ロックされた"
+
+msgid "Malware"
+msgstr "マルウェア"
+
+msgid "Murder"
+msgstr "殺人"
+
+msgid "Patchwork"
+msgstr ""
+
+msgid "Phishing"
+msgstr "フィッシング"
+
+msgid "Pixel Tracker"
+msgstr "ピクセルトラッカー"
+
+msgid "Ponzi"
+msgstr "ポンジスキーム"
+
+msgid "Pornography"
+msgstr "ポルノグラフィ"
+
+msgid "Ransomware"
+msgstr "ランサムウェア"
+
+msgid "Scam"
+msgstr "詐欺"
+
+msgid "Spam"
+msgstr "スパム"
+
+msgid "Terrorism"
+msgstr "テロリズム"
+
+msgid "Vishing"
+msgstr ""
+
+msgid "Weapon"
+msgstr "武器"
+
+msgid "Wiki"
+msgstr "ウィキ"
+
+msgid "Spyware"
+msgstr "スパイウェア"
+
+msgid "Legit"
+msgstr "合法"
+
+msgid "Invalid token type. Supported:"
+msgstr "無効なトークンタイプです。サポート対象："
+
+msgid "Invalid search type. Supported:"
+msgstr "無効な検索タイプです。サポート対象："
+
+msgid "Either of source_depth or distribution_depth is needed."
+msgstr "source_depthまたはdistribution_depthのどちらかが必要です。"
+
+msgid "Token address is not a valid ethereum address."
+msgstr "トークンアドレスが有効なイーサリアムアドレスではありません。"
+
+msgid "Incorrect date format, should be YYYY-MM-DD."
+msgstr "日付の形式が正しくありません、YYYY-MM-DDであるべきです。"
+
+msgid "Timeout exceeded while fetching/processing data."
+msgstr "データの取得/処理中にタイムアウトしました。"
+
+msgid "Incorrect or missing transactions. Please try adjusting your search criteria."
+msgstr "取引内容が正しくないか、欠落しています。検索条件を調整してください。"
+
+msgid "Oops! Something went wrong while getting results for this address. Please try again later."
+msgstr "このアドレスの結果を取得中に何か問題が発生しました。後でもう一度お試しください。"
+
+msgid "Transaction hash is an invalid Bitcoin transaction hash"
+msgstr "トランザクションハッシュは無効なビットコイントランザクションハッシュです"
+
+msgid "Wallet address is an invalid Bitcoin address"
+msgstr "ウォレットアドレスが無効なビットコインアドレスです"
+
+msgid "\nThis address has too many transactions. Viewing all transactions would be difficult, so we have generated the most relevant graph for you with some scaling down on each level to show nodes which have transacted the most."
+msgstr "\nこのアドレスは取引件数が多すぎます。すべての取引を表示することができないため、各レベルで最も取引されたノードを表示するために、いくつかのスケールダウンし、最も適切なグラフを生成しました。"
+
+msgid "Internal server error. Please try again later"
+msgstr "内部サーバー エラー。しばらくした後、再実行してください"
+
+msgid "Missing source results for the wallet address within the date range specified"
+msgstr "指定された日付範囲内のウォレットアドレスのソース検索結果がありません"
+
+msgid "Missing distribution results for the wallet address within the date range specified"
+msgstr "指定した日付の範囲内でウォレットアドレスのディストリビューション結果がありません"
+
+msgid "unverified"
+msgstr "未検証"
+
+msgid "blacklist"
+msgstr "ブラックリスト"
+
+msgid "whitelist"
+msgstr "ホワイトリスト"
+
+msgid "graylist"
+msgstr "グレイリスト"
+
+msgid "Low Risk"
+msgstr "低リスク"
+
+msgid "Medium Risk"
+msgstr "中リスク"
+
+msgid "High Risk"
+msgstr "高リスク"
+
+msgid "Extremely High Risk"
+msgstr "極めて高リスク"
+
+msgid "Malicious"
+msgstr "悪意のある"
+
+msgid "Benign"
+msgstr "良性"
+
+msgid "This crypto address transaction analysis is considered normal and does not exhibit much relative risk indications"
+msgstr "このウォレットアドレスの取引分析は、正常とみなされ、相対的なリスクは示されていません。"
+
+msgid "This crypto address transaction analysis is considered to have medium risk as it exhibit low relative risk indications."
+msgstr "このウォレットアドレス取引分析は、相対的なリスク指標が低いため、中程度のリスクであると考えられます。"
+
+msgid "This crypto address transaction analysis is considered suspicious as it exhibit relative medium risk indications"
+msgstr "このウォレットアドレスの取引分析は、相対的に中程度のリスク表示を示しているため、疑わしいと考えられます。"
+
+msgid "This crypto address transaction analysis is determined to be highly suspicious as it has extreme high risk indications or confirm illicit activities."
+msgstr "このウォレットアドレスの取引分析には、極めて高いリスクの兆候や不正行為を確認することができるため、非常に疑わしいと判断しています。"
+
+msgid "This address has not been verified."
+msgstr "このアドレスは確認されていません。"
+
+msgid "This address has been blacklisted."
+msgstr "このアドレスはブラックリストに登録されています。"
+
+msgid "This address has been whitelisted."
+msgstr "このアドレスはホワイトリストに登録されています。"
+
+msgid "This address has been graylisted."
+msgstr "このアドレスはグレイトリストに登録されています。"
+
+msgid "The address is confirmed to be malicious by TRDB and having low risk as per transaction analytics."
+msgstr "このアドレスはTRDBによって悪意があることが確認されており、トランザクション分析によるとリスクは低いとされています。"
+
+msgid "The address is confirmed to be malicious by TRDB and transaction analytics identified txs bearing resemblance to Medium Risk wallets."
+msgstr "このアドレスはTRDBによって悪意あるものと確認され、取引分析によって中リスクのウォレットと類似したTxが確認されました。"
+
+msgid "The address is confirmed to be malicious by TRDB and transaction analytics identified txs bearing resemblance to High Risk wallets."
+msgstr "このアドレスはTRDBによって悪意あるものと確認され、トランザクション分析によって高リスクウォレットと類似したTxが確認されました。"
+
+msgid "The address is confirmed to be malicious by TRDB and transaction analytics identified txs bearing resemblance to Extreme High Risk wallets."
+msgstr "このアドレスはTRDBによって悪意あるものと確認され、トランザクション分析によって、極めて高リスクのウォレットと類似したtxが確認されました。"
+
+msgid "The address is confirmed to be benign by TRDB and transaction analytics indicates the wallet to be within the Low Risk limit."
+msgstr "TRDBによってアドレスが良性であることが確認され、トランザクション分析によってウォレットが低リスクの制限内にあることが確認されました。"
+
+msgid "The address is confirmed to be benign by TRDB although transaction analytics identified txs bearing resemblance to Medium Risk wallets."
+msgstr "このアドレスはTRDBによって良性であることが確認されているが、トランザクション分析によって、中リスクのウォレットと類似したTxが確認されました。"
+
+msgid "The address is confirmed to be benign by TRDB although transaction analytics identified txs bearing resemblance to High Risk wallets."
+msgstr "このアドレスはTRDBによって良性であることが確認されていますが、取引分析によって高リスクのウォレットと類似したTxが確認されました。"
+
+msgid "The address is confirmed to be benign by TRDB although transaction analytics identified txs bearing resemblance to Extreme High Risk wallets."
+msgstr "このアドレスはTRDBによって良性であることが確認されていますが、トランザクション分析によって、極めて高リスクのウォレットに類似したTxが確認されました。"
+
+msgid "The address did not match any indicator identified in TRDB and transaction analytics indicates the wallet to be within the Low Risk limit."
+msgstr "このアドレスはTRDBで特定されたどの指標とも一致せず、取引分析ではウォレットは低リスクの制限内にあることが示されています。"
+
+msgid "The address did not match any indicator identified in TRDB but transaction analytics identified txs bearing resemblance to Medium Risk wallets."
+msgstr "このアドレスはTRDBで特定されたどの指標とも一致しませんでしたが、取引分析により、中リスクのウォレットに類似したTXが特定されました。"
+
+msgid "The address did not match any indicator identified in TRDB but transaction analytics identified txs bearing resemblance to High Risk wallets."
+msgstr "このアドレスはTRDBで特定されたどの指標とも一致しませんでしたが、取引分析により高リスクのウォレットと類似したTXが特定されました。"
+
+msgid "The address did not match any indicators identified in TRDB but transaction analytics identified txs bearing resemblance to Extreme High Risk wallets."
+msgstr "このアドレスはTRDBで特定されたどの指標とも一致しませんでしたが、取引分析により、極めて高リスクのウォレットと類似したTXが特定されました。"
+
+msgid "Low Risk in CARA"
+msgstr "CARAで低リスク"
+
+msgid "Error retrieving previous risk score"
+msgstr "以前のリスクスコアの取得エラー"
+
+msgid "No previous scores found."
+msgstr "以前のスコアが見つかりません"
+
+msgid "Medium Risk in CARA"
+msgstr "CARAで中リスク"
+
+msgid "High Risk in CARA"
+msgstr "CARAで高リスク"
+
+msgid "Extreme High Risk in CARA"
+msgstr "CARAで極めて高リスク"
+
+msgid "Crypto Analysis Risk Assessment"
+msgstr "Crypto Analysis Risk Assessment"
+
+msgid "Report Details"
+msgstr "レポート詳細"
+
+msgid "Address"
+msgstr "アドレス"
+
+msgid "Report ID"
+msgstr "レポートID"
+
+msgid "Type"
+msgstr "タイプ"
+
+msgid "Last Transaction Timestamp"
+msgstr "最終トランザクションのタイムスタンプ"
+
+msgid "CARA Search Time"
+msgstr "CARA検索時間"
+
+msgid "Report Generation Time"
+msgstr "レポート作成時間"
+
+msgid "Suspicious TX Count"
+msgstr "不審なTxカウント"
+
+msgid "Suspicious TX Amount"
+msgstr "不審なTx量"
+
+msgid "Verdict"
+msgstr "評価"
+
+msgid "Summary"
+msgstr "まとめ"
+
+msgid "Machine Learning Transaction Analysis Results"
+msgstr "機械学習によるトランザクションの分析結果"
+
+msgid "Result"
+msgstr "結果"
+
+msgid "Score"
+msgstr "スコア"
+
+msgid "Previous Result"
+msgstr "前回の結果"
+
+msgid "Previous Score"
+msgstr "前回のスコア"
+
+msgid "Static Analysis Results (TRDB)"
+msgstr "静的分析結果(TRDB)"
+
+msgid "Malicious Activities"
+msgstr "悪意ある活動"
+
+msgid "List of Risk Indicators"
+msgstr "リスク指標一覧"
+
+msgid "Direct Links to Malicious Activities"
+msgstr "悪意ある行為への直接のリンク"
+
+msgid "Contacted Blacklist Addresses"
+msgstr "コンタクトのあったブラックリストアドレス"
+
+msgid "Malware Wallet"
+msgstr "マルウェアウォレット"
+
+msgid "Fraud/Scam"
+msgstr "不正行為/詐欺"
+
+msgid "Thief/Hack"
+msgstr "盗難/ハック"
+
+msgid "Dark Web"
+msgstr "ダークウェブ"
+
+msgid "Industry Risk Activity"
+msgstr "インダストリーリスクアクティビティ"
+
+msgid "Pornography Material"
+msgstr "ポルノグラフィマテリアル"
+
+msgid "Criminal Organization"
+msgstr "犯罪組織"
+
+msgid "Transactions interfere with tracking of Funds"
+msgstr "資金の追跡を妨げる取引"
+
+msgid "Excess input and output transaction"
+msgstr "入出金過多の取引"
+
+msgid "Single Crypto Asset Transaction occurred recently"
+msgstr "最近発生した単一の暗号資産取引"
+
+msgid "Receiving funds from miners service"
+msgstr "マイニングサービスからの資金の受け取り"
+
+msgid "Abnormal swift movement of funds"
+msgstr "異常な資金移動"
+
+msgid "Single incoming-outgoing transactions"
+msgstr "単一の入出金トランザクション"
+
+msgid "Distinctive Transaction Patterns"
+msgstr "特徴的な取引パターン"
+
+msgid "Accumulating Crypto Assets"
+msgstr "暗号資産の蓄積"
+
+msgid "Transaction activity at regular intervals"
+msgstr "定期的に行われる取引活動"
+
+msgid "Dormant transaction status"
+msgstr "休眠取引の状態"
+
+msgid "Large crypto asset balance"
+msgstr "暗号資産残高が多い"
+
+msgid "Significant transaction fees"
+msgstr "多額の取引手数料"
+
+msgid "High value crypto asset transaction found"
+msgstr "高額な暗号資産取引"
+
+msgid "Abnormal Relaying"
+msgstr "異常なリレー"
+
+msgid "Abnormal Mixing"
+msgstr "異常なミキシング"
+
+msgid "Relaying and Mixing"
+msgstr "リレーとミキシング"
+
+msgid "Tumbling"
+msgstr "タンブリング"
+
+msgid "Disclaimer head"
+msgstr "免責事項"
+
+msgid "Disclaimer 1"
+msgstr "1. 本報告書の情報は、信頼できると思われる情報源から入手したものですが、決して保証するものではありません。"
+
+msgid "Disclaimer 2"
+msgstr "2. 本報告書は、社内の適切なリスク評価と意思決定プロセスの義務を何ら免除するものではありません。"
+
+msgid "Disclaimer 3"
+msgstr "3. 本報告書は、各部を個別に分析すると誤った結論に至る可能性があるため、全文を読む必要があります。"
+
+msgid "Disclaimer 4"
+msgstr "4. Uppsala Securityは、本レポートの有効性に関していかなる黙示的保証も行いません。"
+
+msgid "Disclaimer 5"
+msgstr "5. Uppsala Securityは、本レポートの日付以降に発生した、あるいは本レポート作成時点では知り得なかった新たな事実や状況について、その前提を変更し、本レポートを更新する義務を負いません。"
+
+msgid "Disclaimer 6"
+msgstr "6. Uppsala Securityは、知的財産権や機密保持のリスク（例：サイバー犯罪関連）により、分析のために使用する受信者に特定の情報を開示しない権利を留保します。"
+
+msgid "Disclaimer 7"
+msgstr "7. 本報告書の受領者が行った決定は、すべて受領者自身のリスクにおいてのみ行われるものとします。Uppsala Securityの責任は、受信者が被った利益損失、収入損失、機会損失または事業の中断を含め、適用される法律で認められる最大限の範囲において、ここに除外されます。"
+
+msgid "Disclaimer 8"
+msgstr "8. 本レポートの内容に関するお問い合わせは、support@uppsalasecurity.com までお願いします。"
