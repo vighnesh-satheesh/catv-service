@@ -20,7 +20,7 @@ jobs:
       TASK_DEF_NAME: UPP-PRD-API-CATV
       UPP_HOST: catv-service.api.sentinelprotocol.io
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-      DOCKERFILE_PATH: docker/Dockerfile_stg
+      DOCKERFILE_PATH: docker/Dockerfile
       SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
 
     steps:
