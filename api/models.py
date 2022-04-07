@@ -180,3 +180,12 @@ class CatvJobQueue(models.Model):
             models.Index(fields=['retries_remaining']),
             models.Index(fields=['created'])
         ]
+
+class CatvNodeLabelModel(models.Model):
+    uid = models.CharField(max_length=100)
+    wallet_address = models.CharField(max_length=100)
+    user_id = models.IntegerField(null=False)
+    label = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = "api_catv_node_label_request"
