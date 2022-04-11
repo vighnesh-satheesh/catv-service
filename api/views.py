@@ -657,12 +657,9 @@ class CATVNodeLabelView(APIView):
     
     def post(self, request):
         user_details = MultiToken.get_user_from_key(request)
-        request.data._mutable = True
-        request.data['user_id'] = user_details["user_id"]
         serializer = CATVNodeLabelPostSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        request.data._mutable = False
+        serializer.save(user_id = user_details["user_id"])
         data = serializer.data
         return APIResponse({
             'data': data
