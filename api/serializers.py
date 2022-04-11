@@ -382,8 +382,7 @@ class CATVNodeLabelPostSerializer(serializers.ModelSerializer):
     uid = serializers.CharField(required=True)
     wallet_address = serializers.CharField(required=True)
     label = serializers.CharField(required=True)
-    user_id = serializers.IntegerField(required=True)
-
+    
     class Meta:
         model = models.CatvNodeLabelModel
         fields = ("id", "uid", "wallet_address", "user_id", "label")
