@@ -656,10 +656,10 @@ class CATVNodeLabelView(APIView):
     permission_classes = (IsCATVAuthenticated,)
     
     def post(self, request):
-        user_details = MultiToken.get_user_from_key(request)
+        user_details, verified_token = MultiToken.get_user_from_key(request)
         serializer = CATVNodeLabelPostSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(user_id = user_details["user_id"])
+        serializer.save(user_id = user_details['user_id'])
         data = serializer.data
         return APIResponse({
             'data': data
@@ -667,10 +667,10 @@ class CATVNodeLabelView(APIView):
     
     def delete(self, request):
         queryset = CatvNodeLabelModel.objects.all()
-        user_details = MultiToken.get_user_from_key(request)
+        user_details, verified_token = MultiToken.get_user_from_key(request)
         uid = self.request.query_params.get('uid', None)
         wallet_address = self.request.query_params.get('wallet_address', None)
-        user_id = user_details["user_id"]
+        user_id = user_details['user_id']
         nodeLabel = queryset.filter(Q(uid=uid), Q(wallet_address=wallet_address), Q(user_id=user_id))
         if nodeLabel.exists():
             nodeLabel.delete()
