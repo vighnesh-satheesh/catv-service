@@ -17,6 +17,7 @@ from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResult
 from . import exceptions
 from . import utils
 from .cache.catv import TrackingCache
+from .catvutils.process_node_list import ProcessNodeList
 from .catvutils.metrics import CatvMetrics
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
@@ -416,9 +417,17 @@ class CATVReportView(APIView):
                 if obj['address'] == node["wallet_address"]:
                     obj['userLabel'] = node["label"]
                     obj['group'] = 'User Label'
+
+        node_list = results['data']['node_list']
+        process_node_list_obj = ProcessNodeList(node_list, request_params['depth'])
+        process_node_list_obj.create_node_list_by_depth()
+        # print(process_node_list_obj.get_dist_node_lists().get())
+
         return APIResponse({
             **results,
-            "request_params": serializer.data
+            "request_params": serializer.data,
+            # "src_node_list_by_depth": process_node_list_obj.get_src_node_lists(),
+            # "dist_node_list_by_depth": process_node_list_obj.get_dist_node_lists()
         })
     
     def put(self, request, pk=None):
