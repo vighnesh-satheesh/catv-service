@@ -421,14 +421,12 @@ class CATVReportView(APIView):
         node_list = results['data']['node_list']
         process_node_list_obj = ProcessNodeList(node_list, request_params['depth'])
         process_node_list_obj.create_node_list_by_depth()
-        print(process_node_list_obj.get_dist_node_lists())
-        print(process_node_list_obj.get_src_node_lists())
+        results["data"]["src_node_list_by_depth"] = process_node_list_obj.get_src_node_lists()
+        results["data"]["dist_node_list_by_depth"] = process_node_list_obj.get_dist_node_lists()
 
         return APIResponse({
             **results,
-            "request_params": serializer.data,
-            "src_node_list_by_depth": process_node_list_obj.get_src_node_lists(),
-            "dist_node_list_by_depth": process_node_list_obj.get_dist_node_lists()
+            "request_params": serializer.data
         })
     
     def put(self, request, pk=None):
