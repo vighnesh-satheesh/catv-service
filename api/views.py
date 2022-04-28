@@ -18,6 +18,7 @@ from . import exceptions
 from . import utils
 from .cache.catv import TrackingCache
 from .catvutils.metrics import CatvMetrics
+from .catvutils.process_node_list import ProcessNodeList
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
@@ -408,6 +409,14 @@ class CATVReportView(APIView):
                 results["messages"][k] = _(v)
 
         serializer = CATVRequestListSerializer(obj.request)
+        request_params = serializer.data
+        
+        node_list = results['data']['node_list']
+        process_node_list_obj = ProcessNodeList(node_list, request_params['depth'])
+        process_node_list_obj.create_node_list_by_depth()
+        results["data"]["src_node_list_by_depth"] = process_node_list_obj.get_src_node_lists()
+        results["data"]["dist_node_list_by_depth"] = process_node_list_obj.get_dist_node_lists()
+
         return APIResponse({
             **results,
             "request_params": serializer.data
