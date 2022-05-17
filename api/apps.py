@@ -57,6 +57,3 @@ class ApiConfig(AppConfig):
             rpcconsumer = AMQPCATVConsuming()
             rpcconsumer.daemon = True
             rpcconsumer.start()
-
-
-            
