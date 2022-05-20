@@ -185,7 +185,7 @@ class CATVBTCTxlistSerializer(serializers.Serializer):
 class CATVBTCCoinpathSerializer(CATVSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def validate_wallet_address(self, value):
         if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
@@ -338,26 +338,26 @@ class CATVRequestListSerializer(NonNullModelSerializer):
                   "address_type", "date_range", "depth", "token_address", "token_type", "labels")
         read_only_fields = ("id", "uid", "created", "status", "wallet_address",
                             "address_type", "date_range", "depth", "token_address", "token_type", "labels")
-        
+
     def get_wallet_address(self, obj):
         if obj.params:
             if obj.params.get("address_from", ""):
                 return obj.params["address_from"]
             return obj.params.get("wallet_address", "")
         return ""
-    
+
     def get_address_type(self, obj):
         if obj.token_type:
             return utils.determine_wallet_type(obj.token_type)
         return "Ethereum/ERC20"
-    
+
     def get_date_range(self, obj):
         if obj.params:
             from_date = parser.parse(obj.params.get("from_date", "2015-01-01")).strftime("%d/%m/%Y")
             to_date = parser.parse(obj.params.get("to_date", "2020-01-01")).strftime("%d/%m/%Y")
             return f"{from_date} - {to_date}"
         return ""
-    
+
     def get_depth(self, obj):
         if obj.params:
             if obj.params.get("depth", 0) > 0:
@@ -372,7 +372,7 @@ class CATVRequestListSerializer(NonNullModelSerializer):
         if obj.created is None:
             return None
         return time.mktime(obj.created.timetuple()) * 1000
-    
+
     def get_token_address(self, obj):
         if obj.params:
             return obj.params.get("token_address", "")
@@ -382,7 +382,7 @@ class CATVNodeLabelPostSerializer(serializers.ModelSerializer):
     uid = serializers.CharField(required=True)
     wallet_address = serializers.CharField(required=True)
     label = serializers.CharField(required=True)
-    
+
     class Meta:
         model = models.CatvNodeLabelModel
         fields = ("id", "uid", "wallet_address", "user_id", "label")
