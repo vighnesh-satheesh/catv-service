@@ -377,3 +377,13 @@ class CATVRequestListSerializer(NonNullModelSerializer):
         if obj.params:
             return obj.params.get("token_address", "")
         return ""
+
+class CATVNodeLabelPostSerializer(serializers.ModelSerializer):
+    uid = serializers.CharField(required=True)
+    wallet_address = serializers.CharField(required=True)
+    label = serializers.CharField(required=True)
+    
+    class Meta:
+        model = models.CatvNodeLabelModel
+        fields = ("id", "uid", "wallet_address", "user_id", "label")
+        read_only_fields = ("id", "uid", "wallet_address", "user_id", "label")
