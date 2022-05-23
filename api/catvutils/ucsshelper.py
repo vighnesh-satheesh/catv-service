@@ -2,7 +2,7 @@ import traceback
 import json
 from enum import Enum
 from ..models import (
-   CatvTokens, CatvSearchType
+    CatvTokens, CatvSearchType
 )
 from ..serializers import (
     CATVSerializer, CATVBTCCoinpathSerializer, CATVRequestListSerializer
@@ -11,6 +11,7 @@ from ..tasks import (
     CatvRequestTask
 )
 from ..settings import api_settings
+
 
 class UcssHelper:
 
@@ -24,8 +25,7 @@ class UcssHelper:
         self.distribution_depth = catv_query.get('distribution_depth')
         self.user = catv_query.get('user')
 
-
-       # TODO: validation Error for wrong token_type
+    # TODO: validation Error for wrong token_type
 
     def process_catv_request(self):
         try:
@@ -82,7 +82,7 @@ class UcssHelper:
             serializer_cls = serializer_map[self.token_type][self.search_type]
             request_data = {
                 "wallet_address": self.address,
-                "from_date":self.from_date,
+                "from_date": self.from_date,
                 "to_date": self.to_date,
                 "force_lookup": False,
                 "transaction_limit": 2000,
@@ -94,10 +94,11 @@ class UcssHelper:
             serializer.is_valid(raise_exception=True)
             history = serializer.data
             catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                            "ucss",
                                             token_type=self.token_type,
                                             search_type=self.search_type,
                                             search_params=history,
-                                            user=json.loads(self.user)
+                                            user=json.loads(self.user),
                                             )
             catv_req_task.run()
             task = catv_req_task.save()
@@ -107,7 +108,3 @@ class UcssHelper:
         except Exception as e:
             traceback.print_exc()
             return {}
-
-
-
-
