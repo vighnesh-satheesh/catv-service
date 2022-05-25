@@ -22,7 +22,7 @@ from .catvutils.process_node_list import ProcessNodeList
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
-    ProductType
+    ProductType, CatvNodeLabelModel
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .pagination import CatvRequestPagination, CustomPagination
@@ -31,7 +31,7 @@ from .serializers import (
     CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer,
     CATVHistorySerializer, CATVBTCCoinpathSerializer,
     CATVEthPathSerializer, CatvBtcPathSerializer,
-    CATVRequestListSerializer
+    CATVRequestListSerializer, CATVNodeLabelPostSerializer
 )
 from .settings import api_settings
 from .tasks import (
@@ -382,9 +382,10 @@ class CATVReportView(APIView):
     def get(self, request, pk=None):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
+        queryset = CatvNodeLabelModel.objects.all()
 
         res = (RPCClientFetchResultFileUid().call(file_id)).decode("UTF-8")
-        print("CATV S3 File UID: ", res)
+        print("RES", res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
 
@@ -410,7 +411,13 @@ class CATVReportView(APIView):
 
         serializer = CATVRequestListSerializer(obj.request)
         request_params = serializer.data
-        
+        nodeLabel = queryset.filter(Q(uid=request_params["uid"])).values()
+        for node in nodeLabel:
+            for obj in results["data"]["node_list"]:
+                if obj['address'] == node["wallet_address"]:
+                    obj['userLabel'] = node["label"]
+                    obj['group'] = 'User Label'
+
         node_list = results['data']['node_list']
         process_node_list_obj = ProcessNodeList(node_list, request_params['depth'])
         process_node_list_obj.create_node_list_by_depth()
@@ -651,3 +658,30 @@ class RequestSearchView(generics.ListAPIView):
     def get_paginated_response(self, data):
         assert self.paginator is not None
         return self.paginator.get_paginated_response(data, data_key="items")
+
+class CATVNodeLabelView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsCATVAuthenticated,)
+    
+    def post(self, request):
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        serializer = CATVNodeLabelPostSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user_id = user_details['user_id'])
+        data = serializer.data
+        return APIResponse({
+            'data': data
+        })
+    
+    def delete(self, request):
+        queryset = CatvNodeLabelModel.objects.all()
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        uid = self.request.query_params.get('uid', None)
+        wallet_address = self.request.query_params.get('wallet_address', None)
+        user_id = user_details['user_id']
+        nodeLabel = queryset.filter(Q(uid=uid), Q(wallet_address=wallet_address), Q(user_id=user_id))
+        if nodeLabel.exists():
+            nodeLabel.delete()
+        return APIResponse({
+            "data": "Successfully Deleted"
+        })
