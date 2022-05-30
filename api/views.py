@@ -419,6 +419,8 @@ class CATVReportView(APIView):
                     obj['group'] = 'User Label'
 
         node_list = results['data']['node_list']
+        if type(request_params['depth']) is int:
+            request_params['depth'] = f"{request_params['depth']} / {request_params['depth']}"
         process_node_list_obj = ProcessNodeList(node_list, request_params['depth'])
         process_node_list_obj.create_node_list_by_depth()
         results["data"]["src_node_list_by_depth"] = process_node_list_obj.get_src_node_lists()
