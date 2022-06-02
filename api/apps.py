@@ -7,7 +7,7 @@ import requests
 import json
 import os
 
-
+from api.rpc.RPCServer import AMQPCATVConsuming
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = "ApiConfig"
@@ -54,7 +54,9 @@ class ApiConfig(AppConfig):
             # kafkascheduler.start()
             # import api.signals
             # import search_indexes.signals
-            from api.rpc.RPCServer import AMQPCATVConsuming
             rpcconsumer = AMQPCATVConsuming()
             rpcconsumer.daemon = True
             rpcconsumer.start()
+
+
+            

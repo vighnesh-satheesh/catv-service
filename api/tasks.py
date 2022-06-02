@@ -1,4 +1,3 @@
-import json
 import uuid
 
 from celery.task import Task
@@ -50,23 +49,21 @@ class CatvPathHistoryTask(Task):
         return True
 
 class CatvRequestTask:
-    def __init__(self, topic, requester="catv", **kwargs):
+    def __init__(self, topic, **kwargs):
         self.topic = topic
-        self.requester = requester
         self.message_id = uuid.uuid4()
         self.token_type = kwargs["token_type"]
         self.search_type = kwargs["search_type"]
         self.search_params = kwargs["search_params"]
         self.user = kwargs["user"]
-
+        
     def run(self):
         message_body = {
             "message_id": self.message_id.hex,
             "user_id": self.user["user_id"],
             "token_type": self.token_type,
             "search_type": self.search_type,
-            "search_params": self.search_params,
-            "requester": self.requester
+            "search_params": self.search_params
         }
         CatvJobQueue.objects.create(message=message_body, retries_remaining=1)
     
