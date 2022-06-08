@@ -20,10 +20,6 @@
                     "value": "/UPP/${BUILD_ENV}/PORTAL-CATV-SERVICE"
                 },
                 {
-                    "name": "SENTRY_ENVIRONMENT",
-                    "value": "${SENTRY_ENVIRONMENT}"
-                },
-                {
                     "name": "AWS_REGION",
                     "value": "ap-southeast-1"
                 },
