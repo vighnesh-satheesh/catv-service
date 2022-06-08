@@ -8,7 +8,6 @@ DEBUG = False
 # ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 ALLOWED_HOSTS = ['*', ]
 
-# Sentry
 # TODO: version file or tag?
 version = env.str('PORTAL_API_VERSION', None)
 

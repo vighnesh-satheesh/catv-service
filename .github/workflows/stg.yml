@@ -12,7 +12,6 @@ jobs:
       SLACK_URL: 'https://hooks.slack.com/services/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'
       ECR_REPO_NAME: upp/stg/portal-catv-service
       BUILD_ENV: STG
-      SENTRY_ENV: staging
       APM_SERVICE_NAME: uppsala-stg-portal-catv-service
       SERVICE_NAME: UPP-STG-API-CATV-SERVICE
       CLUSTER_NAME: UPP-STG-API-CLUSTER
@@ -67,7 +66,6 @@ jobs:
           DEPLOYMENT_NAME: ${{env.CONTAINER_NAME}}
           DOCKER_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
           BUILD_ENV: ${{ env.BUILD_ENV }}
-          SENTRY_ENVIRONMENT: ${{env.SENTRY_ENV}}
           APM_SERVICE_NAME: ${{env.APM_SERVICE_NAME}}
           UPP_HOST: ${{env.UPP_HOST}}
         with:

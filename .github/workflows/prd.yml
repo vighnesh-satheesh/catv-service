@@ -12,7 +12,6 @@ jobs:
       SLACK_URL: 'https://hooks.slack.com/services/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'
       ECR_REPO_NAME: upp/prd/portal-catv-service
       BUILD_ENV: PRD
-      SENTRY_ENV: production
       APM_SERVICE_NAME: uppsala-prd-portal-catv-service
       SERVICE_NAME: UPP-PRD-API-CATV-SERVICE
       CLUSTER_NAME: UPP-PRD-API-CLUSTER
@@ -67,7 +66,6 @@ jobs:
           DEPLOYMENT_NAME: ${{env.CONTAINER_NAME}}
           DOCKER_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
           BUILD_ENV: ${{ env.BUILD_ENV }}
-          SENTRY_ENVIRONMENT: ${{env.SENTRY_ENV}}
           APM_SERVICE_NAME: ${{env.APM_SERVICE_NAME}}
           UPP_HOST: ${{env.UPP_HOST}}
         with:
