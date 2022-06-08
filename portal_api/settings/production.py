@@ -10,7 +10,6 @@ ALLOWED_HOSTS += [
     "localhost", "test.sentinelportal.com", "catv-service.api.sentinelprotocol.io", "portal.sentinelprotocol.io"
 ]
 
-# Sentry
 # TODO: version file or tag?
 version = env.str('PORTAL_API_VERSION', None)
 
