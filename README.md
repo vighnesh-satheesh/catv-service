@@ -179,9 +179,6 @@
 - API_TOKEN_ENCRYPT_PRIVATE_KEY
   - **Required**
   - token and password encryption private key file path.
-- API_SENTRY_DSN
-  - **Required** for `production`
-  - Sentry DSN. This is for `production`
 - API_S3_REGION
   - **Required**
   - specifies the S3 region
@@ -242,7 +239,6 @@ PLEASE ADD YOUR AWS CREDENTIALS IF YOU ARE USING DOCKER-COMPOSE TO RUN YOUR DEV 
      - expose file api.
    - PORTAL_API_VERSION
      - portal api server version, not api version.
-     - this is for Sentry release tag.
 
 ### portal-api
 
@@ -260,7 +256,6 @@ PLEASE ADD YOUR AWS CREDENTIALS IF YOU ARE USING DOCKER-COMPOSE TO RUN YOUR DEV 
      - expose general api except file api.
    - PORTAL_API_VERSION
      - portal api server version, not api version.
-     - this is for Sentry release tag.
 
 ### portal-admin
 
