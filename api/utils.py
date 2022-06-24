@@ -155,3 +155,22 @@ def pattern_matches_token(address, token_type):
     if not pattern:
         return False
     return re.compile(pattern).match(address)
+
+def retry_run(tries=5, delay=15, backoff=2):
+    def deco_retry(f):
+        @wraps(f)
+        def f_retry(*args, **kwargs):
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return f(*args, **kwargs)
+                except Exception as e:
+                    print("%s, Retrying in %d seconds..." % (str(e), mdelay))
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return f(*args, **kwargs)
+
+        return f_retry
+
+    return deco_retry

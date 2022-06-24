@@ -20,6 +20,8 @@ from api.multitoken.tokens_auth import MultiToken
 
 from api.settings import api_settings
 from .BasicPikaClient import PikaRabbitMQConfig
+from ..utils import retry_run
+
 
 class AMQPCATVConsuming(threading.Thread):
 
@@ -58,29 +60,40 @@ class AMQPCATVConsuming(threading.Thread):
                              body=0)
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
+    @retry_run(tries=10, delay=30, backoff=2)
     def run(self):
-        if api_settings.RABBIT_MQ_ENV == "local":
-            connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
+        try:
+            if api_settings.RABBIT_MQ_ENV == "local":
+                connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
 
-        else:
-            basic_pika_publisher = PikaRabbitMQConfig(
-                api_settings.RABBIT_MQ_BROKER_ID, 
-                api_settings.RABBIT_MQ_USERNAME, 
-                api_settings.RABBIT_MQ_PASSWORD, 
-                api_settings.RABBIT_MQ_REGION
-            )
-            connection = basic_pika_publisher._get_connection()
-            
-        channel = connection.channel()
+            else:
+                basic_pika_publisher = PikaRabbitMQConfig(
+                    api_settings.RABBIT_MQ_BROKER_ID,
+                    api_settings.RABBIT_MQ_USERNAME,
+                    api_settings.RABBIT_MQ_PASSWORD,
+                    api_settings.RABBIT_MQ_REGION
+                )
+                connection = basic_pika_publisher._get_connection()
 
-        channel.queue_declare(queue='rpc_portal_catv_call')
+            channel = connection.channel()
 
-        channel.basic_qos(prefetch_count=20)
+            channel.queue_declare(queue='rpc_portal_catv_call')
 
-        channel.basic_consume(queue='rpc_portal_catv_call',
-                on_message_callback=self.on_request_portal_catv_call)
+            channel.basic_qos(prefetch_count=20)
 
-        print("[x] Awaiting Portal RPC requests")
-        channel.start_consuming()
+            channel.basic_consume(queue='rpc_portal_catv_call',
+                    on_message_callback=self.on_request_portal_catv_call)
+
+            print("[x] Awaiting Portal RPC requests")
+            channel.start_consuming()
+        except pika.exceptions.ConnectionClosedByBroker as err:
+            print("Connection was closed by broker error: {}, stopping...".format(err))
+            raise
+        except pika.exceptions.AMQPChannelError as err:
+            print("Caught a channel error: {}, stopping...".format(err))
+            raise
+        except pika.exceptions.AMQPConnectionError:
+            print("Connection was closed, retrying...")
+            raise
         
