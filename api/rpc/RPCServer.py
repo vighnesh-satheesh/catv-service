@@ -78,7 +78,7 @@ class AMQPCATVConsuming(threading.Thread):
 
             channel = connection.channel()
 
-            channel.queue_declare(queue='rpc_portal_catv_call')
+            channel.queue_declare(queue='rpc_portal_catv_call', durable=True)
 
             channel.basic_qos(prefetch_count=20)
 
