@@ -1045,7 +1045,7 @@ msgid "Transactions interfere with tracking of Funds"
 msgstr "資金の追跡を妨げる取引"
 
 msgid "Excess input and output transaction"
-msgstr "入出金過多の取引"
+msgstr "送受信過多の取引"
 
 msgid "Single Crypto Asset Transaction occurred recently"
 msgstr "最近発生した単一の暗号資産取引"
@@ -1057,7 +1057,7 @@ msgid "Abnormal swift movement of funds"
 msgstr "異常な資金移動"
 
 msgid "Single incoming-outgoing transactions"
-msgstr "単一の入出金トランザクション"
+msgstr "単一の送受信トランザクション"
 
 msgid "Distinctive Transaction Patterns"
 msgstr "特徴的な取引パターン"
@@ -1069,7 +1069,7 @@ msgid "Transaction activity at regular intervals"
 msgstr "定期的に行われる取引活動"
 
 msgid "Dormant transaction status"
-msgstr "休眠取引の状態"
+msgstr "取引の休眠状態"
 
 msgid "Large crypto asset balance"
 msgstr "暗号資産残高が多い"
