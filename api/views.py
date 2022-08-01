@@ -13,7 +13,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList, RPCClientCATVCheckTerraAccess
 from . import exceptions
 from . import utils
 from .cache.catv import TrackingCache
@@ -117,6 +117,10 @@ class CATVView(APIView):
             CatvTokens.KLAY.value: {
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.LUNC.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
             }
         }
         utils_map = {
@@ -136,6 +140,19 @@ class CATVView(APIView):
         serializer.is_valid(raise_exception=True)
         history = serializer.data
         user_details, verified_token = MultiToken.get_user_from_key(request)
+
+        if token_type == CatvTokens.LUNC.value:
+            rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
+            res = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
+            if "False" in res:
+                print("User doesn't have permission to submit/view Terra reports.")
+                return APIResponse({
+                    "data": {},
+                    "messages": {
+                        "source": "No access for this request. Please contact support for more information."
+                    }
+                })
+
         if api_settings.SWITCH_CATV_KAFKA:
             try:
                 catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
@@ -445,12 +462,30 @@ class CATVReportView(APIView):
             "Cardano": CatvTokens.ADA.value,
             "Binance Smart Chain": CatvTokens.BSC.value,
             "Klaytn": CatvTokens.KLAY.value,
-            "Bitcoin Cash": CatvTokens.BCH.value
+            "Bitcoin Cash": CatvTokens.BCH.value,
+            "LUNC": CatvTokens.LUNC.value,
         }
         
         token_type = utils.determine_wallet_type(obj.token_type)
         has_from_address = obj.params.get("address_from", "")
         token_type = reverse_token_map[token_type]
+        auth = get_authorization_header(request).split()
+        token = auth[1].decode()
+        timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        print(user_details['user_id'])
+        if token_type == CatvTokens.LUNC.value:
+            rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
+            res = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
+            if "False" in res:
+                print("User doesn't have permission to submit/view Terra reports.")
+                return APIResponse({
+                    "data": {},
+                    "messages": {
+                        "source": "No access for this request. Please contact support for more information."
+                    }
+                })
+
         search_type = CatvSearchType.PATH.value if has_from_address else CatvSearchType.FLOW.value
         catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
                                         token_type=token_type,
@@ -464,9 +499,6 @@ class CATVReportView(APIView):
 
         rpc = RPCClientUpdateUsageCatvCall()
         auth = get_authorization_header(request).split()
-        token = auth[1].decode()
-        timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
-        user_details, verified_token = MultiToken.get_user_from_key(request)
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
                     "uid": str(user_details['user_uid'])}
         res = (rpc.call(user_rpc)).decode('UTF-8')
