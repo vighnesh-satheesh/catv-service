@@ -36,4 +36,5 @@ if settings.EXPOSE_GENERAL_API:
             name='catv-request-detail'),
         url(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
         url(r'^catvnodelabel/?$', views.CATVNodeLabelView.as_view(), name='catv-node-label'),
+        url(r'^catvcsvupload/?$', views.CATVCSVUploadView.as_view(), name='catv-csv-upload'),
     ]
