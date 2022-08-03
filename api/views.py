@@ -1,8 +1,10 @@
 import ast
 import gzip
 import json
+import uuid
 from operator import gt, lt
-
+import pandas as pd
+from django.db import transaction
 import boto3
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
@@ -13,7 +15,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList, RPCClientCATVCheckTerraAccess
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList, RPCClientCATVCheckTerraAccess, RPCClientUpdateUsageCSVCatvCall
 from . import exceptions
 from . import utils
 from .cache.catv import TrackingCache
@@ -22,7 +24,7 @@ from .catvutils.process_node_list import ProcessNodeList
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
-    ProductType, CatvNodeLabelModel
+    ProductType, CatvNodeLabelModel, CatvCSVJobQueue
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .pagination import CatvRequestPagination, CustomPagination
@@ -719,3 +721,95 @@ class CATVNodeLabelView(APIView):
         return APIResponse({
             "data": "Successfully Deleted"
         })
+
+class CATVCSVUploadView(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsCATVAuthenticated,)
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+
+    def post(self, request):
+        try:
+            result = request.FILES['file']
+            df = pd.read_csv(result)
+            total_length = df.shape[0]
+            total_column = df.shape[1]
+            user_details, verified_token = MultiToken.get_user_from_key(request)
+            rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
+            res_Terra = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
+            if total_length > 0 and total_column == 8:
+                df.drop_duplicates(subset="wallet_address", keep="first", inplace=True)
+                df['token_address'].fillna("0x0000000000000000000000000000000000000000", inplace = True)
+                newdf = df[(df['token_type'].str.contains(CatvTokens.ETH.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
+                            (df['token_type'].str.contains(CatvTokens.BTC.value) & df['wallet_address'].str.match("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")) |
+                            (df['token_type'].str.contains(CatvTokens.TRON.value) & df['wallet_address'].str.match("^T[a-zA-Z0-9]{21,34}$")) |
+                            (df['token_type'].str.contains(CatvTokens.LTC.value) & df['wallet_address'].str.match("^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$")) |
+                            (df['token_type'].str.contains(CatvTokens.BCH.value) & df['wallet_address'].str.match("^([13][a-km-zA-HJ-NP-Z1-9]{25,34})|^((bitcoincash:)?(q|p)[a-z0-9]{41})|^((BITCOINCASH:)?(Q|P)[A-Z0-9]{41})$")) |
+                            (df['token_type'].str.contains(CatvTokens.XRP.value) & df['wallet_address'].str.match("^r[0-9a-zA-Z]{24,34}$")) |
+                            (df['token_type'].str.contains(CatvTokens.EOS.value) & df['wallet_address'].str.match("^[1-5a-z.]{12}$")) |
+                            (df['token_type'].str.contains(CatvTokens.XLM.value) & df['wallet_address'].str.match("^[0-9a-zA-Z]{56}$")) |
+                            (df['token_type'].str.contains(CatvTokens.BNB.value) & df['wallet_address'].str.match("^(bnb1)[0-9a-z]{38}$")) |
+                            (df['token_type'].str.contains(CatvTokens.ADA.value) & df['wallet_address'].str.match("^[0-9a-zA-Z]+$")) |
+                            (df['token_type'].str.contains(CatvTokens.BSC.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
+                            (df['token_type'].str.contains(CatvTokens.KLAY.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
+                            (df['token_type'].str.contains(CatvTokens.LUNC.value) & df['wallet_address'].str.match("^(terra1)[0-9a-z]{38}$"))]
+                newdf['from_date'] = pd.to_datetime(newdf['from_date'])
+                newdf['from_date'] = newdf['from_date'].dt.strftime('%Y-%m-%d')
+                newdf['to_date'] = pd.to_datetime(newdf['to_date'])
+                newdf['to_date'] = newdf['to_date'].dt.strftime('%Y-%m-%d')
+                if "False" in res_Terra:
+                    newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
+                final_length = len(newdf)
+                verified_data = newdf.to_json(index=1, orient='records')
+                json_df = json.loads(verified_data)
+                print('processed request', final_length)
+                job_quene = list()
+                request_csv = list()
+                result_csv = list()
+                for params in json_df:
+                    message_id = uuid.uuid4()
+                    message_body = {
+                        "message_id": message_id.hex,
+                        "user_id": request.user["user_id"],
+                        "token_type": params['token_type'],
+                        "search_params": params
+                    }
+                    job_quene.append(CatvCSVJobQueue(message=message_body, retries_remaining=1))
+                    request_csv.append(CatvRequestStatus(uid=message_id, params=params, user_id=request.user["user_id"], token_type=params['token_type']))
+                with transaction.atomic():
+                    CatvCSVJobQueue.objects.bulk_create(job_quene)
+                    task_record = CatvRequestStatus.objects.bulk_create(request_csv)
+                    for result_record in task_record:
+                        result_csv.append(CatvResult(request=result_record))
+                    CatvResult.objects.bulk_create(result_csv)
+                rpc = RPCClientUpdateUsageCSVCatvCall()
+                auth = get_authorization_header(request).split()
+                token = auth[1].decode()
+                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                            "uid": str(user_details['user_uid']), "csv_records": final_length}
+                res = (rpc.call(user_rpc)).decode('UTF-8')
+                print("Submission Status: ", res)
+                return APIResponse({
+                        "data": json_df,
+                        "messages": {
+                            "source":  f"{final_length} Addresses are successfully submitted for report generation."
+                        }
+                    })
+            elif total_length == 0 and total_column == 8:
+                return APIResponse({
+                        "data": {
+                            "error": f"In this CSV no entry is entered. Please check the file and trying to re-upload."
+                        }
+                    })
+            else:
+                return APIResponse({
+                        "data": {
+                            "error": f"CSV Format is not correct. Please check the file and trying to re-upload."
+                        }
+                    })
+        except:
+                raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
+                                             f"Please try again later.")
