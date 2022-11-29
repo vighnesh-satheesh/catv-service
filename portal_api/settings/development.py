@@ -3,7 +3,7 @@ from .base import *
 
 DEBUG = True
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
 ALLOWED_HOSTS += ["172.21.20.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["10.12.49.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["10.12.50.%s" % s for s in range(2, 255)]
@@ -53,5 +53,3 @@ SWAGGER_SETTINGS = {
     'LOGIN_URL': None,
     'LOGOUT_URL': None,
 }
-
-# CORS_ORIGIN_ALLOW_ALL = True

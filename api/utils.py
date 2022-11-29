@@ -4,8 +4,8 @@ import re
 from datetime import datetime
 
 from django.db.models import Q
-from django.utils import six
-from django.utils.encoding import force_text
+from six import text_type
+from django.utils.encoding import force_str
 
 from rest_framework import exceptions as rf_exceptions
 from rest_framework.views import exception_handler
@@ -32,9 +32,9 @@ def get_validation_error_detail(data):
         }
         return ret
     elif isinstance(data, rf_exceptions.ErrorDetail):
-        return six.text_type(data).lower()
+        return text_type(data).lower()
 
-    text = force_text(data)
+    text = force_str(data)
     return text
 
 

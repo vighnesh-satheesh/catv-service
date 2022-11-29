@@ -7,7 +7,7 @@ import pandas as pd
 from django.db import transaction
 import boto3
 from django.db.models import Q
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
 from rest_framework import generics
 from rest_framework.authentication import get_authorization_header
@@ -37,7 +37,7 @@ from .serializers import (
 )
 from .settings import api_settings
 from .tasks import (
-    CatvHistoryTask, CatvPathHistoryTask, CatvRequestTask
+    catv_history_task, catv_path_history_task, CatvRequestTask
 )
 from .throttling import (
     CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle
@@ -128,11 +128,11 @@ class CATVView(APIView):
         utils_map = {
             CatvSearchType.FLOW.value: {
                 'pattern_creator': utils.create_tracking_cache_pattern,
-                'history_runner': CatvHistoryTask
+                'history_runner': catv_history_task
             },
             CatvSearchType.PATH.value: {
                 'pattern_creator': utils.create_path_cache_pattern,
-                'history_runner': CatvPathHistoryTask
+                'history_runner': catv_path_history_task
             }
         }
 
@@ -198,12 +198,12 @@ class CATVView(APIView):
             history.update({'user_id': user_details['user_id'], 'token_type': token_type})
             if not serializer.data.get('force_lookup', False) and cached_entry:
                 results = json.loads(gzip.decompress(cached_entry).decode())
-                history_runner().run(history=history, from_history=True)
+                history_runner.delay(history=history, from_history=True)
             else:
                 results = serializer.get_tracking_results()
                 from_db = results["api_calls"] > 0
                 tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-                history_runner().run(history=history, from_history=from_db)
+                history_runner.delay(history=history, from_history=from_db)
 
             catv_metrics = CatvMetrics(results["graph"])
             if history.get("distribution_depth", 0) > 0:
@@ -270,7 +270,7 @@ class CATVBTCView(APIView):
             user_details, verified_token = MultiToken.get_user_from_key(request)
             history.update({'user_id': user_details["user_id"], 'token_type': CatvTokens.BTC.value})
             results = serializer.get_tracking_results()
-            CatvHistoryTask().delay(history=history, from_history=False)
+            catv_history_task.delay(history=history, from_history=False)
             if "graph" in results and "messages" in results:
                 return APIResponse({
                     "data": {**results["graph"]},

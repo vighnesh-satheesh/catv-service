@@ -2,7 +2,8 @@ import uuid
 import warnings
 from enum import Enum
 
-from django.contrib.postgres.fields import ArrayField, JSONField
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import JSONField
 from django.db import models
 from django.db.models.lookups import IContains
 from django.utils.timezone import now
@@ -171,7 +172,7 @@ class CatvResult(models.Model):
 
 
 class CatvJobQueue(models.Model):
-    message = JSONField(default={})
+    message = JSONField(default=dict)
     retries_remaining = models.IntegerField(default=3)
     created = models.DateTimeField(default=now)
 
@@ -192,7 +193,7 @@ class CatvNodeLabelModel(models.Model):
         db_table = "api_catv_node_label_request"
 
 class CatvCSVJobQueue(models.Model):
-    message = JSONField(default={})
+    message = JSONField(default=dict)
     retries_remaining = models.IntegerField(default=3)
     created = models.DateTimeField(default=now)
     class Meta:

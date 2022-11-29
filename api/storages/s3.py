@@ -16,9 +16,9 @@ from django.core.files.storage import Storage
 from django.core.files.base import File
 
 from django.contrib.staticfiles.storage import ManifestFilesMixin
-from django.utils.six.moves.urllib.parse import urljoin
+from six.moves.urllib.parse import urljoin
 from django.utils.deconstruct import deconstructible
-from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import force_bytes, force_str
 from django.utils.timezone import make_naive, utc
 
 from ..settings import api_settings
@@ -40,7 +40,7 @@ def _wrap_errors(func):
         try:
             return func(self, name, *args, **kwargs)
         except ClientError as ex:
-            raise S3Error("S3Storage error at {!r}: {}".format(name, force_text(ex)))
+            raise S3Error("S3Storage error at {!r}: {}".format(name, force_str(ex)))
     return _do_wrap_errors
 
 

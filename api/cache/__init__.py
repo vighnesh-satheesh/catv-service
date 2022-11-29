@@ -1,14 +1,14 @@
 from json import loads, dumps
 import random, string
 
-from django.core.cache import caches, cache
+from django.core.cache import cache
 
 class DefaultCache:
     def __init__(self):
         pass
 
     def get_cache(self):
-        return caches["default"]
+        return cache
 
     def delete_key(self, key):
         c = self.get_cache()

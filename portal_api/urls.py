@@ -15,10 +15,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.conf import settings
-from django.conf.urls import url, include, re_path
+from django.urls import include, re_path, path
 from django.conf.urls.i18n import i18n_patterns
-from django.urls import path
-from django.conf.urls.static import static
 
 from api.router import urlpatterns as api_urls
 
@@ -32,6 +30,6 @@ if settings.ENVIRONMENT == "development":
     import debug_toolbar
     urlpatterns += [
         path('admin/', admin.site.urls),
-        url(r'^__debug__/', include(debug_toolbar.urls)),
+        re_path(r'^__debug__/', include(debug_toolbar.urls)),
     ]
     # urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

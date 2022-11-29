@@ -1,4 +1,4 @@
-from django.utils import six
+from six import text_type
 from django.utils.text import Truncator
 from django.db import models
 from django.db.models import Lookup
@@ -35,10 +35,10 @@ class TruncatedCharField(serializers.CharField):
 
     def to_representation(self, value):
         if len(value) <= self.truncate_len:
-            return six.text_type(value)
+            return text_type(value)
         else:
             new_truncate_len = self.truncate_len - len(self.placeholder)
-            return six.text_type(Truncator(value).chars(new_truncate_len,
+            return text_type(Truncator(value).chars(new_truncate_len,
                                                         truncate=self.placeholder))
 
 

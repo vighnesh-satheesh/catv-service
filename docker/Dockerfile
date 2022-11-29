@@ -1,4 +1,4 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.6.5-stretch
+FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.10.5-buster
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -31,9 +31,12 @@ WORKDIR /app
 
 # Install packages
 # Install nodejs and pm2
-RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
 RUN apt-get update && \
-    apt-get install -y nodejs redis-server gettext && \
+    apt-get install -y \
+    nodejs \
+    redis-server \
+    gettext && \
     npm install pm2@3.5.1 -g
 
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
@@ -41,9 +44,10 @@ RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fo
 # Install requirements
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
-RUN pip install -r ./requirements.txt && \
+RUN pip install --upgrade pip setuptools==58.0.0 && \
+    pip install -r /app/requirements.txt && \
     pip install uwsgi && \
-    pip install -e ./library/indicator-lib/src/py
+    pip install -e /app/library/indicator-lib/src/py
 
 # Bundle APP files
 COPY . .
