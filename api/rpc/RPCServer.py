@@ -13,7 +13,7 @@ from django.db import connection, connections, transaction
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.core.files.base import ContentFile
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from api.constants import Constants
 from api.multitoken.tokens_auth import MultiToken
