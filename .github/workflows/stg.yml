@@ -14,7 +14,7 @@ jobs:
       BUILD_ENV: STG
       APM_SERVICE_NAME: uppsala-stg-portal-catv-service
       SERVICE_NAME: UPP-STG-API-CATV-SERVICE
-      CLUSTER_NAME: UPP-STG-API-CLUSTER
+      CLUSTER_NAME: UPP-STG-CLUSTER
       CONTAINER_NAME: UPP-STG-API-CATV
       TASK_DEF_NAME: UPP-STG-API-CATV
       UPP_HOST: stgcatv-service.api.sentinelprotocol.io
