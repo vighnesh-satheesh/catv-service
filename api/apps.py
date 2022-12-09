@@ -10,10 +10,10 @@ import os
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = "ApiConfig"
-    if os.environ.get("CONTAINER_TYPE", None) == "catvms_api":
-        app = Celery('tasks')
-        app.config_from_object('django.conf:settings')
-        app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
+    # if os.environ.get("CONTAINER_TYPE", None) == "catvms_api":
+    #     app = Celery('tasks')
+    #     app.config_from_object('django.conf:settings')
+    #     app.autodiscover_tasks(lambda: [n.name for n in apps.get_app_configs()])
 
     @classmethod
     def init_cache(cls, user_model):

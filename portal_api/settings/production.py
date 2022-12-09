@@ -7,7 +7,7 @@ DEBUG = False
 
 ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "catv-service.api.sentinelprotocol.io", "portal.sentinelprotocol.io"
+    "localhost", "test.sentinelportal.com", "catv-service.api.sentinelprotocol.io", "portal.sentinelprotocol.io", "stgportal.sentinelprotocol.io"
 ]
 
 # TODO: version file or tag?
@@ -56,4 +56,4 @@ LOGGING = {
     }
 }
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
