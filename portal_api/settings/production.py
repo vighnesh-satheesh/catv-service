@@ -13,6 +13,10 @@ ALLOWED_HOSTS += [
 # TODO: version file or tag?
 version = env.str('PORTAL_API_VERSION', None)
 
+INSTALLED_APPS = [
+    'django.contrib.admin',
+] + INSTALLED_APPS
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
