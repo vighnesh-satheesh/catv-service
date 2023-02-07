@@ -178,11 +178,6 @@ CORS_ALLOW_HEADERS = default_headers + (
 )
 
 
-# file stoage
-
-DEFAULT_FILE_STORAGE = "api.storages.s3.S3Storage"
-
-
 # Default auto-created primary keys
 
 DEFAULT_AUTO_FIELD='django.db.models.AutoField'

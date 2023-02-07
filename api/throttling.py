@@ -39,19 +39,3 @@ class CatvPostThrottle(UserRateThrottle):
             'scope': self.scope,
             'ident': ident
         }
-
-class CATVInternalPostThrottle(AnonRateThrottle):
-    scope = "catvInternalPost"
-
-    def get_cache_key(self, request, view):
-        user_details, verified_token = MultiToken.get_user_from_key(request)
-        if user_details['is_authenticated']:
-            ident = user_details['user_id']
-        else:
-            ident = self.get_ident(request)
-
-        return self.cache_format % {
-            'scope': self.scope,
-            'ident': ident
-        }
-

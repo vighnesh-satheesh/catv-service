@@ -538,19 +538,6 @@ class CATVMultiReportView(APIView):
         if ids is not None:
             main_ids = [x.strip() for x in ids.split(',')]
             catv_results = self.get_objects(main_ids)
-
-            # for m in mainIds:
-            #     obj = self.get_object(m)
-            #     if not obj.result_file_id:
-            #         return APIResponse({
-            #             "data": {},
-            #             "messages": {
-            #                 "source": "Results not generated yet. Please try again later."
-            #             }
-            #         })
-            #     catv_results.append(obj)
-            #     result_file_ids.append(obj.result_file_id)
-
             for obj in catv_results:
                 if not obj.result_file_id:
                     return APIResponse({
