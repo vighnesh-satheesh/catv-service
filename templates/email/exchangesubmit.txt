@@ -1,7 +1,0 @@
-Hi {{ nickname }},
-
-{{text}}
-
-Best regards,
-Team Sentinel Protocol
-Uppsala Security

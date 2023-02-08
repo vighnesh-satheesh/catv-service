@@ -28,10 +28,6 @@ class AuthenticationCheckError(exceptions.AuthenticationFailed):
 # 404
 #####
 
-
-class UserNotFound(exceptions.NotFound):
-    default_detail = _('user not found')
-
 class FileNotFound(exceptions.NotFound):
     default_detail = _('file not found')
 
