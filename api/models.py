@@ -37,8 +37,30 @@ class CatvTaskStatusType(Enum):
     RELEASED = 'released'
     FAILED = 'failed'
 
+class PostgresILike(IContains):
+    lookup_name = 'ilike'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return '%s ILIKE %s' % (lhs, rhs), params
+
 class ProductType(Enum):
     CATV = 'catv'
+
+class PostgresArrayILike(IContains):
+    lookup_name = 'arrayilike'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return 'array_to_text(%s) ILIKE %s' % (lhs, rhs), params
+
+models.CharField.register_lookup(PostgresILike)
+models.TextField.register_lookup(PostgresILike)
+ArrayField.register_lookup(PostgresArrayILike)
 
 class BloxyDistribution(models.Model):
     address = models.CharField(null=False, max_length=50)
