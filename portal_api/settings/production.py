@@ -5,9 +5,10 @@ env = environ.Env()
 
 DEBUG = False
 
-ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
+# ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
+ALLOWED_HOSTS += ['10.14.{}.{}'.format(i, j) for i in range(256) for j in range(256)]
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "catv-service.api.sentinelprotocol.io", "portal.sentinelprotocol.io", "stgportal.sentinelprotocol.io"
+    "localhost", "test.sentinelportal.com", "catv-service.api.sentinelprotocol.io", "portal.api.sentinelprotocol.io", "portal.sentinelprotocol.io", ".sentinelprotocol.io"
 ]
 
 # TODO: version file or tag?
