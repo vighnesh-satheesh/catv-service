@@ -1,23 +1,11 @@
 import ast
 import threading
-import json
-import time
+import traceback
 
 import pika
-from datetime import date, datetime
-from uuid import UUID, uuid4
-
-from dateutil.relativedelta import relativedelta
-from django.conf import settings
-from django.db import connection, connections, transaction
-from django.db.models import Q
-from django.db.models.functions import Lower
-from django.core.files.base import ContentFile
-from django.utils.translation import gettext_lazy as _
+from django.db import connections
 
 from api.constants import Constants
-from api.multitoken.tokens_auth import MultiToken
-
 from api.settings import api_settings
 from .BasicPikaClient import PikaRabbitMQConfig
 from ..utils import retry_run
@@ -29,12 +17,11 @@ class AMQPCATVConsuming(threading.Thread):
         try:
             query_list = Constants.QUERIES['CATV_USAGE_QUERY'].format(
                 tz, date_range, user)
-            with connection.cursor() as cursor:
+            with connections['readonly'].cursor() as cursor:
                 cursor.execute(query_list)
                 result = cursor.fetchall()
-
         except Exception as e:
-            print(f"Exception in updating catv usage - {e}")
+            traceback.print_exc()
             return False
         return result
 
