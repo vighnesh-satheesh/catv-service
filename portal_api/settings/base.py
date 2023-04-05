@@ -102,6 +102,7 @@ CACHES = {
     'default': env.cache(),
     'token': env.cache('REDIS_TOKEN_URL'),
     'user_cache': env.cache('REDIS_USER_CACHE'),
+    'api_icf_cache': env.cache('API_ICF_CACHE'),
     'local_cache': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
@@ -147,7 +148,8 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_THROTTLE_RATES': {
         'catvPost': '5/min',
-        'catvInternalPost': '1/min'
+        'catvInternalPost': '1/min',
+        'catvApiPost': '5/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -287,6 +289,7 @@ API_SETTINGS = {
     "RABBIT_MQ_ENV":env.str("RABBIT_MQ_ENV", "production"),
     "RABBIT_MQ_LOCAL_URL":env.str("RABBIT_MQ_LOCAL_URL", "rabbitmq"),
     "API_USER_CACHE": env.str('API_USER_CACHE_DB', 'user_cache'),
+    "API_ICF_CACHE": env.str('API_ICF_CACHE_DB', 'api_icf_cache'),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
