@@ -4,7 +4,7 @@ from django.urls import re_path, include
 from rest_framework import routers
 # from rest_framework_swagger.views import get_swagger_view
 
-from . import views
+from . import views,api_views
 from .internal import views as views_internal
 
 router = routers.SimpleRouter()
@@ -37,4 +37,8 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
         re_path(r'^catvnodelabel/?$', views.CATVNodeLabelView.as_view(), name='catv-node-label'),
         re_path(r'^catvcsvupload/?$', views.CATVCSVUploadView.as_view(), name='catv-csv-upload'),
+        re_path(r'^api_key_info', api_views.ApiKeyInfo.as_view(),name='api-key-info'),
+        re_path(r'^v1/source', api_views.CatvInbound.as_view(),name='catv-inbound'),
+        re_path(r'^v1/destination', api_views.CatvOutbound.as_view(),name='catv-outbound'),
+        re_path(r'^v1/supported_networks', api_views.CatvSupportedNetworks.as_view(),name='catv-supported-networks')
     ]
