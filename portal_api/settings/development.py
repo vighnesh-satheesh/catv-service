@@ -7,7 +7,7 @@ DEBUG = True
 # ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 ALLOWED_HOSTS += ['10.12.{}.{}'.format(i, j) for i in range(256) for j in range(256)]
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io"
+    "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io", "stgcatv.api.sentinelprotocol.io"
 ]
 
 INSTALLED_APPS = [
