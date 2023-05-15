@@ -46,7 +46,7 @@ def check_es_status():
     global ES_FLAG
     if ES_FLAG:
         try:
-            res = requests.head(ES_URL, timeout=3)
+            res = requests.head(API_ELASTICSEARCH_HOST, timeout=3)
         except ConnectTimeout:
             ES_FLAG = False
     return ES_FLAG
@@ -96,11 +96,11 @@ INSUFFICIENT_CREDIT = {"status": False,
 REQUEST_BODY_MISSING = {"status": False,
                         "data": {"message": "Unable to parse body"}}
 API_KEY_MISSING = {"status": False, "data": {"message": "Api key required"}}
-BLOXY_API_KEY = os.environ['BLOXY_API_KEY']
+API_BLOXY_KEY = os.environ['API_BLOXY_KEY']
 BLOXY_UTXO_ENDPOINT = "https://sentinel.api.bitquery.io/bitcoin:coinpath"
 BLOXY_QUORUM_ENDPOINT = "https://sentinel.api.bitquery.io/ripple:sentinel"
 BLOXY_ENDPOINT = "https://sentinel.api.bitquery.io/coinpath"
-ES_URL = os.environ['ES_URL']
+API_ELASTICSEARCH_HOST = os.environ['API_ELASTICSEARCH_HOST']
 ES_FLAG = True
 env = os.environ.get("CATVMS_API_ENV")
 ES_INDEX = 'dev_latest_indicator'
@@ -115,7 +115,7 @@ rate_limit_mapping = {
         'key': 'header:X-Api-Key',
     }
 }
-ES_AUTH = os.environ['ES_AUTH'].split(':')
+ES_AUTH = os.environ['API_ELASTICSEARCH_CREDENTIALS'].split(':')
 
 def get_rate(_id, key):
     def __get_key(_id, _key):
@@ -159,7 +159,7 @@ def catv_query(route, request, chain):
         else:
             url = f"{base}/{route}_graph"
         params['chain'] = BLOXY_CHAIN_MAP.get(params['chain'].upper())
-        params['key'] = BLOXY_API_KEY
+        params['key'] = API_BLOXY_KEY
         bloxy_res = requests.get(
             url, params=params, timeout=60*5).json()
         if 'error' in bloxy_res:
@@ -193,7 +193,7 @@ def catv_query(route, request, chain):
                     }
                 }
                 es_res = requests.post(
-                    f"{ES_URL}/{ES_INDEX}/_search", json=query, auth=tuple(ES_AUTH))
+                    f"{API_ELASTICSEARCH_HOST}/{ES_INDEX}/_search", json=query, auth=tuple(ES_AUTH))
                 if not es_res.ok:
                     pass
                 es_res = [r['_source']
