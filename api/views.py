@@ -172,7 +172,7 @@ class CATVView(APIView):
                 token = auth[1].decode()
                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
                 # user_details, verified_token = MultiToken.get_user_from_key(request)
-                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),'source':'portal',
                             "uid": str(user_details['user_uid'])}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
                 print("Submission Status: ", res)
@@ -252,7 +252,7 @@ class CATVBTCView(APIView):
                 token = auth[1].decode()
                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
                 user_details, verified_token = MultiToken.get_user_from_key(request)
-                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
                             "uid": str(user_details['user_uid'])}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
                 print("Submission Status: ", res)
@@ -501,7 +501,7 @@ class CATVReportView(APIView):
 
         rpc = RPCClientUpdateUsageCatvCall()
         auth = get_authorization_header(request).split()
-        user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+        user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
                     "uid": str(user_details['user_uid'])}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         print("Submission Status: ", res)
