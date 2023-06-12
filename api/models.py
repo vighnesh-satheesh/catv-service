@@ -208,7 +208,19 @@ class CatvCSVJobQueue(models.Model):
             models.Index(fields=['created'])
         ]
 
-
+class UserRoles(Enum):
+    COMMUNITY = 'communityuser'
+    PAID = 'paiduser'
+    ORG = 'organization'
+    ORG_TRIAL = 'organization-trial'
+    SENTINEL = 'sentinel'
+    SUPERSENTINEL = 'supersentinel'
+    COMMUNITY_VERIFIED = 'communityuser-verified'
+    WEB3COMMUNITY = 'Web3-Community'
+    INVESTIGATOR_STARTER_CAMS = 'Investigator-Starter_CAMS'
+    INVESTIGATOR_PRO_CAMS ='Investigator-Pro_CAMS'
+    INVESTIGATOR_ADVANCED_CAMS ='Investigator-Advanced_CAMS'
+    
 class ApiCase(models.Model):
     # For api_case table
     # user generated info
