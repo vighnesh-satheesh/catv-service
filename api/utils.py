@@ -12,11 +12,12 @@ from rest_framework.views import exception_handler
 
 from .response import APIResponse
 from .models import (
-    CatvTokens, CatvHistory
+    CatvTokens, CatvHistory, UserRoles
 )
 from . import exceptions
 
-
+SUBSCRIBED_ROLES = [UserRoles.INVESTIGATOR_STARTER_CAMS.value, UserRoles.INVESTIGATOR_ADVANCED_CAMS.value,
+                        UserRoles.INVESTIGATOR_PRO_CAMS.value]
 def get_validation_error_detail(data):
     if isinstance(data, list):
         ret = [
