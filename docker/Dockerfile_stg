@@ -1,4 +1,4 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
+FROM python:3.10.12
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -44,7 +44,7 @@ RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fo
 # Install requirements
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
-RUN pip install --upgrade pip setuptools==58.0.0 && \
+RUN pip install --upgrade pip setuptools && \
     pip install -r /app/requirements.txt && \
     pip install uwsgi && \
     pip install -e /app/library/indicator-lib/src/py
