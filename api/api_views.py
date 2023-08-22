@@ -27,7 +27,7 @@ from .models import (
 from .multitoken.tokens_auth import CachedTokenAuthentication
 from .response import APIResponse
 
-from web3 import Web3
+from web3 import Web3, HTTPProvider
 
 class HealthCheckView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
@@ -51,8 +51,10 @@ def check_es_status():
             ES_FLAG = False
     return ES_FLAG
 
-w3 = Web3(Web3.HTTPProvider(
+
+web3_client = Web3(HTTPProvider(
     "https://mainnet.infura.io/v3/c3cddab6058f4f2fa6e0b60d2a4fd670"))
+
 
 
 def consume_key(user_details,key):
@@ -165,8 +167,8 @@ def catv_query(route, request, chain):
         if 'error' in bloxy_res:
             print(f"bloxy error: {bloxy_res}")
             return JsonResponse(INTERNAL_SERVER_ERROR, status=500)
-        addr_list = [w3.toChecksumAddress(a['sender']) if chain.upper() == 'ETH' else a['sender']
-                     for a in bloxy_res]+[w3.toChecksumAddress(a['receiver']) if chain.upper() == 'ETH' else a['receiver'] for a in bloxy_res]
+        addr_list = [web3_client.to_checksum_address(a['sender']) if chain.upper() == 'ETH' else a['sender']
+                     for a in bloxy_res]+[web3_client.to_checksum_address(a['receiver']) if chain.upper() == 'ETH' else a['receiver'] for a in bloxy_res]
         addr_list = list(set(addr_list))
         addr_query = [{"bool": {"must": {"match": {"pattern": a}}, "should": [{"match": {
             "cases": "released"}}, {"match": {"cases": "confirmed"}}]}} for a in addr_list]
@@ -359,7 +361,7 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
             if addr[:2].lower() == '0x':
                 # Validate eth
                 try:
-                    addr = w3.toChecksumAddress(addr)
+                    addr = web3_client.to_checksum_address(addr)
                     return addr.lower()
                 except ValueError:
                     return None

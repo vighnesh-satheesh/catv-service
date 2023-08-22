@@ -96,13 +96,22 @@ DATABASES = {
 }
 
 DATABASE_ROUTERS = ['portal_api.settings.DatabaseRouter.DatabaseRouter']
-
+CACHE_BACKEND = 'django_redis.cache.RedisCache'
 # Caches
 CACHES = {
     'default': env.cache(),
-    'token': env.cache('REDIS_TOKEN_URL'),
-    'user_cache': env.cache('REDIS_USER_CACHE'),
-    'api_icf_cache': env.cache('API_ICF_CACHE'),
+    'token': {
+        'BACKEND': CACHE_BACKEND,
+        'LOCATION': env.str('REDIS_TOKEN_URL'),
+    },
+    'user_cache': {
+        'BACKEND': CACHE_BACKEND,
+        'LOCATION': env.str('REDIS_USER_CACHE'),
+    },
+    'api_icf_cache': {
+        'BACKEND': CACHE_BACKEND,
+        'LOCATION': env.str('API_ICF_CACHE'),
+    },
     'local_cache': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/10'
