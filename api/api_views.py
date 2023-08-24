@@ -4,7 +4,6 @@ import math
 import os
 import re
 import traceback
-import coinaddr
 from operator import gt, lt
 from django.http import JsonResponse
 from django.db.models import Q
@@ -16,6 +15,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from requests.exceptions import ConnectTimeout
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall
+from api.utils import validate_coin
 from .validators import bech32
 from .validators.coindata import coindata
 from json import JSONDecodeError
@@ -373,7 +373,7 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
                     if val:
                         return addr
                 elif addr[:1].lower() == '1' or addr[:1].lower() == '3':
-                    val = coinaddr.validate('btc', addr.encode())
+                    val = validate_coin(addr)
                     if val.valid:
                         return addr
                 return None

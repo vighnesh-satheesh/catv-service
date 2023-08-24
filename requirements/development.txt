@@ -1,5 +1,6 @@
 APScheduler==3.6.0
 backports.functools-lru-cache==1.6.1
+base58
 billiard==4.1.0
 boto3==1.28.27
 botocore==1.31.27
@@ -7,7 +8,6 @@ celery==5.3.1
 certifi==2023.7.22
 cffi==1.15.1
 chardet==3.0.4
-coinaddr==1.0.1
 coreapi==2.3.3
 coreschema==0.0.4
 cytoolz==0.12.2
