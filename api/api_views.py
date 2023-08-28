@@ -1,4 +1,5 @@
 import ast
+import datetime
 import json
 import math
 import os
@@ -15,6 +16,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from requests.exceptions import ConnectTimeout
+from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall
 from .validators import bech32
 from .validators.coindata import coindata
@@ -145,23 +147,24 @@ def get_rate(_id, key):
 
 def catv_query(route, request, chain):
     try:
-        base = BLOXY_ENDPOINT
+        source = True
+        token = None
         params = {k: v for k, v in request.GET.items()}
         if chain.upper() in UTXO_CHAINS:
-            base = BLOXY_UTXO_ENDPOINT
             params.pop('token', None)
-            url = f"{base}/{route}_graph"
+   
         elif chain.upper() in QUORUM_CHAINS:
-            base = BLOXY_QUORUM_ENDPOINT
             if 'token' in params:
                 params['symbol'] = params.pop('token', None)
-            url = f"{base}/{route}_graph"
-        else:
-            url = f"{base}/{route}_graph"
-        params['chain'] = BLOXY_CHAIN_MAP.get(params['chain'].upper())
-        params['key'] = API_BLOXY_KEY
-        bloxy_res = requests.get(
-            url, params=params, timeout=60*5).json()
+                token = params['symbol']
+
+        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+        if(route == 'outbound'):
+            source = False
+        bloxy_res = bloxy.get_transactions(params['address'], 50000, params['limit'],
+                                                   params['depth_limit'], source, params['chain'],
+                                                   params['from_date'], params['till_date'], token
+                                                )
         if 'error' in bloxy_res:
             print(f"bloxy error: {bloxy_res}")
             return JsonResponse(INTERNAL_SERVER_ERROR, status=500)

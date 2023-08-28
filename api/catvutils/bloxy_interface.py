@@ -1,7 +1,7 @@
 import requests
 import traceback
 from datetime import datetime
-
+from ..settings import api_settings
 from django.conf import settings
 from api.models import CatvTokens
 
@@ -14,7 +14,7 @@ class BloxyAPIInterface:
         self._source_endpoint_btc = settings.BLOXY_BTC_SRC_ENDPOINT
         self._distribution_endpoint_btc = settings.BLOXY_BTC_DIST_ENDPOINT
         self._graphql_key = settings.GRAPHQL_X_API_KEY
-        self._graphql_endpoint = settings.GRAPHQL_ENDPOINT
+        self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
 
     def call_bloxy_api(self, api_url, data, timeout=600):
         print('api_url:', api_url)
@@ -25,10 +25,11 @@ class BloxyAPIInterface:
         response = res.json()
         return response
 
-    def get_transactions(self, address, tx_limit, limit, depth_limit=2,
+    def get_transactions(self, address, tx_limit=10000, limit=10000, depth_limit=2, source=True, chain='ETH',
                          from_time=datetime(2015, 1, 1, 0, 0),
                          till_time=datetime.now(),
-                         token_address=None, source=True, chain='ETH'):
+                         token_address=None
+                        ):
         if chain == 'ETH' or chain == 'BTC':
             payload = {
                 'key': self._key,
@@ -36,10 +37,8 @@ class BloxyAPIInterface:
                 'depth_limit': depth_limit,
                 'from_date': from_time,
                 'till_date': till_time,
-                'snapshot_time': from_time if source else till_time,
-                'limit_address_tx_count': tx_limit,
                 'limit': limit,
-                'chain': chain
+                'chain': chain.lower()
             }
             if chain == 'ETH':
                 api_url = self._source_endpoint_eth if source else self._distribution_endpoint_eth
@@ -48,6 +47,7 @@ class BloxyAPIInterface:
             elif chain == 'BTC':
                 api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
             print("Payload: ", payload)
+            print("api_url:", api_url)
             r = self.call_bloxy_api(api_url, payload)
             return r
         else:
@@ -68,7 +68,8 @@ class BloxyAPIInterface:
 class GraphQLInterfaceUnified:
     def __init__(self, chain, source, address, token_address, depth_limit, from_time, till_time, limit):
         self._graphql_key = settings.GRAPHQL_X_API_KEY
-        self._graphql_endpoint = settings.GRAPHQL_ENDPOINT
+        self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
+        print(f"settings.GRAPHQL_ENDPOINT : {api_settings.GRAPHQL_ENDPOINT}")
         self._headers = {'X-API-KEY': self._graphql_key}
         self.token_address = token_address
         self.chain = chain
@@ -233,9 +234,13 @@ class GraphQLInterfaceUnified:
         try:
             # flattened response is used to convert the GraphQL response format to REST API response format
             flattened_response = []
+            print(f"Query is : {request_body}")
+            print(f"GQL END POINT : {self._graphql_endpoint}")
+            print(f"HEADER : {self._headers}")
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers)
             response = r.json()
+            print(f"RESPONSE : {response}")
             for item in response["data"][self.network_chain_mapping_response[self.chain]]["coinpath"]:
                 current_iter_dict = {
                     "depth": item["depth"],
