@@ -1,4 +1,4 @@
-FROM amd64/python:3.11-bullseye
+FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
