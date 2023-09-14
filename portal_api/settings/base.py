@@ -299,6 +299,8 @@ API_SETTINGS = {
     "RABBIT_MQ_LOCAL_URL":env.str("RABBIT_MQ_LOCAL_URL", "rabbitmq"),
     "API_USER_CACHE": env.str('API_USER_CACHE_DB', 'user_cache'),
     "API_ICF_CACHE": env.str('API_ICF_CACHE_DB', 'api_icf_cache'),
+    "GRAPHQL_ENDPOINT": env.str('API_GRAPHQL_ENDPOINT', 'https://graphql.bitquery.io')
+    
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
@@ -313,15 +315,31 @@ CELERY_IMPORTS = ('api.tasks',)
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-
-BLOXY_DIST_ENDPOINT = env.str('API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
-BLOXY_SRC_ENDPOINT = env.str('API_BLOXY_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/inbound_graph')
-BLOXY_BTC_SRC_ENDPOINT = env.str('API_BLOXY_BTC_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/inbound_graph')
-BLOXY_BTC_DIST_ENDPOINT = env.str('API_BLOXY_BTC_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/outbound_graph')
-BLOXY_ETHCOINPATH_ENDPOINT = env.str('API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/paths')
-BLOXY_BTCCOINPATH_ENDPOINT = env.str('API_BLOXY_BTCCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/paths')
-BLOXY_ETH_DIST_ENDPOINT = env.str('API_BLOXY_ETH_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/outbound_graph_with_stat')
-BLOXY_ETH_SRC_ENDPOINT = env.str('API_BLOXY_ETH_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/inbound_graph_with_stat')
+GRAPHQL_X_API_KEY = env.str('GRAPHQL_API_KEY', 'BQYCqgHRy8foRqKxUqw46iKEOevi9x7N')
+BLOXY_DIST_ENDPOINT = env.str(
+    'API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
+BLOXY_SRC_ENDPOINT = env.str(
+    'API_BLOXY_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/inbound_graph')
+BLOXY_BTC_SRC_ENDPOINT = env.str(
+    'API_BLOXY_BTC_SRC_ENDPOINT', 'https://ctds.api.bitquery.io/bitcoin:coinpath/inbound_graph')
+BLOXY_LTC_SRC_ENDPOINT = env.str(
+    'API_BLOXY_LTC_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/inbound_graph')
+BLOXY_BTC_DIST_ENDPOINT = env.str(
+    'API_BLOXY_BTC_DIST_ENDPOINT', 'https://ctds.api.bitquery.io/bitcoin:coinpath/outbound_graph')
+BLOXY_LTC_DIST_ENDPOINT = env.str(
+    'API_BLOXY_LTC_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/outbound_graph')
+BLOXY_ETHCOINPATH_ENDPOINT = env.str(
+    'API_BLOXY_ETHCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/paths')
+BLOXY_BTCCOINPATH_ENDPOINT = env.str(
+    'API_BLOXY_BTCCOINPATH_ENDPOINT', 'https://sentinel.api.bitquery.io/bitcoin:coinpath/paths')
+BLOXY_ETH_DIST_ENDPOINT = env.str(
+    'API_BLOXY_ETH_DIST_ENDPOINT', 'https://ctds.api.bitquery.io/sentinel/outbound_graph_with_stat')
+BLOXY_KLAY_DIST_ENDPOINT = env.str(
+    'API_BLOXY_KLAY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/outbound_graph_with_stat')
+BLOXY_ETH_SRC_ENDPOINT = env.str(
+    'API_BLOXY_ETH_SRC_ENDPOINT', 'https://ctds.api.bitquery.io/sentinel/inbound_graph_with_stat')
+BLOXY_KLAY_SRC_ENDPOINT = env.str(
+    'API_BLOXY_KLAY_SRC_ENDPOINT', 'https://sentinel.api.bitquery.io/sentinel/inbound_graph_with_stat')
 
 LYZE_API_KEY = env.str('API_LYZE_KEY')
 LYZE_DIST_ENDPOINT = env.str('API_LYZE_DIST_ENDPOINT', 'https://upp.lyze.ai/btc_forward_tracking')
