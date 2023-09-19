@@ -239,6 +239,7 @@ class GraphQLInterfaceUnified:
             print(f"HEADER : {self._headers}")
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers)
+            print("GQL Response: ", r)
             response = r.json()
             print(f"RESPONSE : {response}")
             for item in response["data"][self.network_chain_mapping_response[self.chain]]["coinpath"]:
