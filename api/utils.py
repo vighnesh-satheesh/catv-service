@@ -199,3 +199,10 @@ def validate_coin(address):
         return True
     else:
         return False
+
+
+def is_eth_based_wallet(pattern_subtype):
+    eth_based_pattern_subtypes = ['ETH', 'BSC', 'KLAY', 'FTM', 'POL', 'ETC', 'AVAX']
+    if pattern_subtype in eth_based_pattern_subtypes:
+        return True
+    return False
