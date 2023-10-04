@@ -9,10 +9,8 @@ import arrow
 
 import requests
 from django.core.cache import caches
-from django.http import JsonResponse
 from ratelimit.utils import is_ratelimited
 from requests.exceptions import ConnectTimeout
-from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from web3 import Web3, HTTPProvider
@@ -31,8 +29,8 @@ from .validators.coindata import coindata
 
 
 class HealthCheckView(APIView):
-    authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (AllowAny,)
+    authentication_classes = ()
+    permission_classes = ()
 
     def get(self, request):
         return APIResponse({
@@ -41,7 +39,10 @@ class HealthCheckView(APIView):
     
 
 class ServerTime(GenericAPIView):
-    def get(self, request, format=None):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request):
         return JsonResponse({"status": True, "data": {"time": f"{arrow.utcnow().datetime}"}})
 
 
@@ -164,11 +165,10 @@ def catv_query(route, request, chain):
         if route == 'outbound':
             source = False
         bloxy_res = bloxy.get_transactions(params['address'], 50000, params['limit'],
-                                                   params['depth_limit'], source, params['chain'],
+                                                   params['depth_limit'], source, chain,
                                                    params['from_date'], params['till_date'], token
                                                 )
         if 'error' in bloxy_res:
-            print(f"bloxy error: {bloxy_res}")
             return JsonResponse(INTERNAL_SERVER_ERROR, status=500)
         addr_list = [Web3.to_checksum_address(a['sender']) if is_eth_based_wallet(chain.upper()) else a['sender']
                      for a in bloxy_res]+[Web3.to_checksum_address(a['receiver']) if is_eth_based_wallet(chain.upper()) else a['receiver'] for a in bloxy_res]
@@ -403,10 +403,12 @@ class CatvOutbound(APIView):
 
     def get(self, request, format=None):
         try:
-            try:
-                key = request.META['HTTP_X_API_KEY']
-            except Exception:
-                return JsonResponse(API_KEY_MISSING, status=401)
+            key = self.request.GET.get('key')
+            if not key:
+                try:
+                    key = request.META['HTTP_X_API_KEY']
+                except KeyError:
+                    return JsonResponse(API_KEY_MISSING, status=401)
             res = get_user_details(key)
             validated_request = validate_request(request,  key, res,required_params_list=[
                 'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
@@ -446,7 +448,10 @@ class CatvSupportedNetworks(APIView):
         try:
             key = self.request.GET.get('key')
             if not key:
-                return JsonResponse({"status": False, "data": {"message": "Api key is required"}}, status=401)
+                try:
+                    key = request.META['HTTP_X_API_KEY']
+                except KeyError:
+                    return JsonResponse(API_KEY_MISSING, status=401)
 
             res = get_user_details(key)
             auth = validate_request(request, key, res)
@@ -456,7 +461,7 @@ class CatvSupportedNetworks(APIView):
             res = [{"chain": n, "tokens": (
                 True if n not in [c for c in UTXO_CHAINS]+['XRP'] else False)} for n in CATV_SUPPORTED_NETWORKS]
             return JsonResponse({"status": True, "data": res}, status=200)
-        except Exception as e:
+        except Exception:
             print("Exception in CatvSupportedNetworks: ", traceback.format_exc())
             return JsonResponse(INTERNAL_SERVER_ERROR, status=500)
 
@@ -484,7 +489,7 @@ class ApiKeyInfo(GenericAPIView):
             data = {"catv_count": auth['catv_count'],"api_calls_left": auth['api_calls_left']}
             return JsonResponse({"status": True, "data": data}, status=200)
         except Exception:
-            print(traceback.format_exc())
+            traceback.print_exc()
             return JsonResponse(INTERNAL_SERVER_ERROR, status=500)
 
 
@@ -494,10 +499,12 @@ class CatvInbound(APIView):
 
     def get(self, request, format=None):
         try:
-            try:
-                key = request.META['HTTP_X_API_KEY']
-            except Exception:
-                return JsonResponse(API_KEY_MISSING, status=401)
+            key = self.request.GET.get('key')
+            if not key:
+                try:
+                    key = request.META['HTTP_X_API_KEY']
+                except KeyError:
+                    return JsonResponse(API_KEY_MISSING, status=401)
             res = get_user_details(key)
             validated_request = validate_request(request,  key, res, required_params_list=[
                 'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
