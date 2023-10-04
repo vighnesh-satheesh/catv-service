@@ -5,6 +5,7 @@ import os
 import re
 import traceback
 from json import JSONDecodeError
+import arrow
 
 import requests
 from django.core.cache import caches
@@ -15,6 +16,8 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from web3 import Web3, HTTPProvider
+from rest_framework.generics import GenericAPIView
+from django.http import JsonResponse
 
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
@@ -36,6 +39,11 @@ class HealthCheckView(APIView):
             "status": "ok"
         })
     
+
+class ServerTime(GenericAPIView):
+    def get(self, request, format=None):
+        return JsonResponse({"status": True, "data": {"time": f"{arrow.utcnow().datetime}"}})
+
 
 API_CACHE = caches[api_settings.API_ICF_CACHE]
 
