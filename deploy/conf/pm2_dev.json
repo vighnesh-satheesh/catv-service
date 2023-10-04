@@ -13,11 +13,9 @@
       "restart_delay": 1000
     },
     {
-      "name": "catv-api-celery",
-      "cwd": "/app/",
-      "script": "/usr/local/bin/python",
-      "args": " -m celery --app=portal_api.celery_app:app worker -c 2 -l info",
-      "instances": 1,
+      "name": "redis-server",
+      "script": "/usr/bin/redis-server",
+      "instance": 1,
       "exec_interpreter": "none",
       "exec_mode": "fork_mode",
       "out_file": "/dev/null",

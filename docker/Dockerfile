@@ -33,11 +33,11 @@ WORKDIR /app
 # Install nodejs and pm2
 RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get update && \
-    apt-get install -y \
-    nodejs \
-    redis-server \
-    gettext && \
-    npm install pm2@latest -g
+  apt-get install -y \
+  nodejs \
+  redis-server \
+  gettext && \
+  npm install pm2@latest -g
 
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
 
@@ -45,9 +45,9 @@ RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fo
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
 RUN pip install --upgrade pip setuptools && \
-    pip install -r /app/requirements.txt && \
-    pip install uwsgi && \
-    pip install -e /app/library/indicator-lib/src/py
+  pip install -r /app/requirements.txt && \
+  pip install uwsgi && \
+  pip install -e /app/library/indicator-lib/src/py
 
 # Bundle APP files
 COPY . .
@@ -59,23 +59,23 @@ RUN django-admin compilemessages
 # Add uppsala user.
 
 RUN groupadd -g 999 uppsala && \
-    useradd -r -u 999 -g uppsala uppsala && \
-    chown uppsala:uppsala /app && \
-    usermod -d /app uppsala
+  useradd -r -u 999 -g uppsala uppsala && \
+  chown uppsala:uppsala /app && \
+  usermod -d /app uppsala
 USER uppsala
 
 # Install pm2-slack
 RUN pm2 install pm2-slack
 RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
-    pm2 set pm2-slack:log false && \
-    pm2 set pm2-slack:error false && \
-    pm2 set pm2-slack:kill true && \
-    pm2 set pm2-slack:exception false && \
-    pm2 set pm2-slack:restart false && \
-    pm2 set pm2-slack:delete true && \
-    pm2 set pm2-slack:stop true && \
-    pm2 set pm2-slack:'restart overlimit' true && \
-    pm2 set pm2-slack:buffer_seconds 5
+  pm2 set pm2-slack:log false && \
+  pm2 set pm2-slack:error false && \
+  pm2 set pm2-slack:kill true && \
+  pm2 set pm2-slack:exception false && \
+  pm2 set pm2-slack:restart false && \
+  pm2 set pm2-slack:delete true && \
+  pm2 set pm2-slack:stop true && \
+  pm2 set pm2-slack:'restart overlimit' true && \
+  pm2 set pm2-slack:buffer_seconds 5
 
 # RUN
 CMD pm2-runtime /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE

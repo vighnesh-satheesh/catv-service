@@ -1,4 +1,4 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
+FROM python:latest
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -33,11 +33,11 @@ WORKDIR /app
 # Install nodejs and pm2
 RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get update && \
-    apt-get install -y \
-    nodejs \
-    redis-server \
-    gettext && \
-    npm install pm2@latest -g
+  apt-get install -y \
+  nodejs \
+  redis-server \
+  gettext && \
+  npm install pm2@latest -g
 
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
 
@@ -45,9 +45,9 @@ RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fo
 COPY ./requirements/${CATVMS_API_ENV}.txt /app/requirements.txt
 COPY ./library /app/library
 RUN pip install --upgrade pip setuptools && \
-    pip install -r /app/requirements.txt && \
-    pip install uwsgi && \
-    pip install -e /app/library/indicator-lib/src/py
+  pip install -r /app/requirements.txt && \
+  pip install uwsgi && \
+  pip install -e /app/library/indicator-lib/src/py
 
 # Bundle APP files
 COPY . /app/

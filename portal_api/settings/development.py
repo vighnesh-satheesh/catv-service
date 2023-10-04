@@ -47,3 +47,5 @@ SWAGGER_SETTINGS = {
     'LOGIN_URL': None,
     'LOGOUT_URL': None,
 }
+
+CORS_ALLOW_ALL_ORIGINS = True
