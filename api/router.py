@@ -40,5 +40,7 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^api_key_info', api_views.ApiKeyInfo.as_view(),name='api-key-info'),
         re_path(r'^v1/source', api_views.CatvInbound.as_view(),name='catv-inbound'),
         re_path(r'^v1/destination', api_views.CatvOutbound.as_view(),name='catv-outbound'),
-        re_path(r'^v1/supported_networks', api_views.CatvSupportedNetworks.as_view(),name='catv-supported-networks')
+        re_path(r'^v1/supported_networks', api_views.CatvSupportedNetworks.as_view(),name='catv-supported-networks'),
+        re_path(r'^time?$', api_views.ServerTime.as_view(), name='server-time')
+
     ]
