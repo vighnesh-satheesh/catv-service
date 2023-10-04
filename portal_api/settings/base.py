@@ -315,7 +315,7 @@ CELERY_IMPORTS = ('api.tasks',)
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-GRAPHQL_X_API_KEY = env.str('GRAPHQL_API_KEY', 'BQYCqgHRy8foRqKxUqw46iKEOevi9x7N')
+GRAPHQL_X_API_KEY = env.str('GRAPHQL_API_KEY', 'BQYKbTOiHqHvONrcGg9fZmsvrC08syOL')
 BLOXY_DIST_ENDPOINT = env.str(
     'API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
 BLOXY_SRC_ENDPOINT = env.str(

@@ -17,7 +17,6 @@ class BloxyAPIInterface:
         self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
 
     def call_bloxy_api(self, api_url, data, timeout=600):
-        print('api_url:', api_url)
         res = requests.get(api_url, params=data, timeout=timeout, verify=False)
         if res.status_code != 200:
             print(res)
@@ -46,8 +45,8 @@ class BloxyAPIInterface:
                     payload['token_address'] = token_address
             elif chain == 'BTC':
                 api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
-            print("Payload: ", payload)
             print("api_url:", api_url)
+            print("payload: ", payload)
             r = self.call_bloxy_api(api_url, payload)
             return r
         else:
@@ -240,7 +239,6 @@ class GraphQLInterfaceUnified:
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers)
             response = r.json()
-            print(f"RESPONSE : {response}")
             for item in response["data"][self.network_chain_mapping_response[self.chain]]["coinpath"]:
                 current_iter_dict = {
                     "depth": item["depth"],
