@@ -1,4 +1,4 @@
-FROM python:latest
+FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 

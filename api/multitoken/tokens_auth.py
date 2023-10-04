@@ -98,7 +98,6 @@ class CachedTokenAuthentication(TokenAuthentication):
     def authenticate_credentials(self, request):
         try:
             user, token = MultiToken.get_user_from_key(request)
-            print(user)
             if api_settings.TOKEN_RESET_TTL_ON_USER_LOG_IN:
                 # MultiToken.reset_tokens_ttl(user.pk)
                 MultiToken._reset_token_ttl(token)
