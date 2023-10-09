@@ -5,23 +5,21 @@ import os
 import re
 import traceback
 from json import JSONDecodeError
-import arrow
 
+import arrow
 import requests
 from django.core.cache import caches
+from django.http import JsonResponse
 from ratelimit.utils import is_ratelimited
 from requests.exceptions import ConnectTimeout
-from rest_framework.permissions import AllowAny
-from rest_framework.views import APIView
-from web3 import Web3, HTTPProvider
 from rest_framework.generics import GenericAPIView
-from django.http import JsonResponse
+from rest_framework.views import APIView
+from web3 import Web3
 
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
 from api.utils import validate_coin, is_eth_based_wallet
-from .multitoken.tokens_auth import CachedTokenAuthentication
 from .response import APIResponse
 from .settings import api_settings
 from .validators import bech32
@@ -57,10 +55,6 @@ def check_es_status():
         except ConnectTimeout:
             ES_FLAG = False
     return ES_FLAG
-
-
-web3_client = Web3(HTTPProvider(
-    "https://mainnet.infura.io/v3/c3cddab6058f4f2fa6e0b60d2a4fd670"))
 
 
 def consume_key(user_details,key):

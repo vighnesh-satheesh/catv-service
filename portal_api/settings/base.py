@@ -286,7 +286,6 @@ API_SETTINGS = {
     "CATV_GRAPH_NODES_CUTOFF": env.int("API_CATV_GRAPH_NODES_CUTOFF", 1000),
     "CATV_NUM_JOBS_PICK": env.int("API_CATV_NUM_JOBS_PICK", 3),
     "SEARCH_BACKEND_URL": env.str("API_SEARCH_BACKEND_URL", "http://localhost:8000/"),
-    "MAINNET_URL": env.str("API_MAINNET_URL", "https://mainnet.infura.io/v3/acc7e98bea464efa91f383ce2dd3d764"),
     "VERIFY_TX_AMT": env.str("API_VERIFY_TX_AMT", "0.000118"),
     "MAB_USER_UPGRADE": env.int("API_MAB_USER_UPGRADE", 10000),
     "RABBIT_MQ_URL": env.str("RABBIT_MQ_URL", 'localhost:5672'),
