@@ -1,4 +1,4 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/oss/python:3.10.5-buster
+FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -31,20 +31,20 @@ WORKDIR /app
 
 # Install packages
 # Install nodejs and pm2
-RUN curl -sL https://deb.nodesource.com/setup_11.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get update && \
     apt-get install -y \
     nodejs \
     redis-server \
     gettext && \
-    npm install pm2@3.5.1 -g
+    npm install pm2@latest -g
 
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
 
 # Install requirements
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
-RUN pip install --upgrade pip setuptools==58.0.0 && \
+RUN pip install --upgrade pip setuptools && \
     pip install -r /app/requirements.txt && \
     pip install uwsgi && \
     pip install -e /app/library/indicator-lib/src/py
@@ -78,4 +78,4 @@ RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
     pm2 set pm2-slack:buffer_seconds 5
 
 # RUN
-CMD pm2-runtime start /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE --web
+CMD pm2-runtime /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE

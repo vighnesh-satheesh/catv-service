@@ -2,6 +2,9 @@ import time
 from functools import wraps
 import re
 from datetime import datetime
+import binascii
+import base58
+import hashlib
 
 from django.db.models import Q
 from six import text_type
@@ -177,3 +180,29 @@ def retry_run(tries=5, delay=15, backoff=2):
         return f_retry
 
     return deco_retry
+
+
+def validate_coin(address):
+
+    base58Decoder = base58.b58decode(address).hex()
+    prefixAndHash = base58Decoder[:len(base58Decoder)-8]
+    checksum = base58Decoder[len(base58Decoder)-8:]
+
+    # to handle true result, we should pass our input to hashlib.sha256() method() as Byte format
+    # so we use binascii.unhexlify() method to convert our input from Hex to Byte
+    # finally, hexdigest() method convert value to human-readable
+    hash = prefixAndHash
+    for x in range(1, 3):
+        hash = hashlib.sha256(binascii.unhexlify(hash)).hexdigest()
+
+    if(checksum == hash[:8]):
+        return True
+    else:
+        return False
+
+
+def is_eth_based_wallet(pattern_subtype):
+    eth_based_pattern_subtypes = ['ETH', 'BSC', 'KLAY', 'FTM', 'POL', 'ETC', 'AVAX']
+    if pattern_subtype in eth_based_pattern_subtypes:
+        return True
+    return False
