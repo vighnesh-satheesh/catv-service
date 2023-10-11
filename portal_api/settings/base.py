@@ -113,11 +113,11 @@ CACHES = {
         'LOCATION': env.str('API_ICF_CACHE'),
     },
     'local_cache': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'BACKEND': CACHE_BACKEND,
         'LOCATION': 'redis://127.0.0.1:6379/10'
     },
     'catv_data': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'BACKEND': CACHE_BACKEND,
         'LOCATION': env.str('API_CATV_CACHE_SERVER')
     },
 }
@@ -314,7 +314,7 @@ CELERY_IMPORTS = ('api.tasks',)
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-GRAPHQL_X_API_KEY = env.str('GRAPHQL_API_KEY', 'BQYKbTOiHqHvONrcGg9fZmsvrC08syOL')
+GRAPHQL_X_API_KEY = env.str('GRAPHQL_API_KEY', '')
 BLOXY_DIST_ENDPOINT = env.str(
     'API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
 BLOXY_SRC_ENDPOINT = env.str(
