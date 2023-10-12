@@ -1,3 +1,4 @@
+import traceback
 
 from rest_framework import permissions
 
@@ -15,8 +16,14 @@ class InternalOnly(permissions.BasePermission):
             return True
         return False
 
+
 class IsCATVAuthenticated(permissions.BasePermission):
+
     def has_permission(self, request, view):
-        user_details, verified_token = MultiToken.get_user_from_key(request)
-        print(user_details)
-        return user_details and user_details['is_authenticated']
+        try:
+            user_details, verified_token = MultiToken.get_user_from_key(request)
+            print(user_details)
+            return user_details and user_details['is_authenticated']
+        except Exception:
+            traceback.print_exc()
+            return {} and False
