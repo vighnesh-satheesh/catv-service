@@ -123,6 +123,10 @@ class CATVView(APIView):
             CatvTokens.LUNC.value: {
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.DOGE.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
             }
         }
         utils_map = {
@@ -466,6 +470,7 @@ class CATVReportView(APIView):
             "Klaytn": CatvTokens.KLAY.value,
             "Bitcoin Cash": CatvTokens.BCH.value,
             "LUNC": CatvTokens.LUNC.value,
+            "Doge Coin": CatvTokens.DOGE.value,
         }
         
         token_type = utils.determine_wallet_type(obj.token_type)
@@ -741,7 +746,8 @@ class CATVCSVUploadView(APIView):
                             (df['token_type'].str.contains(CatvTokens.ADA.value) & df['wallet_address'].str.match("^[0-9a-zA-Z]+$")) |
                             (df['token_type'].str.contains(CatvTokens.BSC.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
                             (df['token_type'].str.contains(CatvTokens.KLAY.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.LUNC.value) & df['wallet_address'].str.match("^(terra1)[0-9a-z]{38}$"))]
+                            (df['token_type'].str.contains(CatvTokens.LUNC.value) & df['wallet_address'].str.match("^(terra1)[0-9a-z]{38}$")) |
+                            (df['token_type'].str.contains(CatvTokens.DOGE.value) & df['wallet_address'].str.match("^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$"))]
                 newdf['from_date'] = pd.to_datetime(newdf['from_date'])
                 newdf['from_date'] = newdf['from_date'].dt.strftime('%Y-%m-%d')
                 newdf['to_date'] = pd.to_datetime(newdf['to_date'])
