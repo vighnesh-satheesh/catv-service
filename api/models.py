@@ -34,6 +34,7 @@ class CatvTokens(Enum):
     FTM = 'FTM'
     MATIC = 'MATIC'
     AVAX = 'AVAX'
+    DOGE = 'DOGE'
 
 
 class CatvSearchType(Enum):

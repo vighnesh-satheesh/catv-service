@@ -89,7 +89,8 @@ class GraphQLInterfaceUnified:
             "XRP": "ripple",
             "LTC": "litecoin",
             "BCH": "bitcash",
-            "ADA": "cardano"
+            "ADA": "cardano",
+            "DOGE": "dogecoin"
         }
         self.network_chain_mapping_response = {
             "LUNC": "cosmos",
@@ -102,6 +103,7 @@ class GraphQLInterfaceUnified:
             "XRP": "ripple",
             "LTC": "bitcoin",
             "BCH": "bitcoin",
+            "DOGE": "bitcoin",
             "ADA": "cardano"
         }
 
