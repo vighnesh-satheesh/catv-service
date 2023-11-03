@@ -42,7 +42,7 @@ class BloxyAPIInterface:
             if chain == 'ETH':
                 api_url = self._source_endpoint_eth if source else self._distribution_endpoint_eth
                 if token_address:
-                    payload['token_address'] = token_address
+                    payload['token'] = token_address
             elif chain == 'BTC':
                 api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
             print("api_url:", api_url)
