@@ -243,7 +243,10 @@ def get_user_details(key):
         user_rpc = {"key": key}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         #auth_response = ast.literal_eval(res)
-        API_CACHE.set(key, json.dumps(res), 60*60*12)
+        if res != "Failed":
+            API_CACHE.set(key, json.dumps(res), 60*60*12)
+        else:
+            return None
         # return __get_key(key)
         return res
     return rate
