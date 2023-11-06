@@ -729,8 +729,6 @@ class CATVCSVUploadView(APIView):
             total_length = df.shape[0]
             total_column = df.shape[1]
             user_details, verified_token = MultiToken.get_user_from_key(request)
-            rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
-            res_Terra = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
             if total_length > 0 and total_column == 8:
                 df.drop_duplicates(subset="wallet_address", keep="first", inplace=True)
                 df['token_address'].fillna("0x0000000000000000000000000000000000000000", inplace = True)
@@ -752,8 +750,11 @@ class CATVCSVUploadView(APIView):
                 newdf['from_date'] = newdf['from_date'].dt.strftime('%Y-%m-%d')
                 newdf['to_date'] = pd.to_datetime(newdf['to_date'])
                 newdf['to_date'] = newdf['to_date'].dt.strftime('%Y-%m-%d')
-                if "False" in res_Terra:
-                    newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
+                if (newdf['token_type'].eq(CatvTokens.LUNC.value)).any():
+                    rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
+                    res_Terra = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
+                    if "False" in res_Terra:
+                        newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
                 final_length = len(newdf)
                 verified_data = newdf.to_json(index=1, orient='records')
                 json_df = json.loads(verified_data)
