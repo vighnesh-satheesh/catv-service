@@ -90,8 +90,7 @@ class GraphQLInterfaceUnified:
             "LTC": "litecoin",
             "BCH": "bitcash",
             "ADA": "cardano",
-            "DOGE": "dogecoin",
-            "ZEC": "zcash"
+            "DOGE": "dogecoin"
         }
         self.network_chain_mapping_response = {
             "LUNC": "cosmos",
@@ -105,7 +104,6 @@ class GraphQLInterfaceUnified:
             "LTC": "bitcoin",
             "BCH": "bitcoin",
             "DOGE": "bitcoin",
-            "ZEC": "bitcoin",
             "ADA": "cardano"
         }
 
