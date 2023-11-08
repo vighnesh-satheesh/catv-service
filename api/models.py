@@ -32,6 +32,7 @@ class CatvTokens(Enum):
     KLAY = 'KLAY'
     LUNC = 'LUNC'
     DOGE = 'DOGE'
+    ZEC = 'ZEC'
 
 
 class CatvSearchType(Enum):
