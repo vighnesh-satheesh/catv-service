@@ -29,7 +29,7 @@ class BloxyAPIInterface:
                          till_time=datetime.now(),
                          token_address=None
                         ):
-        if chain == 'ETH' or chain == 'BTC':
+        if chain == 'BTC':
             payload = {
                 'key': self._key,
                 'address': address,
@@ -92,7 +92,8 @@ class GraphQLInterfaceUnified:
             "ADA": "cardano",
             "DOGE": "dogecoin",
             "ZEC": "zcash",
-            "DASH": "dash"
+            "DASH": "dash",
+            "ETH": "ethereum"
         }
         self.network_chain_mapping_response = {
             "LUNC": "cosmos",
@@ -108,7 +109,8 @@ class GraphQLInterfaceUnified:
             "DOGE": "bitcoin",
             "ZEC": "bitcoin",
             "DASH": "bitcoin",
-            "ADA": "cardano"
+            "ADA": "cardano",
+            "ETH": "ethereum"
         }
 
     def _graphql_query_builder(self):
@@ -182,7 +184,7 @@ class GraphQLInterfaceUnified:
                         else:
                             extra_params = initial_extra_params + " currency { name symbol tokenId tokenType "
                             receiver = receiver + amount_details
-                            if self.chain in ["KLAY", "BSC"]:
+                            if self.chain in ["KLAY", "BSC", "ETH"]:
                                 currency = f""" currency: {{ is: "{currency_value}" }} """
                                 receiver = receiver + smart_contract + " } "
                                 sender = sender + smart_contract + " }"
@@ -308,7 +310,7 @@ class GraphQLInterfaceUnified:
                             current_iter_dict["receiver_amount_out"] = float(item["receiver"]["amountOut"])
                             current_iter_dict["receiver_amount_in"] = float(item["receiver"]["amountIn"])
                             current_iter_dict["receiver_balance"] = float(item["receiver"]["balance"])
-                            if self.chain in ["KLAY", "BSC"]:
+                            if self.chain in ["KLAY", "BSC", "ETH"]:
                                 current_iter_dict["token"] = self.token_address
                                 current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
                                 current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
