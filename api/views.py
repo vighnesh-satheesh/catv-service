@@ -139,7 +139,15 @@ class CATVView(APIView):
             CatvTokens.DOGE.value: {
                 CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
-            }
+            },
+            CatvTokens.ZEC.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
+            },
+            CatvTokens.DASH.value: {
+                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+                CatvSearchType.PATH.value: CatvBtcPathSerializer
+            }            
         }
         utils_map = {
             CatvSearchType.FLOW.value: {
@@ -483,6 +491,8 @@ class CATVReportView(APIView):
             "Bitcoin Cash": CatvTokens.BCH.value,
             "LUNC": CatvTokens.LUNC.value,
             "Doge Coin": CatvTokens.DOGE.value,
+            "Zcash": CatvTokens.ZEC.value,
+            "DASH": CatvTokens.DASH.value
         }
         
         token_type = utils.determine_wallet_type(obj.token_type)
@@ -741,8 +751,6 @@ class CATVCSVUploadView(APIView):
             total_length = df.shape[0]
             total_column = df.shape[1]
             user_details, verified_token = MultiToken.get_user_from_key(request)
-            rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
-            res_Terra = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
             if total_length > 0 and total_column == 8:
                 df.drop_duplicates(subset="wallet_address", keep="first", inplace=True)
                 df['token_address'].fillna("0x0000000000000000000000000000000000000000", inplace = True)
@@ -759,13 +767,19 @@ class CATVCSVUploadView(APIView):
                             (df['token_type'].str.contains(CatvTokens.BSC.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
                             (df['token_type'].str.contains(CatvTokens.KLAY.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
                             (df['token_type'].str.contains(CatvTokens.LUNC.value) & df['wallet_address'].str.match("^(terra1)[0-9a-z]{38}$")) |
-                            (df['token_type'].str.contains(CatvTokens.DOGE.value) & df['wallet_address'].str.match("^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$"))]
+                            (df['token_type'].str.contains(CatvTokens.DOGE.value) & df['wallet_address'].str.match("^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$")) |
+                            (df['token_type'].str.contains(CatvTokens.ZEC.value) & df['wallet_address'].str.match("^(t)[A-Za-z0-9]{34}$")) |
+                            (df['token_type'].str.contains(CatvTokens.DASH.value) & df['wallet_address'].str.match("^[X|7][0-9A-Za-z]{33}$"))
+                        ]
                 newdf['from_date'] = pd.to_datetime(newdf['from_date'])
                 newdf['from_date'] = newdf['from_date'].dt.strftime('%Y-%m-%d')
                 newdf['to_date'] = pd.to_datetime(newdf['to_date'])
                 newdf['to_date'] = newdf['to_date'].dt.strftime('%Y-%m-%d')
-                if "False" in res_Terra:
-                    newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
+                if (newdf['token_type'].eq(CatvTokens.LUNC.value)).any():
+                    rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
+                    res_Terra = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
+                    if "False" in res_Terra:
+                        newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
                 final_length = len(newdf)
                 verified_data = newdf.to_json(index=1, orient='records')
                 json_df = json.loads(verified_data)

@@ -136,7 +136,9 @@ def determine_wallet_type(token_type):
         "FTM": "Fantom",
         "MATIC": "Matic",
         "AVAX": "Avalanche",
-        "DOGE": "Doge Coin"
+        "DOGE": "Doge Coin",
+        "ZEC": "Zcash",
+        "DASH": "DASH"
     }
 
     if address_mapping.__contains__(token_type.value):
@@ -164,6 +166,8 @@ def pattern_matches_token(address, token_type):
         CatvTokens.MATIC.value: "^0x[a-fA-F0-9]{40}$",
         CatvTokens.AVAX.value: "^0x[a-fA-F0-9]{40}$",
         CatvTokens.DOGE.value: "^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$",
+        CatvTokens.ZEC.value: "^(t)[A-Za-z0-9]{34}$",
+        CatvTokens.DASH.value: "^[X|7][0-9A-Za-z]{33}$"
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:
