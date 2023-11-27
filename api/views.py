@@ -124,6 +124,18 @@ class CATVView(APIView):
                 CatvSearchType.FLOW.value: CATVSerializer,
                 CatvSearchType.PATH.value: CATVEthPathSerializer
             },
+            CatvTokens.FTM.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.MATIC.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
+            CatvTokens.AVAX.value: {
+                CatvSearchType.FLOW.value: CATVSerializer,
+                CatvSearchType.PATH.value: CATVEthPathSerializer
+            },
             CatvTokens.DOGE.value: {
                 CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
                 CatvSearchType.PATH.value: CatvBtcPathSerializer
@@ -480,7 +492,10 @@ class CATVReportView(APIView):
             "LUNC": CatvTokens.LUNC.value,
             "Doge Coin": CatvTokens.DOGE.value,
             "Zcash": CatvTokens.ZEC.value,
-            "DASH": CatvTokens.DASH.value
+            "DASH": CatvTokens.DASH.value,
+            "Avalanche": CatvTokens.AVAX.value,
+            "Fantom": CatvTokens.FTM.value,
+            "Matic": CatvTokens.MATIC.value
         }
         
         token_type = utils.determine_wallet_type(obj.token_type)
@@ -757,7 +772,10 @@ class CATVCSVUploadView(APIView):
                             (df['token_type'].str.contains(CatvTokens.LUNC.value) & df['wallet_address'].str.match("^(terra1)[0-9a-z]{38}$")) |
                             (df['token_type'].str.contains(CatvTokens.DOGE.value) & df['wallet_address'].str.match("^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$")) |
                             (df['token_type'].str.contains(CatvTokens.ZEC.value) & df['wallet_address'].str.match("^(t)[A-Za-z0-9]{34}$")) |
-                            (df['token_type'].str.contains(CatvTokens.DASH.value) & df['wallet_address'].str.match("^[X|7][0-9A-Za-z]{33}$"))
+                            (df['token_type'].str.contains(CatvTokens.DASH.value) & df['wallet_address'].str.match("^[X|7][0-9A-Za-z]{33}$")) |
+                            (df['token_type'].str.contains(CatvTokens.AVAX.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
+                            (df['token_type'].str.contains(CatvTokens.FTM.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
+                            (df['token_type'].str.contains(CatvTokens.MATIC.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) 
                         ]
                 newdf['from_date'] = pd.to_datetime(newdf['from_date'])
                 newdf['from_date'] = newdf['from_date'].dt.strftime('%Y-%m-%d')
