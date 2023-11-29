@@ -15,17 +15,18 @@ jobs:
 
     env: ###--> Change all values here <--###
       SLACK_URL: 'https://hooks.slack.com/services/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'
-      AR_REPO_NAME: asia-docker.pkg.dev/uppsala-devops/uppsala-stage-repository
+      UPP_HOST: stgcatv-service.api.sentinelprotocol.io
       BUILD_ENV: stage
-      GKE_CLUSTER_NAME: upp-stg-gke-cluster
+      AR_REPO_NAME: ${{secrets.STAGE_ARTIFACT_REPOSITORY}}
+      PROJECT_ID: ${{secrets.STAGE_GCP_PROJECT_ID}}
+      GKE_CLUSTER_NAME: ${{secrets.STAGE_GKE_CLUSTER_NAME}}
+      REGION: ${{secrets.GCP_REGION}}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
       NAMESPACE: backend
       DEPLOYMENT_NAME: portal-catv
       CHART_PATH: portal-catv-chart
-      PROJECT_ID: uppsala-staging
-      UPP_HOST: stgcatv-service.api.sentinelprotocol.io
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
       DOCKERFILE_PATH: docker/Dockerfile_stg
-      SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
 
     steps:
       - uses: actions/checkout@v2
