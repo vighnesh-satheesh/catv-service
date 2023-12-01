@@ -5,6 +5,7 @@ on:
       - stage
       - gcp_searce
   workflow_dispatch:
+    
 jobs:
   build:
     name: Build & Deploy
@@ -46,7 +47,14 @@ jobs:
       - name: Configure Docker Credentials
         id: 'gcloud-docker'
         run: gcloud auth configure-docker asia-docker.pkg.dev
-    
+
+      - name: Clone indicator lib
+        id: indicator-lib-checkout
+        run: |
+            git clone "https://uppindicator:b06fdc52611d60ce262c5718e4b1352bca09d4c3@github.com/upphub/indicator-lib.git"
+            mkdir -p library
+            mv indicator-lib library/indicator-lib
+            
       - name: Build & Push Docker Image
         id: 'docker-build'
         run: |-
