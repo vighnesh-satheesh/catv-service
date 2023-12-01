@@ -48,8 +48,7 @@ main:
     periodSeconds: 3
 
   # Volume Mounts for Main container
-  volumeMounts:
-    []
+  volumeMounts: []
     # - name: config-volume
     #   mountPath: /etc/temp
     # - name: secret-volume
