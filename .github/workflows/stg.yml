@@ -8,72 +8,86 @@ jobs:
   build:
     name: Build & Deploy
     runs-on: ubuntu-20.04
-
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
     env: ###--> Change all values here <--###
       SLACK_URL: 'https://hooks.slack.com/services/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'
+      ECR_REPO_NAME: upp/stg/portal-catv-service
+      BUILD_ENV: STG
+      APM_SERVICE_NAME: uppsala-stg-portal-catv-service
+      SERVICE_NAME: UPP-STG-API-CATV-SERVICE
+      CLUSTER_NAME: UPP-STG-CLUSTER
+      CONTAINER_NAME: UPP-STG-API-CATV
+      TASK_DEF_NAME: UPP-STG-API-CATV
       UPP_HOST: stgcatv-service.api.sentinelprotocol.io
-      BUILD_ENV: stage
-      AR_REPO_NAME: ${{secrets.STAGE_ARTIFACT_REPOSITORY}}
-      PROJECT_ID: ${{secrets.STAGE_GCP_PROJECT_ID}}
-      GKE_CLUSTER_NAME: ${{secrets.STAGE_GKE_CLUSTER_NAME}}
-      REGION: ${{secrets.GCP_REGION}}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-      SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
-      NAMESPACE: backend
-      DEPLOYMENT_NAME: portal-catv
-      CHART_PATH: portal-catv-chart
       DOCKERFILE_PATH: docker/Dockerfile_stg
+      SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
 
     steps:
       - uses: actions/checkout@v2
-      
-      - name: 'Authenticate to Google Cloud'
-        id: 'gcloud-auth'
-        uses: 'google-github-actions/auth@v1'
+      - uses: actions/setup-node@v2
         with:
-          create_credentials_file: true
-          workload_identity_provider: ${{secrets.WORKLOAD_IDENTITY_PROVIDER}}
-          service_account: ${{secrets.SERVICE_ACCOUNT_EMAIL}}
-      
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v1'
+          node-version: '8'
 
-      - name: Configure Docker Credentials
-        id: 'gcloud-docker'
-        run: gcloud auth configure-docker asia-docker.pkg.dev
+      - name: Configure AWS cli
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
     
+      - name: Clone indicator lib
+        id: indicator-lib-checkout
+        run: |
+          git clone "https://uppindicator:b06fdc52611d60ce262c5718e4b1352bca09d4c3@github.com/upphub/indicator-lib.git"
+          mkdir -p library
+          mv indicator-lib library/indicator-lib
+
       - name: Build & Push Docker Image
-        id: 'docker-build'
-        run: |-
-          docker build -t ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:latest -f ${{env.DOCKERFILE_PATH}} .
-          docker tag ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:latest ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:${{github.sha}}
-          docker push ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:${{github.sha}}
-          docker push ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:latest 
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build -t ${{ env.ECR_REPO_NAME }}:latest -f ${{env.DOCKERFILE_PATH}} .
+          docker tag ${{ env.ECR_REPO_NAME }}:latest ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+          docker tag ${{ env.ECR_REPO_NAME }}:latest ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_NAME }}:latest
 
-      - name: GCloud Plugins Setup
-        id: 'gcloud-plugin'
-        run: |-
-          gcloud components update
-          gcloud components install gke-gcloud-auth-plugin  
-              
-      - name: Cluster Credentials
-        id: 'gke-auth'
-        run: |-
-          gcloud container clusters get-credentials ${{env.GKE_CLUSTER_NAME}} --region ${{env.REGION}} --project ${{env.PROJECT_ID}}
+      - name: Replace ECS Task Definition Template
+        uses: franzbischoff/replace_envs@v1
+        env:
+          DEPLOYMENT_NAME: ${{env.CONTAINER_NAME}}
+          DOCKER_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
+          BUILD_ENV: ${{ env.BUILD_ENV }}
+          APM_SERVICE_NAME: ${{env.APM_SERVICE_NAME}}
+          UPP_HOST: ${{env.UPP_HOST}}
+        with:
+          from_file: "docker/ecs-task-definition.json"
+          to_file: "docker/${{env.TASK_DEF_NAME}}-task-def_${{ github.run_id }}.json"
+          commit: "false"
 
-      - name: Deploy Application
-        id: 'helm-install'
-        run: |-
-          helm upgrade --install ${{env.DEPLOYMENT_NAME}} ${{env.CHART_PATH}}/ \
-            --set main.image.repository=${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service \
-            --set main.image.tag=${{github.sha}} \
-            -f ${{env.CHART_PATH}}/stage-values.yaml
-            -n ${{env.NAMESPACE}}
+      - name: Create new Task Definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: docker/${{env.TASK_DEF_NAME}}-task-def_${{ github.run_id }}.json
+          container-name: ${{env.CONTAINER_NAME}}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}:${{ github.sha }}
 
+      - name: Deploy task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.SERVICE_NAME }}
+          cluster: ${{ env.CLUSTER_NAME }}
+          wait-for-service-stability: true
       
       - name: Slack Notification
         if: ${{ always() }}
