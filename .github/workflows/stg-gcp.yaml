@@ -1,8 +1,9 @@
 name: GCP-STG-PORTAL-CATV-API #Only for staging environment
 on:
-#   push:
-#     branches:
-#       - stage
+  push:
+    branches:
+      - stage
+      - gcp_searce
   workflow_dispatch:
 jobs:
   build:
