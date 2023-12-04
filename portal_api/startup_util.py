@@ -123,6 +123,9 @@ def set_allowed_hosts():
             'stgsearch.sentinelprotocol.io',
             'search.sentinelprotocol.io',
             'search.stgsentinelportal.com',
-            'search.prdsentinelportal.com'
+            'search.prdsentinelportal.com',
+            '34.142.249.113',
+            '10.80.0.0/16'
+            
         ])
         os.environ["ECS_PRIVATE_IP"] = ",".join(allowed_host)
