@@ -2,6 +2,7 @@ import os
 import boto3
 import requests
 import json
+from google.cloud import secretmanager
 
 REQUEST_URL = {
     "EC2_PRIVATE_IP": "http://169.254.169.254/latest/meta-data/local-ipv4",
@@ -54,6 +55,42 @@ def set_environment_variables_from_parameter_store():
                 "Please set environ variable 'CATVMS_API_ENV_PATH' for env file path."
                 "'export CATVMS_API_ENV_PATH=/env/file/path.env'"
             )
+
+
+def set_environment_variables_from_secret_manager():
+    project_id = os.environ.get("GCP_PROJECT_ID")
+    secret_name = os.environ.get("GCP_SECRET_NAME")
+    if project_id and secret_name:
+        retrieve_secret(project_id, secret_name,"latest")
+        
+    else:
+        env_file = os.environ.get("CATVMS_API_ENV_PATH")
+        os.environ["PORTAL_API_MODE"] = "development"
+        if env_file is not None and os.path.isfile(env_file) is True:
+            # set credentials for manager
+            project_id = os.environ.get("GCP_PROJECT_ID","None")
+            secret_name = os.environ.get("GCP_SECRET_NAME","None") 
+            retrieve_secret(project_id, secret_name,"latest")
+        else:
+             raise AttributeError(
+                "Please set environ variable 'CATVMS_API_ENV_PATH' for env file path."
+                "'export CATVMS_API_ENV_PATH=/env/file/path.env'"
+            )
+            
+
+def retrieve_secret(project_id,secret_name,version_id):
+    print(f'proejctId={project_id},secret={secret_name} and version={version_id} ')
+    client = secretmanager.SecretManagerServiceClient()
+    secret_version =client.access_secret_version(name=f'projects/{project_id}/secrets/{secret_name}/versions/{version_id}')
+    # access and retrieve all params
+    secret_data = secret_version.payload.data.decode('utf-8')
+    data = json.loads(secret_data)
+    print(data)
+    # Iterate and set it to the os.environ variable
+    # Print all key-value pairs
+    for key, value in data.items():
+        os.environ[key] = value
+
 
 def set_allowed_hosts():
         allowed_host = []
