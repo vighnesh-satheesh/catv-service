@@ -125,6 +125,8 @@ def set_allowed_hosts():
             'search.stgsentinelportal.com',
             'search.prdsentinelportal.com',
             '34.142.249.113',
+            '172.16.128.0/20',
+            '172.16.4.0/23',
             '10.80.0.0/16'
             
         ])
