@@ -9,6 +9,14 @@ ALLOWED_HOSTS += ['10.12.{}.{}'.format(i, j) for i in range(256) for j in range(
 ALLOWED_HOSTS += [
     "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io", "stgcatv.api.sentinelprotocol.io"
 ]
+ALLOWED_HOSTS += ["172.16.4.%s" % s for s in range(2, 255)]
+ALLOWED_HOSTS += ["172.16.5.%s" % s for s in range(2, 255)]
+
+ALLOWED_HOSTS += ['10.80.{}.{}'.format(i, j)
+                  for i in range(256) for j in range(256)]
+ALLOWED_HOSTS += ['172.16.{}.{}'.format(i, j)
+                  for i in range(128, 143) for j in range(256)]
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
