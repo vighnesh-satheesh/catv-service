@@ -59,7 +59,8 @@ class AMQPCATVConsuming(threading.Thread):
                     api_settings.RABBIT_MQ_BROKER_ID,
                     api_settings.RABBIT_MQ_USERNAME,
                     api_settings.RABBIT_MQ_PASSWORD,
-                    api_settings.RABBIT_MQ_REGION
+                    api_settings.RABBIT_MQ_REGION,
+                    api_settings.RABBIT_MQ_URL
                 )
                 connection = basic_pika_publisher._get_connection()
 
