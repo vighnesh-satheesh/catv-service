@@ -17,7 +17,8 @@ class RPCClientUpdateUsageCatvCall:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
 
@@ -64,7 +65,8 @@ class RPCClientUpdateUsageCSVCatvCall:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
 
@@ -111,7 +113,8 @@ class RPCClientFetchResultFileUid:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
 
@@ -158,7 +161,8 @@ class RPCClientFetchResultFileList:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
 
@@ -205,7 +209,8 @@ class RPCClientCATVFetchIndicators:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
 
@@ -252,7 +257,8 @@ class RPCClientCATVCheckTerraAccess:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
 
@@ -299,7 +305,8 @@ class RPCAPIRateFetcher:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
         self.channel = self.connection.channel()
@@ -346,7 +353,8 @@ class RPCAPIRequestValidator:
                 api_settings.RABBIT_MQ_USERNAME,
                 api_settings.RABBIT_MQ_PASSWORD,
                 api_settings.RABBIT_MQ_REGION,
-                api_settings.RABBIT_MQ_URL
+                api_settings.RABBIT_MQ_HOST,
+                api_settings.RABBIT_MQ_PORT,
             )
             self.connection = basic_pika_publisher._get_connection()
         self.channel = self.connection.channel()
