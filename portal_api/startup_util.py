@@ -85,7 +85,6 @@ def retrieve_secret(project_id,secret_name,version_id):
     # access and retrieve all params
     secret_data = secret_version.payload.data.decode('utf-8')
     data = json.loads(secret_data)
-    print(data)
     # Iterate and set it to the os.environ variable
     # Print all key-value pairs
     for key, value in data.items():

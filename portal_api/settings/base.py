@@ -290,6 +290,7 @@ API_SETTINGS = {
     "MAB_USER_UPGRADE": env.int("API_MAB_USER_UPGRADE", 10000),
     "RABBIT_MQ_URL": env.str("RABBIT_MQ_URL", 'localhost:5672'),
     "RABBIT_MQ_PORT": env.str("RABBIT_MQ_PORT", 5671),
+    "RABBIT_MQ_HOST":env.str("RABBIT_MQ_HOST", "localhost"),
     "RABBIT_MQ_USERNAME": env.str("RABBIT_MQ_USERNAME", 'guest'),
     "RABBIT_MQ_PASSWORD": env.str("RABBIT_MQ_PASSWORD", 'guest'),
     "RABBIT_MQ_REGION": env.str("RABBIT_MQ_REGION", 'ap-southeast-1'),
