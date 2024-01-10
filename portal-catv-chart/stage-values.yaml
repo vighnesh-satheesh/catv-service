@@ -62,6 +62,7 @@ main:
 
 # Sidecar Container Spec
 sidecar:
+  enabled: false
   containerName: alloydb-auth-proxy
   image:
     repository: gcr.io/alloydb-connectors/alloydb-auth-proxy
@@ -72,6 +73,7 @@ sidecar:
   pullPolicy: IfNotPresent
   securityContext:
     runAsNonRoot: true
+
 
 # Volumes which are needs to attached to deployment
 volumes: []
