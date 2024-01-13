@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - stage
+      - gcp_stage
   workflow_dispatch:
     
 jobs:

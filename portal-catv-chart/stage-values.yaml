@@ -10,7 +10,7 @@ main:
   image:
     repository: asia-docker.pkg.dev/uppsala-devops/uppsala-stage-repository/portal-catv-service
     tag: "latest"
-  containerPort: 8000
+  containerPort: &containerPort 8000
   pullPolicy: Always
   securityContext: {}
 
@@ -24,17 +24,17 @@ main:
   envVarsSecret: ""
 
   # Container Resource Limits
-  resources:
-    limits:
-      cpu: 500m
-      memory: 800Mi
+  resources: {}
+    # limits:
+    #   cpu: 500m
+    #   memory: 800Mi
 
   # Container Liveness Probe to check health status
   livenessProbe:
     failureThreshold: 1
     httpGet:
       path: /healthcheck
-      port: 8000
+      port: *containerPort
     initialDelaySeconds: 30
     periodSeconds: 3
 
@@ -43,7 +43,7 @@ main:
     failureThreshold: 1
     httpGet:
       path: /healthcheck
-      port: 8000
+      port: *containerPort
     initialDelaySeconds: 30
     periodSeconds: 3
 
@@ -63,16 +63,16 @@ main:
 # Sidecar Container Spec
 sidecar:
   enabled: false
-  containerName: alloydb-auth-proxy
-  image:
-    repository: gcr.io/alloydb-connectors/alloydb-auth-proxy
-    tag: latest
-  args:
-    - -p=5432
-    - projects/uppsala-staging/locations/asia-southeast1/clusters/upp-stg-micro-portal-cluster/instances/upp-stg-micro-portal
-  pullPolicy: IfNotPresent
-  securityContext:
-    runAsNonRoot: true
+  # containerName: alloydb-auth-proxy
+  # image:
+  #   repository: gcr.io/alloydb-connectors/alloydb-auth-proxy
+  #   tag: latest
+  # args:
+  #   - -p=5432
+  #   - projects/uppsala-staging/locations/asia-southeast1/clusters/upp-stg-micro-portal-cluster/instances/upp-stg-micro-portal
+  # pullPolicy: IfNotPresent
+  # securityContext:
+  #   runAsNonRoot: true
 
 
 # Volumes which are needs to attached to deployment
@@ -119,17 +119,21 @@ kubernetesClusterDomain:
 
 # ConfigMap Spec
 configMap:
-  gcpProjectId: uppsala-staging
-  gcpSecretName: upp-stg-api-catv-service
+  GCP_PROJECT_ID: uppsala-staging
+  GCP_SECRET_NAME: upp-stg-api-catv-service
 
 # Service Spec
 # If the Service Type is NodePort update as nodePort: any numbe between 30000-32767
 # If the Service Type is ClusterIP update the port
 service:
-  type: LoadBalancer
-  port: 80
-  targetPort: 8000
+  type: ClusterIP
+  port: 8000
+  targetPort: *containerPort
   # nodePort:
+
+# Service Annotations
+  annotations: {}
+
 
 # Ingress spec
 ingress:

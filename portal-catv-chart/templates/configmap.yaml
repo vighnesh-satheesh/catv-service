@@ -5,5 +5,4 @@ metadata:
   labels:
   {{- include "portal-catv-chart.labels" . | nindent 4 }}
 data:
-  GCP_PROJECT_ID: {{ .Values.configMap.gcpProjectId | quote }}
-  GCP_SECRET_NAME: {{ .Values.configMap.gcpSecretName | quote }}
+{{- toYaml .Values.configMap | nindent 2 }}
