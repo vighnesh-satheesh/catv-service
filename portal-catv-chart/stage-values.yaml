@@ -31,22 +31,24 @@ main:
 
   # Container Liveness Probe to check health status
   livenessProbe:
-    failureThreshold: 1
+    failureThreshold: 5
     httpGet:
       path: /healthcheck
       port: *containerPort
     initialDelaySeconds: 30
-    periodSeconds: 3
+    periodSeconds: 300
+    timeoutSeconds: 60
 
   # container Rediness Probe to check container status ready
   readinessProbe:
-    failureThreshold: 1
+    failureThreshold: 5
     httpGet:
       path: /healthcheck
       port: *containerPort
     initialDelaySeconds: 30
-    periodSeconds: 3
-
+    periodSeconds: 300
+    timeoutSeconds: 60
+    
   # Volume Mounts for Main container
   volumeMounts: []
     # - name: config-volume
