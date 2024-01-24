@@ -94,6 +94,7 @@ class GraphQLInterfaceUnified:
             "ZEC": "zcash",
             "DASH": "dash",
             "ETH": "ethereum"
+            "DOGE": "dogecoin"
         }
         self.network_chain_mapping_response = {
             "LUNC": "cosmos",
@@ -111,6 +112,7 @@ class GraphQLInterfaceUnified:
             "DASH": "bitcoin",
             "ADA": "cardano",
             "ETH": "ethereum"
+            "ADA": "cardano"
         }
 
     def _graphql_query_builder(self):
