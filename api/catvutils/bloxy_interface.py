@@ -93,7 +93,7 @@ class GraphQLInterfaceUnified:
             "DOGE": "dogecoin",
             "ZEC": "zcash",
             "DASH": "dash",
-            "ETH": "ethereum"
+            "ETH": "ethereum",
             "DOGE": "dogecoin"
         }
         self.network_chain_mapping_response = {
@@ -111,7 +111,7 @@ class GraphQLInterfaceUnified:
             "ZEC": "bitcoin",
             "DASH": "bitcoin",
             "ADA": "cardano",
-            "ETH": "ethereum"
+            "ETH": "ethereum",
             "ADA": "cardano"
         }
 
