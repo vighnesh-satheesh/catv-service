@@ -31,7 +31,12 @@ class CatvTokens(Enum):
     BSC = 'BSC'
     KLAY = 'KLAY'
     LUNC = 'LUNC'
+    FTM = 'FTM'
+    MATIC = 'MATIC'
+    AVAX = 'AVAX'
     DOGE = 'DOGE'
+    ZEC = 'ZEC'
+    DASH = 'DASH'
 
 
 class CatvSearchType(Enum):
