@@ -138,7 +138,7 @@ def determine_wallet_type(token_type):
         "AVAX": "Avalanche",
         "DOGE": "Doge Coin",
         "ZEC": "Zcash",
-        "DASH": "DASH"
+        "DASH": "DASH",
         "DOGE": "Doge Coin"
     }
 
