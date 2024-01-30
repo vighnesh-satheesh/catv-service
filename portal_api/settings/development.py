@@ -16,7 +16,7 @@ ALLOWED_HOSTS += [
     "gcp-stgportal.api.sentinelprotocol.io", 
     "gcp-stgportal.sentinelprotocol.io",
     "stgcatv.api.sentinelprotocol.io"
-]
+] 
 ALLOWED_HOSTS += ["172.16.4.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["172.16.5.%s" % s for s in range(2, 255)]
 
