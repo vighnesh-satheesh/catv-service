@@ -133,8 +133,18 @@ service:
   targetPort: *containerPort
   # nodePort:
 
-# Service Annotations
-  annotations: {}
+  # Annotations to add to the service
+  annotations:
+    cloud.google.com/backend-config: '{"default":"portal-catv-backendconfig"}'
+
+# BackendConfig Spec
+backendConfig:
+# CDN if enabled is set true it will enable the CDN 
+  cdn:
+    enabled: true
+# Cloud Armor Security Policy
+  securityPolicy:
+    name: "office-ip"
 
 
 # Ingress spec

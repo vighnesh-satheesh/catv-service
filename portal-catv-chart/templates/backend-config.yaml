@@ -1,0 +1,17 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "portal-catv-chart.fullname" . }}-backendconfig
+spec:
+  {{- if .Values.backendConfig.cdn.enabled }}
+  cdn:
+    enabled: true
+    cachePolicy:
+      includeHost: true
+      includeProtocol: true
+      includeQueryString: false
+  {{- end }}
+{{- if .Values.backendConfig.securityPolicy }}
+  securityPolicy:
+    name: {{.Values.backendConfig.securityPolicy.name }}
+{{- end }}
