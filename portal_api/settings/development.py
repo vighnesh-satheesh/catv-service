@@ -7,8 +7,29 @@ DEBUG = True
 # ALLOWED_HOSTS += env.list('ALLOWED_HOSTS', default=['*', ])
 ALLOWED_HOSTS += ['10.12.{}.{}'.format(i, j) for i in range(256) for j in range(256)]
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "stgcatv-service.api.sentinelprotocol.io", "stgportal.api.sentinelprotocol.io", "stgportal.sentinelprotocol.io", "stgcatv.api.sentinelprotocol.io"
-]
+    "localhost", 
+    "test.sentinelportal.com", 
+    "gcp-stgcatv-service.api.sentinelprotocol.io", 
+    "stgcatv-service.api.sentinelprotocol.io", 
+    "stgportal.api.sentinelprotocol.io", 
+    "stgportal.sentinelprotocol.io",
+    "gcp-stgportal.api.sentinelprotocol.io", 
+    "gcp-stgportal.sentinelprotocol.io",
+    "stgcatv.api.sentinelprotocol.io"
+] 
+ALLOWED_HOSTS += ["172.16.4.%s" % s for s in range(2, 255)]
+ALLOWED_HOSTS += ["172.16.5.%s" % s for s in range(2, 255)]
+
+ALLOWED_HOSTS += ['10.80.{}.{}'.format(i, j)
+                  for i in range(256) for j in range(256)]
+ALLOWED_HOSTS += ['172.16.{}.{}'.format(i, j)
+                  for i in range(128, 143) for j in range(256)]
+
+#GCP Loadbalncer IP Ranges 
+ALLOWED_HOSTS += ['35.191.{}.{}'.format(i, j)
+                  for i in range(256) for j in range(256)]
+ALLOWED_HOSTS += ['130.211.{}.{}'.format(i, j)
+                  for i in range(0, 3) for j in range(256)]
 
 INSTALLED_APPS = [
     'django.contrib.admin',

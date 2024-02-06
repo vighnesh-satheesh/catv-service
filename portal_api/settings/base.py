@@ -290,6 +290,7 @@ API_SETTINGS = {
     "MAB_USER_UPGRADE": env.int("API_MAB_USER_UPGRADE", 10000),
     "RABBIT_MQ_URL": env.str("RABBIT_MQ_URL", 'localhost:5672'),
     "RABBIT_MQ_PORT": env.str("RABBIT_MQ_PORT", 5671),
+    "RABBIT_MQ_HOST":env.str("RABBIT_MQ_HOST", "localhost"),
     "RABBIT_MQ_USERNAME": env.str("RABBIT_MQ_USERNAME", 'guest'),
     "RABBIT_MQ_PASSWORD": env.str("RABBIT_MQ_PASSWORD", 'guest'),
     "RABBIT_MQ_REGION": env.str("RABBIT_MQ_REGION", 'ap-southeast-1'),
@@ -298,8 +299,8 @@ API_SETTINGS = {
     "RABBIT_MQ_LOCAL_URL":env.str("RABBIT_MQ_LOCAL_URL", "rabbitmq"),
     "API_USER_CACHE": env.str('API_USER_CACHE_DB', 'user_cache'),
     "API_ICF_CACHE": env.str('API_ICF_CACHE_DB', 'api_icf_cache'),
-    "GRAPHQL_ENDPOINT": env.str('API_GRAPHQL_ENDPOINT', 'https://graphql.bitquery.io')
-    
+    "GRAPHQL_ENDPOINT": env.str('API_GRAPHQL_ENDPOINT', 'https://graphql.bitquery.io'),
+    "GRAPHQL_X_API_KEY": env.str('GRAPHQL_API_KEY', '')
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
@@ -314,7 +315,6 @@ CELERY_IMPORTS = ('api.tasks',)
 
 # BLOXY API
 BLOXY_API_KEY = env.str('API_BLOXY_KEY')
-GRAPHQL_X_API_KEY = env.str('GRAPHQL_API_KEY', '')
 BLOXY_DIST_ENDPOINT = env.str(
     'API_BLOXY_DIST_ENDPOINT', 'https://sentinel.api.bitquery.io/coinpath/outbound_graph')
 BLOXY_SRC_ENDPOINT = env.str(

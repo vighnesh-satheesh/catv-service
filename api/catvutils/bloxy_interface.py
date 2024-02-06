@@ -13,7 +13,7 @@ class BloxyAPIInterface:
         self._distribution_endpoint_eth = settings.BLOXY_DIST_ENDPOINT
         self._source_endpoint_btc = settings.BLOXY_BTC_SRC_ENDPOINT
         self._distribution_endpoint_btc = settings.BLOXY_BTC_DIST_ENDPOINT
-        self._graphql_key = settings.GRAPHQL_X_API_KEY
+        self._graphql_key = api_settings.GRAPHQL_X_API_KEY
         self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
 
     def call_bloxy_api(self, api_url, data, timeout=600):
@@ -39,12 +39,12 @@ class BloxyAPIInterface:
                 'limit': limit,
                 'chain': chain.lower()
             }
-            if chain == 'ETH':
-                api_url = self._source_endpoint_eth if source else self._distribution_endpoint_eth
-                if token_address:
-                    payload['token'] = token_address
-            elif chain == 'BTC':
-                api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
+            # if chain == 'ETH':
+            #     api_url = self._source_endpoint_eth if source else self._distribution_endpoint_eth
+            #     if token_address:
+            #         payload['token'] = token_address
+            # elif chain == 'BTC':
+            api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
             print("api_url:", api_url)
             print("payload: ", payload)
             r = self.call_bloxy_api(api_url, payload)
@@ -66,7 +66,7 @@ class BloxyAPIInterface:
 
 class GraphQLInterfaceUnified:
     def __init__(self, chain, source, address, token_address, depth_limit, from_time, till_time, limit):
-        self._graphql_key = settings.GRAPHQL_X_API_KEY
+        self._graphql_key = api_settings.GRAPHQL_X_API_KEY
         self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
         print(f"settings.GRAPHQL_ENDPOINT : {api_settings.GRAPHQL_ENDPOINT}")
         self._headers = {'X-API-KEY': self._graphql_key}

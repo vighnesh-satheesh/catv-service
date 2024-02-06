@@ -1,0 +1,179 @@
+# Default values for upp-api-catv-consumer-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+# Primary application container spec.
+main:
+  containerName: portal-catv
+  image:
+    repository: asia-docker.pkg.dev/uppsala-devops/uppsala-stage-repository/portal-catv-service
+    tag: "latest"
+  containerPort: &containerPort 8000
+  pullPolicy: Always
+  securityContext: {}
+
+  # To pass Container Environment variables add key values.
+  envVars: []
+
+  # To pass Container Environment variables from a ConfigMap add Config Map name
+  envVarsCM: "portal-catv-configmap"
+
+  # To pass Container Environment variables from a Secret add Secret name
+  envVarsSecret: ""
+
+  # Container Resource Limits
+  resources: {}
+    # limits:
+    #   cpu: 500m
+    #   memory: 800Mi
+
+  # Container Liveness Probe to check health status
+  livenessProbe:
+    failureThreshold: 5
+    httpGet:
+      path: /healthcheck
+      port: *containerPort
+    initialDelaySeconds: 30
+    periodSeconds: 300
+    timeoutSeconds: 60
+
+  # container Rediness Probe to check container status ready
+  readinessProbe:
+    failureThreshold: 5
+    httpGet:
+      path: /healthcheck
+      port: *containerPort
+    initialDelaySeconds: 30
+    periodSeconds: 300
+    timeoutSeconds: 60
+    
+  # Volume Mounts for Main container
+  volumeMounts: []
+    # - name: config-volume
+    #   mountPath: /etc/temp
+    # - name: secret-volume
+    #   mountPath: /etc/secret
+    # - name: cache-volume
+    #   mountPath: /etc/cache
+    # - name: test-dir
+    #   mountPath: /etc/dir
+    # - name: pvc
+    #   mountPath: /etc/pvc
+
+# Sidecar Container Spec
+sidecar:
+  enabled: false
+  # containerName: alloydb-auth-proxy
+  # image:
+  #   repository: gcr.io/alloydb-connectors/alloydb-auth-proxy
+  #   tag: latest
+  # args:
+  #   - -p=5432
+  #   - projects/uppsala-staging/locations/asia-southeast1/clusters/upp-stg-micro-portal-cluster/instances/upp-stg-micro-portal
+  # pullPolicy: IfNotPresent
+  # securityContext:
+  #   runAsNonRoot: true
+
+
+# Volumes which are needs to attached to deployment
+volumes: []
+  # - name: config-volume
+  #   configMap:
+  #     name: log-config
+  #     items:
+  #       - key: log_level
+  #         path: log_level
+  # - name: secret-volume
+  #   secret:
+  #     secretName: log_secret
+  # - name: cache-volume
+  #   emptyDir:
+  #     sizeLimit: 500Mi
+  # - name: test-dir
+  #   hostPath:
+  #     path: /dir
+  #     type: Directory
+  # - name: pvc
+  #   persistentVolumeClaim:
+  #     claimName: myclaim
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "portal-catv-sa"
+
+podAnnotations: {}
+
+podSecurityContext: {}
+kubernetesClusterDomain:
+  cluster.local
+  # fsGroup: 2000
+
+# ConfigMap Spec
+configMap:
+  GCP_PROJECT_ID: uppsala-staging
+  GCP_SECRET_NAME: upp-stg-api-catv-service
+
+# Service Spec
+# If the Service Type is NodePort update as nodePort: any numbe between 30000-32767
+# If the Service Type is ClusterIP update the port
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: *containerPort
+  # nodePort:
+
+  # Annotations to add to the service
+  annotations:
+    cloud.google.com/backend-config: '{"default":"portal-catv-backendconfig"}'
+
+# BackendConfig Spec
+backendConfig:
+# CDN if enabled is set true it will enable the CDN 
+  cdn:
+    enabled: true
+# Cloud Armor Security Policy
+  securityPolicy:
+    name: "office-ip"
+
+
+# Ingress spec
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

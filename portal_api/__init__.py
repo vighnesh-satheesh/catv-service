@@ -1,5 +1,5 @@
 import os
-from .startup_util import set_environment_variables_from_parameter_store, set_allowed_hosts
+from .startup_util import set_allowed_hosts,set_environment_variables_from_secret_manager
 
 
 class AppInit:
@@ -20,7 +20,7 @@ class AppInit:
             )
         if not self.INIT_DONE:
             set_allowed_hosts()
-            set_environment_variables_from_parameter_store()
+            set_environment_variables_from_secret_manager()
             self.INIT_DONE = True
             from .celery_app import app as celery_app
 
