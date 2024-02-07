@@ -34,7 +34,6 @@ class Constants:
         "DOGE": "dogecoin",
         "ZEC": "zcash",
         "DASH": "dash",
-        "ADA": "cardano",
         "ETH": "ethereum"
     }
 
