@@ -34,7 +34,8 @@ class Constants:
         "DOGE": "dogecoin",
         "ZEC": "zcash",
         "DASH": "dash",
-        "ADA": "cardano"
+        "ADA": "cardano",
+        "ETH": "ethereum"
     }
 
     NETWORK_CHAIN_MAPPING_FOR_RESPONSE = {
@@ -55,6 +56,7 @@ class Constants:
         "DOGE": "bitcoin",
         "ZEC": "bitcoin",
         "DASH": "bitcoin",
+        "ETH": "ethereum"
     }
 
     GRAPHQL_CURRENCY_MAPPING = {
