@@ -29,7 +29,7 @@ class Constants:
         "BCH": "bitcash",
         "ADA": "cardano",
         "FTM": "fantom",
-        "MATIC": "matic",
+        "POL": "matic",
         "AVAX": "avalanche",
         "DOGE": "dogecoin",
         "ZEC": "zcash",
@@ -50,7 +50,7 @@ class Constants:
         "BCH": "bitcoin",
         "ADA": "cardano",
         "FTM": "ethereum",
-        "MATIC": "ethereum",
+        "POL": "ethereum",
         "AVAX": "ethereum",
         "DOGE": "bitcoin",
         "ZEC": "bitcoin",
@@ -64,7 +64,7 @@ class Constants:
         "KLAY": "KLAY",
         "BSC": "BNB",
         "FTM": "FTM",
-        "MATIC": "MATIC",
+        "POL": "MATIC",
         "AVAX": "AVAX"
     }
     CATV_API_RESPONSE = {
@@ -83,7 +83,7 @@ class Constants:
     CATV_API = {
         "SUPPORTED_NETWORKS": ['BTC', 'ETH', 'LTC', 'TRX',
                                'EOS', 'XLM', 'ADA', 'BNB', 'BCH', 'XRP', 'BSC', 'KLAY',
-                               'DASH', 'DOGE', 'ZEC', 'FTM', 'MATIC', 'AVAX'],
+                               'DASH', 'DOGE', 'ZEC', 'FTM', 'POL', 'AVAX'],
         "QUORUM_CHAINS": ['XRP', 'XLM'],
         "UTXO_CHAINS": ['BTC', 'LTC', 'BCH', 'ADA', 'DASH', 'DOGE', 'ZEC']
     }
