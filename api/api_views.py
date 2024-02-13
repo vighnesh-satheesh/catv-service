@@ -242,7 +242,6 @@ def get_user_details(key):
         rpc = RPCAPIRequestValidator()
         user_rpc = {"key": key}
         res = (rpc.call(user_rpc)).decode('UTF-8')
-        #auth_response = ast.literal_eval(res)
         if res != "Failed":
             API_CACHE.set(key, json.dumps(res), 60*60*12)
         else:
@@ -378,7 +377,7 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
                 return None
             val = bool(re.match(
                 coindata[chain.upper()]['networkList'][chain.upper()]['addressRegex'], addr))
-            if token and chain.lower() not in UTXO_CHAINS and chain.lower() not in [c for c in QUORUM_CHAINS if c != 'XLM'] and token != '0x0000000000000000000000000000000000000000' and not isinstance(token, int):
+            if token and chain.upper() not in UTXO_CHAINS and chain.upper() not in [c for c in QUORUM_CHAINS if c != 'XLM'] and token != '0x0000000000000000000000000000000000000000' and not isinstance(token, int):
                 # Validates token with assumption that token address is consistent with user address
                 token_val = bool(re.match(
                     coindata[chain.upper()]['networkList'][chain.upper()]['addressRegex'], token))
