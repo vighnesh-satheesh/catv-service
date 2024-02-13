@@ -138,7 +138,7 @@ def determine_wallet_type(token_type):
         "KLAY": "Klaytn",
         "LUNC": "LUNC",
         "FTM": "Fantom",
-        "POL": "Matic",
+        "POL": "Polygon",
         "AVAX": "Avalanche",
         "ZEC": "Zcash",
         "DASH": "DASH",
