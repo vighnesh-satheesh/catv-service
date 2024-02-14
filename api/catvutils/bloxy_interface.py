@@ -152,7 +152,7 @@ class GraphQLInterfaceUnified:
                 extra_params = " depth amount  currency { name symbol tokenId tokenType } "
                 # Klaytn/Binance Smart Chain or KLAY/BSC
             elif self.chain in ["ETH", "KLAY", "BSC", "FTM", "POL", "AVAX"]:
-                currency = f""" currency: {{ is: "{currency_value}" }} """
+                currency = f""" currency: {{ is: "{currency_value}" }} """ if currency_value else " "
                 receiver = common_receiver_query + amount_details + \
                            time.replace("var", "firstTxAt") + " " + \
                            time.replace("var", "lastTxAt") + \

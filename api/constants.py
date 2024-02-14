@@ -62,11 +62,11 @@ class Constants:
         "TRX": "TRX",
         "BNB": "BNB",
         "KLAY": "KLAY",
-        "BSC": "BNB",
-        "FTM": "FTM",
-        "POL": "MATIC",
-        "AVAX": "AVAX"
+        "BSC": "BNB"
     }
+    # "FTM": "FTM",
+    # "POL": "MATIC",
+    # "AVAX": "AVAX"
     CATV_API_RESPONSE = {
         "UNAUTHORIZED": {"status": False, "data": {
             "message": "Api key invalid or expired"}},
