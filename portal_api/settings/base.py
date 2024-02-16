@@ -302,7 +302,7 @@ API_SETTINGS = {
     "GRAPHQL_X_API_KEY": env.str('GRAPHQL_API_KEY', ''),
     "API_ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', ''),
     "BLOXY_API_KEY" : env.str('API_BLOXY_KEY', 'ACCG4wmxpYKkd'),
-    "ES_INDEX": env.str('ES_INDEX', 'dev_latest_indicator'),
+    "ES_INDEX": env.str('ES_INDEX', 'latest_indicator'),
     "API_ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
     "ES_FLAG": env.bool('ES_FLAG', True)
 }
