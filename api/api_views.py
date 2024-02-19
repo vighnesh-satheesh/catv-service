@@ -337,7 +337,7 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
                 return None
             val = bool(re.match(
                 coindata[chain.upper()]['networkList'][chain.upper()]['addressRegex'], addr))
-            if token and chain.upper() not in UTXO_CHAINS and chain.upper() not in [c for c in QUORUM_CHAINS if c != 'XLM'] and token != '0x0000000000000000000000000000000000000000' and not isinstance(token, int):
+            if token and chain.upper() not in Constants.CATV_API["UTXO_CHAINS"] and chain.upper() not in [c for c in Constants.CATV_API["QUORUM_CHAINS"] if c != 'XLM'] and token != '0x0000000000000000000000000000000000000000' and not isinstance(token, int):
                 # Validates token with assumption that token address is consistent with user address
                 token_val = bool(re.match(
                     coindata[chain.upper()]['networkList'][chain.upper()]['addressRegex'], token))
