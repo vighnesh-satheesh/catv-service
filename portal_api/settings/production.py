@@ -12,7 +12,8 @@ DEBUG = False
 # ALLOWED_HOSTS += ['172.16.6.{}'.format(i)
 #                   for i in range(256)]
 
-
+ALLOWED_HOSTS += ['10.70.{}.{}'.format(i, j)
+                  for i in range(256) for j in range(256)]
 ALLOWED_HOSTS += ["172.16.6.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["172.16.7.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ['172.16.{}.{}'.format(i, j)
