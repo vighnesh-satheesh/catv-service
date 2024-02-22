@@ -6,6 +6,8 @@ import binascii
 import base58
 import hashlib
 
+from django.db import connections, close_old_connections, OperationalError
+from django.db.utils import InterfaceError
 from django.db.models import Q
 from six import text_type
 from django.utils.encoding import force_str
@@ -235,3 +237,54 @@ def get_gcs_file(bucket_name, filename):
     except NotFound:
         raise SuspiciousOperation(f"The file '{filename}' does not exist in the GCS bucket.")
 
+
+def ensure_db_connections(*db_aliases):
+    def decorator(func):
+        @wraps(func)
+        def inner(*args, **kwargs):
+            retries = 0
+            max_retries = 3
+            retry_delay = 5
+            while retries < max_retries:
+                try:
+                    for db_alias in db_aliases:
+                        print(f"ensuring connection for {db_alias} before rpc")
+                        connections[db_alias].ensure_connection()
+                    return func(*args, **kwargs)
+                except (OperationalError, InterfaceError) as e:
+                    print(f"Database connection error: {e}, retrying...")
+                    close_old_connections()
+                    time.sleep(retry_delay)
+                    retries += 1
+                except Exception as e:
+                    print(f"Unexpected error: {e}")
+                    close_old_connections()
+                    time.sleep(retry_delay)
+                    retries += 1
+            return None
+        return inner
+    return decorator
+
+
+def retry_on_db_error(*db_aliases, max_retries=3, retry_delay=2):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 0
+            while attempt < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except (InterfaceError, OperationalError) as e:
+                    try:
+                        for db_alias in db_aliases:
+                            print("Closing db_alias connection")
+                            connections[db_alias].close()
+                    except Exception:
+                        pass
+                    attempt += 1
+                    if attempt < max_retries:
+                        time.sleep(retry_delay)
+                    else:
+                        raise
+        return wrapper
+    return decorator
