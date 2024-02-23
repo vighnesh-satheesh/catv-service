@@ -377,7 +377,7 @@ class RPCAPIRequestValidator:
         self.corr_id = str(uuid.uuid4())
         self.channel.basic_publish(
             exchange='',
-            routing_key='rpc_cara_api_request_validator',
+            routing_key='rpc_catv_api_request_validator',
             properties=pika.BasicProperties(
                 reply_to=self.callback_queue,
                 correlation_id=self.corr_id,
