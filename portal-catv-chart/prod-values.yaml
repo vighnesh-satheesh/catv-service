@@ -36,7 +36,7 @@ main:
       path: /healthcheck
       port: *containerPort
     initialDelaySeconds: 30
-    periodSeconds: 120
+    periodSeconds: 300
     timeoutSeconds: 60
   
 # container Rediness Probe to check container status ready
@@ -46,7 +46,7 @@ main:
       path: /healthcheck
       port: *containerPort
     initialDelaySeconds: 30
-    periodSeconds: 120
+    periodSeconds: 300
     timeoutSeconds: 60
 
 # Volume Mounts for Main container 
