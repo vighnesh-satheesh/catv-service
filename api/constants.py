@@ -14,5 +14,76 @@ class Constants:
                             "as tz_date from api_catv_history where logged_time at TIME ZONE '{0}' >= "
                             "(now() at TIME ZONE '{0}' - INTERVAL '{1} DAYS')::date and "
                             "user_id = '{2}' group by tz_date)"
-                            "x(searches, tz_date) on ts.d = x.tz_date",                          
+                            "x(searches, tz_date) on ts.d = x.tz_date",
+    }
+    NETWORK_CHAIN_MAPPING_FOR_QUERY = {
+        "LUNC": "terra",
+        "KLAY": "klaytn",
+        "BSC": "bsc",
+        "BNB": "binance",
+        "TRX": "tron",
+        "EOS": "eos",
+        "XLM": "stellar",
+        "XRP": "ripple",
+        "LTC": "litecoin",
+        "BCH": "bitcash",
+        "ADA": "cardano",
+        "FTM": "fantom",
+        "POL": "matic",
+        "AVAX": "avalanche",
+        "DOGE": "dogecoin",
+        "ZEC": "zcash",
+        "DASH": "dash",
+        "ETH": "ethereum"
+    }
+
+    NETWORK_CHAIN_MAPPING_FOR_RESPONSE = {
+        "LUNC": "cosmos",
+        "KLAY": "ethereum",
+        "BSC": "ethereum",
+        "BNB": "binance",
+        "TRX": "tron",
+        "EOS": "eos",
+        "XLM": "stellar",
+        "XRP": "ripple",
+        "LTC": "bitcoin",
+        "BCH": "bitcoin",
+        "ADA": "cardano",
+        "FTM": "ethereum",
+        "POL": "ethereum",
+        "AVAX": "ethereum",
+        "DOGE": "bitcoin",
+        "ZEC": "bitcoin",
+        "DASH": "bitcoin",
+        "ETH": "ethereum"
+    }
+
+    GRAPHQL_CURRENCY_MAPPING = {
+        "TRX": "TRX",
+        "BNB": "BNB",
+        "KLAY": "KLAY",
+        "BSC": "BNB"
+    }
+    # "FTM": "FTM",
+    # "POL": "MATIC",
+    # "AVAX": "AVAX"
+    CATV_API_RESPONSE = {
+        "UNAUTHORIZED": {"status": False, "data": {
+            "message": "Api key invalid or expired"}},
+        "INTERNAL_SERVER_ERROR": {"status": False,
+                                  "data": {"message": "Internal server error"}},
+        "REQUIRED_HEADERS_MISSING": {"status": False, "data": {
+            "message": "Required headers are missing"}},
+        "INSUFFICIENT_CREDIT": {"status": False,
+                                "data": {"message": "Insufficient credit"}},
+        "REQUEST_BODY_MISSING": {"status": False,
+                                 "data": {"message": "Unable to parse body"}},
+        "API_KEY_MISSING": {"status": False, "data": {"message": "Api key required"}}
+    }
+    CATV_API = {
+        "SUPPORTED_NETWORKS": ['BTC', 'ETH', 'LTC', 'TRX',
+                               'EOS', 'XLM', 'ADA', 'BNB', 'BCH', 'XRP', 'BSC', 'KLAY',
+                               'DASH', 'DOGE', 'ZEC', 'FTM', 'POL', 'AVAX'],
+        "QUORUM_CHAINS": ['XRP', 'XLM'],
+        "UTXO_CHAINS": ['BTC', 'LTC', 'BCH', 'ADA', 'DASH', 'DOGE', 'ZEC']
     }
