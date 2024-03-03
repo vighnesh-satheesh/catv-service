@@ -1,4 +1,4 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
+FROM asia-docker.pkg.dev/uppsala-devops/application-base-image-repository/python:latest
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -40,7 +40,9 @@ RUN apt-get update && \
     npm install pm2@latest -g
 
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
-
+# Install google cloud CLI
+RUN curl -sSL https://sdk.cloud.google.com | bash
+ENV PATH $PATH:/root/google-cloud-sdk/bin    
 # Install requirements
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library

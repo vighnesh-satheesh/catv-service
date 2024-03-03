@@ -1,0 +1,104 @@
+name: GCP-STG-PORTAL-CATV-API #Only for staging environment
+on:
+  push:
+    branches:
+      - stage
+      - gcp_stage
+  workflow_dispatch:
+    
+jobs:
+  build:
+    name: Build & Deploy
+    runs-on: ubuntu-20.04
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    env: ###--> Change all values here <--###
+      SLACK_URL: 'https://hooks.slack.com/services/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'
+      UPP_HOST: stgcatv-service.api.sentinelprotocol.io
+      BUILD_ENV: stage
+      AR_REPO_NAME: ${{secrets.STAGE_ARTIFACT_REPOSITORY}}
+      PROJECT_ID: ${{secrets.STAGE_GCP_PROJECT_ID}}
+      GKE_CLUSTER_NAME: ${{secrets.STAGE_GKE_CLUSTER_NAME}}
+      REGION: ${{secrets.GCP_REGION}}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      SCANTISTTOKEN: ${{ secrets.UPPHUBSCANTISTTOKEN }}
+      NAMESPACE: backend
+      DEPLOYMENT_NAME: portal-catv
+      CHART_PATH: portal-catv-chart
+      DOCKERFILE_PATH: docker/Dockerfile_stg
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 'Authenticate to Google Cloud'
+        id: 'gcloud-auth'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          create_credentials_file: true
+          workload_identity_provider: ${{secrets.WORKLOAD_IDENTITY_PROVIDER}}
+          service_account: ${{secrets.SERVICE_ACCOUNT_EMAIL}}
+      
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      - name: Configure Docker Credentials
+        id: 'gcloud-docker'
+        run: gcloud auth configure-docker asia-docker.pkg.dev
+
+      - name: Clone indicator lib
+        id: indicator-lib-checkout
+        run: |
+            git clone "https://uppindicator:b06fdc52611d60ce262c5718e4b1352bca09d4c3@github.com/upphub/indicator-lib.git"
+            mkdir -p library
+            mv indicator-lib library/indicator-lib
+            
+      - name: Build & Push Docker Image
+        id: 'docker-build'
+        run: |-
+          docker build -t ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:latest -f ${{env.DOCKERFILE_PATH}} .
+          docker tag ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:latest ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:${{github.sha}}
+          docker push ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:${{github.sha}}
+          docker push ${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service:latest 
+
+      - name: GCloud Plugins Setup
+        id: 'gcloud-plugin'
+        run: |-
+          gcloud components update
+          gcloud components install gke-gcloud-auth-plugin  
+              
+      - name: Cluster Credentials
+        id: 'gke-auth'
+        run: |-
+          gcloud container clusters get-credentials ${{env.GKE_CLUSTER_NAME}} --region ${{env.REGION}} --project ${{env.PROJECT_ID}}
+
+      - name: Deploy Application
+        id: 'helm-install'
+        run: |-
+          helm upgrade --install ${{env.DEPLOYMENT_NAME}} ${{env.CHART_PATH}}/ \
+            --set main.image.repository=${{env.AR_REPO_NAME}}/${{env.DEPLOYMENT_NAME}}-service \
+            --set main.image.tag=${{github.sha}} \
+            -f ${{env.CHART_PATH}}/stage-values.yaml \
+            -n ${{env.NAMESPACE}}
+
+      
+      - name: Slack Notification
+        if: ${{ always() }}
+        uses: adamkdean/simple-slack-notify@master
+        with:
+          channel: "#github_actions_update"
+          status: ${{ job.status }}
+          username: "Build triggered by ${env.GITHUB_ACTOR}"
+          success_text: "Build (#${env.GITHUB_RUN_NUMBER}) completed successfully :sunglasses:"
+          failure_text: "Build (#${env.GITHUB_RUN_NUMBER}) failed :worried:"
+          cancelled_text: "Build (#${env.GITHUB_RUN_NUMBER}) was cancelled :face_with_rolling_eyes:"
+          fields: |
+            [{ "title": "GitHub Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"}]
+            
+      - name: Download Scantist-Bom-Detect
+        run: curl -s https://scripts.scantist.com/scantist-bom-detect.jar --output scantist-bom-detect.jar
+      
+      - name: Upload to Scantist         
+        run: java -jar scantist-bom-detect.jar -pipRequirementFile "development.txt" -airgap

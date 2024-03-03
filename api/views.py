@@ -9,6 +9,7 @@ import boto3
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
+from django.core.exceptions import SuspiciousOperation
 from rest_framework import generics
 from rest_framework.authentication import get_authorization_header
 from rest_framework.permissions import AllowAny
@@ -50,7 +51,8 @@ class HealthCheckView(APIView):
 
     def get(self, request):
         return APIResponse({
-            "status": "ok"
+            "status": "ok",
+            "secret": str(api_settings.ATTACHED_FILE_S3_BUCKET_NAME)
         })
 
 
@@ -431,10 +433,17 @@ class CATVReportView(APIView):
         print("RES", res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
-
-        s3 = boto3.resource('s3')
-        s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
-        body = s3_obj.get()['Body'].read()
+        try:            
+        # s3 = boto3.resource('s3')
+        # s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+            body = utils.get_gcs_file(api_settings.ATTACHED_FILE_S3_BUCKET_NAME,filename)#s3_obj.get()['Body'].read()
+        except SuspiciousOperation:
+            return APIResponse({
+                "data": {},
+                "messages": {
+                    "source": "Results not generated yet. Please try again later."
+                }
+            })
 
         results = json.loads(body)
         if isinstance(results, str):
@@ -591,11 +600,17 @@ class CATVMultiReportView(APIView):
                     # file_obj = urlopen(result_file['file']).read()
                     # buf = file_obj.read()
                     filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + result_file['uid']
-
-                    s3 = boto3.resource('s3')
-                    s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
-                    body = s3_obj.get()['Body'].read()
-
+                    try:
+                    #s3 = boto3.resource('s3')
+                    #s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+                        body = utils.get_gcs_file(api_settings.ATTACHED_FILE_S3_BUCKET_NAME,filename)#s3_obj.get()['Body'].read()
+                    except SuspiciousOperation:
+                        return APIResponse({
+                        "data": {},
+                        "messages": {
+                            "source": "Results not generated yet. Please try again later."
+                        }
+                    })
                     results = json.loads(body)
                     if isinstance(results, str):
                         results = ast.literal_eval(results)

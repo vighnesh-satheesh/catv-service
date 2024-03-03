@@ -17,6 +17,10 @@ from .response import APIResponse
 from .models import (
     CatvTokens, CatvHistory, UserRoles
 )
+from google.cloud import storage
+from google.cloud.exceptions import NotFound
+from django.core.exceptions import SuspiciousOperation
+
 from . import exceptions
 
 SUBSCRIBED_ROLES = [UserRoles.INVESTIGATOR_STARTER_CAMS.value, UserRoles.INVESTIGATOR_ADVANCED_CAMS.value,
@@ -219,3 +223,15 @@ def is_eth_based_wallet(pattern_subtype):
     if pattern_subtype in eth_based_pattern_subtypes:
         return True
     return False
+
+def get_gcs_file(bucket_name, filename):
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+
+    try:
+        blob = bucket.blob(filename)
+        content = blob.download_as_text()  # Use download_as_bytes() for binary content
+        return content
+    except NotFound:
+        raise SuspiciousOperation(f"The file '{filename}' does not exist in the GCS bucket.")
+

@@ -290,6 +290,7 @@ API_SETTINGS = {
     "MAB_USER_UPGRADE": env.int("API_MAB_USER_UPGRADE", 10000),
     "RABBIT_MQ_URL": env.str("RABBIT_MQ_URL", 'localhost:5672'),
     "RABBIT_MQ_PORT": env.str("RABBIT_MQ_PORT", 5671),
+    "RABBIT_MQ_HOST":env.str("RABBIT_MQ_HOST", "localhost"),
     "RABBIT_MQ_USERNAME": env.str("RABBIT_MQ_USERNAME", 'guest'),
     "RABBIT_MQ_PASSWORD": env.str("RABBIT_MQ_PASSWORD", 'guest'),
     "RABBIT_MQ_REGION": env.str("RABBIT_MQ_REGION", 'ap-southeast-1'),
@@ -305,6 +306,7 @@ API_SETTINGS = {
     "ES_INDEX": env.str('ES_INDEX', 'latest_indicator'),
     "API_ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
     "ES_FLAG": env.bool('ES_FLAG', True)
+    "GRAPHQL_X_API_KEY": env.str('GRAPHQL_API_KEY', '')
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
