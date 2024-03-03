@@ -206,7 +206,7 @@ class GraphQLInterfaceUnified:
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
             response = r.json()
-            print(request_body)
+            print("graphql query: ", request_body)
             for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
                 # These dict items are common to all response bodies
                 # After this, the code enters the nested if-else block and the other parameters are assigned
@@ -322,5 +322,7 @@ class GraphQLInterfaceUnified:
             print(f"Bitquery Graphql call request exception: {self.address} {self.chain}")
             return []
         except Exception as e:
+            if "errors" in response and response["errors"]:
+                print("Bitquery error response: ", response["errors"])
             traceback.print_exc()
             return []
