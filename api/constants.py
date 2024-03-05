@@ -34,7 +34,8 @@ class Constants:
         "DOGE": "dogecoin",
         "ZEC": "zcash",
         "DASH": "dash",
-        "ETH": "ethereum"
+        "ETH": "ethereum",
+        "BTC": "bitcoin"
     }
 
     NETWORK_CHAIN_MAPPING_FOR_RESPONSE = {
@@ -46,6 +47,7 @@ class Constants:
         "EOS": "eos",
         "XLM": "stellar",
         "XRP": "ripple",
+        "BTC": "bitcoin",
         "LTC": "bitcoin",
         "BCH": "bitcoin",
         "ADA": "cardano",
