@@ -8,7 +8,7 @@ from django.db import connections
 from api.constants import Constants
 from api.settings import api_settings
 from .BasicPikaClient import PikaRabbitMQConfig
-from ..utils import retry_run
+from ..utils import retry_run, ensure_db_connections
 
 
 class AMQPCATVConsuming(threading.Thread):
@@ -25,6 +25,7 @@ class AMQPCATVConsuming(threading.Thread):
             return False
         return result
 
+    @ensure_db_connections('readonly')
     def on_request_portal_catv_call(self, ch, method, props, body):
         result = ast.literal_eval(body.decode('utf-8'))
         user = result['user_id']
@@ -53,7 +54,6 @@ class AMQPCATVConsuming(threading.Thread):
             if api_settings.RABBIT_MQ_ENV == "local":
                 connection = pika.BlockingConnection(
                     pika.ConnectionParameters(host=api_settings.RABBIT_MQ_LOCAL_URL))
-
             else:
                 basic_pika_publisher = PikaRabbitMQConfig(
                     api_settings.RABBIT_MQ_BROKER_ID,

@@ -54,9 +54,10 @@ class ApiConfig(AppConfig):
             # import api.signals
             # import search_indexes.signals
             from api.rpc.RPCServer import AMQPCATVConsuming
+            from api.rpc.CloseOldConnections import CloseOldConnections
             rpcconsumer = AMQPCATVConsuming()
+            close_old_connections = CloseOldConnections()
             rpcconsumer.daemon = True
+            close_old_connections.daemon = True
             rpcconsumer.start()
-
-
-            
+            close_old_connections.start()
