@@ -1,4 +1,4 @@
-FROM 821988754834.dkr.ecr.ap-southeast-1.amazonaws.com/python:latest
+FROM asia-docker.pkg.dev/uppsala-devops/application-base-image-repository/python:latest
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 

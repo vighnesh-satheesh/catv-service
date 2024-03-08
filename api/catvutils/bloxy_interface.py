@@ -72,10 +72,11 @@ class BloxyAPIInterface:
         )
         results = graphql_interface.call_graphql_endpoint()
         return results
-
+      
 
 class GraphQLInterfaceUnified:
-    def     __init__(self, chain, source, address, token_address, depth_limit, from_time, till_time, limit):
+
+    def __init__(self, chain, source, address, token_address, depth_limit, from_time, till_time, limit):
         self._graphql_key = api_settings.GRAPHQL_X_API_KEY
         self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
         self._headers = {'X-API-KEY': self._graphql_key}
