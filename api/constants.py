@@ -64,7 +64,8 @@ class Constants:
         "TRX": "TRX",
         "BNB": "BNB",
         "KLAY": "KLAY",
-        "BSC": "BNB"
+        "BSC": "BNB",
+        "ETH": "ETH"
     }
     # "FTM": "FTM",
     # "POL": "MATIC",
