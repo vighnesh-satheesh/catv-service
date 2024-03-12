@@ -75,6 +75,8 @@ class Constants:
             "message": "Api key invalid or expired"}},
         "INTERNAL_SERVER_ERROR": {"status": False,
                                   "data": {"message": "Internal server error"}},
+        "NO_DATA_FOUND": {"status": False,
+                          "data": {"message": "Sorry, No data found for the provided wallet address."}},
         "REQUIRED_HEADERS_MISSING": {"status": False, "data": {
             "message": "Required headers are missing"}},
         "INSUFFICIENT_CREDIT": {"status": False,
