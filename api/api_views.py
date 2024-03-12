@@ -231,20 +231,23 @@ def validate_key(key, request, rpc_response1):
         }
 
         api_count = rpc_response['api_count']
-        is_subscribed = api_user_query['is_subscribed'] if 'is_subscribed' in api_user_query else False
-        print("subscribed user making  api call ? ", is_subscribed)
-        catv_count_key = 'subscribed_user_calls' if is_subscribed else 'catv_calls'
-        catv_left_count_key = 'subscribed_user_calls_left' if is_subscribed else 'catv_calls_left_y'
+        # is_subscribed = api_user_query['is_subscribed'] if 'is_subscribed' in api_user_query else False
+        # print("subscribed user making  api call ? ", is_subscribed)
+        # catv_count_key = 'subscribed_user_calls' if is_subscribed else 'catv_calls'
+        # catv_count_key = 'catv_calls'
+        # catv_left_count_key = 'subscribed_user_calls_left' if is_subscribed else 'catv_calls_left_y'
+        catv_left_count_key = 'credits_left'
 
-        user_detail['catv_count'] = api_count[catv_count_key]
-        user_detail['api_calls_left'] = int(api_count['subscribed_user_calls_left']) if is_subscribed else int(api_count['catv_calls_left_y'])+int(api_count['catv_calls_left'])
+        user_detail['catv_count'] = api_count['catv_calls']
+        # user_detail['api_calls_left'] = int(api_count['subscribed_user_calls_left']) if is_subscribed else int(api_count['catv_calls_left_y'])+int(api_count['catv_calls_left'])
 
-        api_count = api_count[catv_left_count_key]
-        if request.path_info == '/submit_report':
-            rate = get_rate(
-                api_user_query['role_id'], 'cara_submit_rate_limit')
-        else:
-            rate = get_rate(api_user_query['role_id'], 'cara_rate_limit')
+        # api_count = api_count[catv_left_count_key]
+        user_detail['credits_left'] = api_count['credits_left']
+        # if request.path_info == '/submit_report':
+        #     rate = get_rate(
+        #         api_user_query['role_id'], 'cara_submit_rate_limit')
+        # else:
+        rate = get_rate(api_user_query['role_id'], 'catv_rate_limit')
 
         # Uncomment to block community users who aren't on mobile
         # if rate == 'communityuser' and not parse_user_agent(request.headers['User-Agent']).is_mobile:
@@ -257,7 +260,7 @@ def validate_key(key, request, rpc_response1):
         user_detail['ratelimit_status'] = rl
         # rlm[request.method]['ratelimit'][user_role.role_name]
         user_detail['rate_limit'] = rate
-        if api_count >= 0:
+        if user_detail['credits_left'] >= 0:
             return user_detail
         return None
     except Exception:
@@ -370,7 +373,7 @@ class CatvOutbound(APIView):
                 'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
-            if not validated_request or validated_request['api_calls_left'] < 1:
+            if not validated_request or validated_request['credits_left'] < 20:
                 return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
             ratelimit_status = validated_request['ratelimit_status']
             if ratelimit_status:
@@ -442,7 +445,7 @@ class ApiKeyInfo(GenericAPIView):
             if ratelimit_status:
                 return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {auth['rate_limit']}"}}, status=429)
             
-            data = {"catv_count": auth['catv_count'],"api_calls_left": auth['api_calls_left']}
+            data = {"catv_count": auth['catv_count'],"credits_left": auth['credits_left']}
             return JsonResponse({"status": True, "data": data}, status=200)
         except Exception:
             traceback.print_exc()
@@ -466,7 +469,7 @@ class CatvInbound(APIView):
                 'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
-            if not validated_request or validated_request['api_calls_left'] < 1:
+            if not validated_request or validated_request['credits_left'] < 20:
                 return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
             ratelimit_status = validated_request['ratelimit_status']
             if ratelimit_status:
