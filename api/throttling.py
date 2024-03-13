@@ -18,7 +18,6 @@ class CatvUsageExceededThrottle(BaseThrottle):
                 else:
                     raise Throttled(detail=(self.throttled_error_msg))
             elif usage["catv"] > 0:
-                print("UID:", user_details['user_uid'])
                 return True
             else:
                 raise Throttled(detail=(self.throttled_error_msg))
