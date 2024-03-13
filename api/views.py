@@ -220,7 +220,6 @@ class CATVView(APIView):
             cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
             history_runner = utils_map[search_type]['history_runner']
             cached_entry = tracking_cache.get_cache_entry(cache_key)
-            print("USER ID:-", user_details['user_id'])
             history.update({'user_id': user_details['user_id'], 'token_type': token_type})
             if not serializer.data.get('force_lookup', False) and cached_entry:
                 results = json.loads(gzip.decompress(cached_entry).decode())
@@ -514,7 +513,6 @@ class CATVReportView(APIView):
         token = auth[1].decode()
         timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
         user_details, verified_token = MultiToken.get_user_from_key(request)
-        print(user_details['user_id'])
         if token_type == CatvTokens.LUNC.value:
             rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
             res = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
