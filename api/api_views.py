@@ -230,19 +230,18 @@ def validate_key(key, request, rpc_response1):
             }
         }
 
-        api_count = rpc_response['api_count']
+        credits = rpc_response['credits']
         # is_subscribed = api_user_query['is_subscribed'] if 'is_subscribed' in api_user_query else False
         # print("subscribed user making  api call ? ", is_subscribed)
         # catv_count_key = 'subscribed_user_calls' if is_subscribed else 'catv_calls'
         # catv_count_key = 'catv_calls'
         # catv_left_count_key = 'subscribed_user_calls_left' if is_subscribed else 'catv_calls_left_y'
-        catv_left_count_key = 'credits_left'
 
-        user_detail['catv_count'] = api_count['catv_calls']
+        user_detail['catv_count'] = credits['catv_calls']
         # user_detail['api_calls_left'] = int(api_count['subscribed_user_calls_left']) if is_subscribed else int(api_count['catv_calls_left_y'])+int(api_count['catv_calls_left'])
 
         # api_count = api_count[catv_left_count_key]
-        user_detail['credits_left'] = api_count['credits_left']
+        user_detail['credits_left'] = credits['credits_left']
         # if request.path_info == '/submit_report':
         #     rate = get_rate(
         #         api_user_query['role_id'], 'cara_submit_rate_limit')
