@@ -384,7 +384,7 @@ class CatvOutbound(APIView):
                 return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}}, status=400)
             bloxy_res = catv_query('outbound', request, chain)
             if not bloxy_res:
-                return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
+                return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
             
             user_data = ast.literal_eval(res)
             api_user = user_data['api_user'][0]
@@ -480,7 +480,7 @@ class CatvInbound(APIView):
                 return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}}, status=400)
             bloxy_res = catv_query('inbound', request, chain)
             if not bloxy_res:
-                return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
+                return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
             user_data = ast.literal_eval(res)
             api_user = user_data['api_user'][0]
             user_details = {'user_id': user_data['auth']['user_id'],

@@ -22,7 +22,6 @@ class IsCATVAuthenticated(permissions.BasePermission):
     def has_permission(self, request, view):
         try:
             user_details, verified_token = MultiToken.get_user_from_key(request)
-            print(user_details)
             return user_details and user_details['is_authenticated']
         except Exception:
             traceback.print_exc()

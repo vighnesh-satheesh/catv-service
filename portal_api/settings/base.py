@@ -156,9 +156,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'catvPost': '5/min',
+        'catvPost': '15/min',
         'catvInternalPost': '1/min',
-        'catvApiPost': '5/min'
+        'catvApiPost': '15/min'
     },
     'NUM_PROXIES': 2,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
