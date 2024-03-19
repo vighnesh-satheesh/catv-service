@@ -9,7 +9,7 @@ spec:
     cachePolicy:
       includeHost: true
       includeProtocol: true
-      includeQueryString: false
+      includeQueryString: true
   {{- end }}
 {{- if .Values.backendConfig.securityPolicy }}
   securityPolicy:
