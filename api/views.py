@@ -800,9 +800,16 @@ class CATVCSVUploadView(APIView):
                     if "False" in res_Terra:
                         newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
                 final_length = len(newdf)
+                credits_left = user_details['usage']['credits_left']
+                print(f'Total CSV record count: {final_length} and credits required: {20 * final_length}')
+                if credits_left < (20 * final_length):
+                    return APIResponse({
+                        "data": {
+                            "error": "You do not have sufficient usage credits to process this CSV. Please purchase more credits to continue."
+                        }
+                    })
                 verified_data = newdf.to_json(index=1, orient='records')
                 json_df = json.loads(verified_data)
-                print('processed request', final_length)
                 job_quene = list()
                 request_csv = list()
                 result_csv = list()
