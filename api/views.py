@@ -199,7 +199,7 @@ class CATVView(APIView):
                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
                 # user_details, verified_token = MultiToken.get_user_from_key(request)
                 user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),'source':'portal',
-                            "uid": str(user_details['user_uid'])}
+                            "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
                 print("Submission Status: ", res)
 
@@ -278,7 +278,7 @@ class CATVBTCView(APIView):
                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
                 user_details, verified_token = MultiToken.get_user_from_key(request)
                 user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
-                            "uid": str(user_details['user_uid'])}
+                            "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
                 print("Submission Status: ", res)
 
@@ -539,7 +539,7 @@ class CATVReportView(APIView):
         rpc = RPCClientUpdateUsageCatvCall()
         auth = get_authorization_header(request).split()
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
-                    "uid": str(user_details['user_uid'])}
+                    "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         print("Submission Status: ", res)
         
@@ -801,8 +801,9 @@ class CATVCSVUploadView(APIView):
                         newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
                 final_length = len(newdf)
                 credits_left = user_details['usage']['credits_left']
+                credits_per_addr = user_details['usage']['credits_requirement']['catv']
                 print(f'Total CSV record count: {final_length} and credits required: {20 * final_length}')
-                if credits_left < (20 * final_length):
+                if credits_left < (credits_per_addr * final_length):
                     return APIResponse({
                         "data": {
                             "error": "You do not have sufficient usage credits to process this CSV. Please purchase more credits to continue."
@@ -834,7 +835,8 @@ class CATVCSVUploadView(APIView):
                 token = auth[1].decode()
                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
                 user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
-                            "uid": str(user_details['user_uid']), "csv_records": final_length}
+                            "uid": str(user_details['user_uid']), "csv_records": final_length,
+                            "credits_required": credits_per_addr}
                 res = (rpc.call(user_rpc)).decode('UTF-8')
                 print("Submission Status: ", res)
                 return APIResponse({
