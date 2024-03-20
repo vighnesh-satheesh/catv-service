@@ -12,10 +12,11 @@ class CatvUsageExceededThrottle(BaseThrottle):
     def allow_request(self, request, view):
         try:
             user_details, verified_token = MultiToken.get_user_from_key(request)
-            credits_left = user_details['usage']['credits_left']
-            # role_name = user_details['role_details'][1]
-            # if role_name and role_name in SUBSCRIBED_ROLES:
-            if credits_left >= 20:
+            usage = user_details['usage']
+            credits_left = usage['credits_left']
+            credits_requirement = usage['credits_requirement']['catv']
+            if credits_left and credits_left >= credits_requirement:
+                print("User has credits: ", credits_left)
                 return True
             else:
                 raise Throttled(detail=(self.throttled_error_msg))
