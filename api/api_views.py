@@ -63,9 +63,9 @@ def check_es_status():
 def consume_key(user_details, key):
     rpc = RPCClientUpdateUsageCatvCall()
     user_rpc = {"id": user_details['user_id'], "token": '', "timestamp": '','source':'api',
-                "uid": str(user_details['user_uid'])}
+                "uid": str(user_details['user_uid']), "credits_required": user_details['credits_required']}
     res = (rpc.call(user_rpc)).decode('UTF-8')
-    print("Submission Status: ", res)
+    print("RPCClientUpdateUsageCatvCall() status: ", res)
 
     if res == 'True':
         API_CACHE.delete(key)
@@ -374,7 +374,7 @@ class CatvOutbound(APIView):
             user_data = ast.literal_eval(res)
             api_user = user_data['api_user'][0]
             user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid']}
+                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
 
             consume_key(user_details, key)
             return JsonResponse({"status": True, "data": bloxy_res})
@@ -469,7 +469,7 @@ class CatvInbound(APIView):
             user_data = ast.literal_eval(res)
             api_user = user_data['api_user'][0]
             user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid']}
+                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
 
             consume_key(user_details, key)
             return JsonResponse({"status": True, "data": bloxy_res})
