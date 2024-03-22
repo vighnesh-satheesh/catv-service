@@ -60,12 +60,12 @@ def check_es_status():
     return ES_FLAG
 
 
-def consume_key(user_details,key):
+def consume_key(user_details, key):
     rpc = RPCClientUpdateUsageCatvCall()
     user_rpc = {"id": user_details['user_id'], "token": '', "timestamp": '','source':'api',
-                "uid": str(user_details['user_uid'])}
+                "uid": str(user_details['user_uid']), "credits_required": user_details['credits_required']}
     res = (rpc.call(user_rpc)).decode('UTF-8')
-    print("Submission Status: ", res)
+    print("RPCClientUpdateUsageCatvCall() status: ", res)
 
     if res == 'True':
         API_CACHE.delete(key)
@@ -230,34 +230,21 @@ def validate_key(key, request, rpc_response1):
             }
         }
 
-        api_count = rpc_response['api_count']
-        is_subscribed = api_user_query['is_subscribed'] if 'is_subscribed' in api_user_query else False
-        print("subscribed user making  api call ? ", is_subscribed)
-        catv_count_key = 'subscribed_user_calls' if is_subscribed else 'catv_calls'
-        catv_left_count_key = 'subscribed_user_calls_left' if is_subscribed else 'catv_calls_left_y'
+        credits = rpc_response['credits']
 
-        user_detail['catv_count'] = api_count[catv_count_key]
-        user_detail['api_calls_left'] = int(api_count['subscribed_user_calls_left']) if is_subscribed else int(api_count['catv_calls_left_y'])+int(api_count['catv_calls_left'])
 
-        api_count = api_count[catv_left_count_key]
-        if request.path_info == '/submit_report':
-            rate = get_rate(
-                api_user_query['role_id'], 'cara_submit_rate_limit')
-        else:
-            rate = get_rate(api_user_query['role_id'], 'cara_rate_limit')
-
-        # Uncomment to block community users who aren't on mobile
-        # if rate == 'communityuser' and not parse_user_agent(request.headers['User-Agent']).is_mobile:
-        #     return None
+        user_detail['catv_count'] = credits['catv_calls']
+        user_detail['credits_left'] = credits['credits_left']
+        user_detail['credits_required'] = rpc_response['credits_required']
+        rate = get_rate(api_user_query['role_id'], 'catv_rate_limit')
 
         rl = is_ratelimited(request, key=rlm[request.method]['key'], method=request.method,
                             rate=rate, fn=fn, increment=True)
 
         user_detail['uid'] = uid
         user_detail['ratelimit_status'] = rl
-        # rlm[request.method]['ratelimit'][user_role.role_name]
         user_detail['rate_limit'] = rate
-        if api_count >= 0:
+        if user_detail['credits_left'] >= 0:
             return user_detail
         return None
     except Exception:
@@ -370,7 +357,7 @@ class CatvOutbound(APIView):
                 'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
-            if not validated_request or validated_request['api_calls_left'] < 1:
+            if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
                 return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
             ratelimit_status = validated_request['ratelimit_status']
             if ratelimit_status:
@@ -387,9 +374,9 @@ class CatvOutbound(APIView):
             user_data = ast.literal_eval(res)
             api_user = user_data['api_user'][0]
             user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid']}
+                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
 
-            consume_key(user_details,key)
+            consume_key(user_details, key)
             return JsonResponse({"status": True, "data": bloxy_res})
         except Exception as e:
             print("Exception in CatvOutbound: ", traceback.format_exc())
@@ -442,7 +429,7 @@ class ApiKeyInfo(GenericAPIView):
             if ratelimit_status:
                 return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {auth['rate_limit']}"}}, status=429)
             
-            data = {"catv_count": auth['catv_count'],"api_calls_left": auth['api_calls_left']}
+            data = {"catv_count": auth['catv_count'],"credits_left": auth['credits_left']}
             return JsonResponse({"status": True, "data": data}, status=200)
         except Exception:
             traceback.print_exc()
@@ -466,7 +453,7 @@ class CatvInbound(APIView):
                 'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
-            if not validated_request or validated_request['api_calls_left'] < 1:
+            if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
                 return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
             ratelimit_status = validated_request['ratelimit_status']
             if ratelimit_status:
@@ -482,7 +469,7 @@ class CatvInbound(APIView):
             user_data = ast.literal_eval(res)
             api_user = user_data['api_user'][0]
             user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid']}
+                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
 
             consume_key(user_details, key)
             return JsonResponse({"status": True, "data": bloxy_res})
