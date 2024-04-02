@@ -102,7 +102,7 @@ class GraphQLInterfaceUnified:
         currency = " "
         receiver = "receiver { address annotation } "
         sender = receiver.replace("receiver", "sender")
-        extra_params = " depth amount amount_usd:(in: USDT) currency { symbol } "
+        extra_params = " depth amount amount_usd:(in: USD) currency { symbol } "
         time = " var { time } "
         if self.token_address is not None and self.token_address != "" and self.token_address != '0x0000000000000000000000000000000000000000':
             currency_value = self.token_address
