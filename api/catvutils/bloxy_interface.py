@@ -102,7 +102,7 @@ class GraphQLInterfaceUnified:
         currency = " "
         receiver = "receiver { address annotation } "
         sender = receiver.replace("receiver", "sender")
-        extra_params = " depth amount currency { symbol } "
+        extra_params = " depth amount amount_usd:(in: USDT) currency { symbol } "
         time = " var { time } "
         if self.token_address is not None and self.token_address != "" and self.token_address != '0x0000000000000000000000000000000000000000':
             currency_value = self.token_address
@@ -242,9 +242,10 @@ class GraphQLInterfaceUnified:
                     flattened_response.append(current_iter_dict)
                     continue
                 else:
-                    # The symbol and amount parameters are common to all except XRP and XLM so they are assigned here itself
+                    # The symbol and amount/amount_usd parameters are common to all except XRP and XLM, they are assigned here itself
                     current_iter_dict["symbol"] = item["currency"]["symbol"]
                     current_iter_dict["amount"] = item["amount"]
+                    current_iter_dict["amount_usd"] = item["amount_usd"]
                     if self.chain == "LUNC":
                         current_iter_dict["tx_time"] = item["block"]["timestamp"]["time"]
                         current_iter_dict["tx_value"] = item["transaction"]["value"]
