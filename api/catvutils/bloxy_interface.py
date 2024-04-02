@@ -102,7 +102,7 @@ class GraphQLInterfaceUnified:
         currency = " "
         receiver = "receiver { address annotation } "
         sender = receiver.replace("receiver", "sender")
-        extra_params = " depth amount amount_usd:(in: USD) currency { symbol } "
+        extra_params = " depth amount amount_usd: amount(in: USD) currency { symbol } "
         time = " var { time } "
         if self.token_address is not None and self.token_address != "" and self.token_address != '0x0000000000000000000000000000000000000000':
             currency_value = self.token_address
@@ -144,7 +144,7 @@ class GraphQLInterfaceUnified:
                            " " + time.replace("var", "lastTxAt") + " type " + amount_details + " } "
                 sender = " sender { address annotation type } "
                 transaction = " transaction { hash value " + time.replace("var", "time") + " } "
-                extra_params = " depth amount  currency { name symbol tokenId tokenType } "
+                extra_params = " depth amount amount_usd: amount(in: USD) currency { name symbol tokenId tokenType } "
                 # Klaytn/Binance Smart Chain or KLAY/BSC
             elif self.chain in ["ETH", "KLAY", "BSC", "FTM", "POL", "AVAX"]:
                 currency = f""" currency: {{ is: "{currency_value}" }} """ if currency_value else " "
@@ -155,7 +155,7 @@ class GraphQLInterfaceUnified:
                 sender = " sender { address annotation type " + amount_details + smart_contract + " }"
                 transaction = " transaction { hash value } " + \
                               " transactions { timestamp txHash txValue amount height } "
-                extra_params = " depth amount  currency { name symbol tokenId tokenType address } "
+                extra_params = " depth amount amount_usd: amount(in: USD) currency { name symbol tokenId tokenType address } "
 
                 # Binance Coin/Tron or BNB/TRX
             elif self.chain in ["BNB", "TRX"]:
@@ -165,7 +165,7 @@ class GraphQLInterfaceUnified:
                 sender = " sender { address annotation type } "
                 network = network if self.chain == "TRX" else Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]
                 transaction = " transaction { hash value " + time.replace("var", "time") + " } "
-                extra_params = " depth amount  currency { name symbol tokenId tokenType } "
+                extra_params = " depth amount amount_usd: amount(in: USD) currency { name symbol tokenId tokenType } "
 
             # building final GraphQL query
             GRAPHQL_QUERY = f"""
