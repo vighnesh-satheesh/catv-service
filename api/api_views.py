@@ -3,6 +3,7 @@ import json
 import math
 import re
 import traceback
+from collections import deque, defaultdict
 from json import JSONDecodeError
 
 import arrow
@@ -109,7 +110,7 @@ def catv_query(route, request, chain):
             if 'token' in params:
                 params['symbol'] = params.pop('token', None)
                 token = params['symbol']
-
+        filter_exchange_txns = params.pop('filter_exchange_txns', False)
         bloxy = BloxyAPIInterface(API_BLOXY_KEY)
         if route == 'outbound':
             source = False
@@ -166,7 +167,6 @@ def catv_query(route, request, chain):
                 {"annotation": ind['annotation'], "security_category": ind['security_category']} if ind[
                     'annotation'] else {"annotation": "", "security_category": ""})
                                for ind in indicators}
-        # Annotate bloxy result
         for d in bloxy_res:
             sender_details = annotation_dict.get(
                 d['sender'].lower(), {"annotation": "", "security_category": ""})
@@ -175,11 +175,47 @@ def catv_query(route, request, chain):
             for i in ['annotation', 'security_category']:
                 d[f'sender_{i}'] = sender_details[i]
                 d[f'receiver_{i}'] = receiver_details[i]
+        # For chainkeeper filter outgoing txns from exchanges
+        if filter_exchange_txns:
+            exchanges = [key for key, value in annotation_dict.items() if
+                         'exchange' in value.get('annotation', '').lower()]
+            if exchanges:
+                bloxy_res = filter_exchange_outgoing_txns(bloxy_res, set(exchanges))
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
         return False
 
+
+def filter_exchange_outgoing_txns(txns, exchange_nodes):
+    graph = defaultdict(set)
+    txns_to_remove = set()
+    sender_to_tx_hashes = defaultdict(list)
+    visited_addresses = set()
+
+    # Build the graph data
+    for txn in txns:
+        sender = txn["sender"]
+        receiver = txn["receiver"]
+        tx_hash = txn["tx_hash"]
+        graph[sender].add(receiver)
+        sender_to_tx_hashes[sender].append(tx_hash)
+
+    # Perform BFS from each exchange address
+    for exchange_node in exchange_nodes:
+        queue = deque([exchange_node])
+        while queue:
+            sender = queue.popleft()
+            visited_addresses.add(sender)
+            txns_to_remove.update(sender_to_tx_hashes[sender])
+            receivers = graph[sender]
+            for receiver in receivers:
+                if receiver not in visited_addresses:
+                    queue.append(receiver)
+    print(f'{txns_to_remove = }')
+    filtered_txns = [txn for txn in txns if txn["tx_hash"] not in txns_to_remove]
+    print(f'{len(filtered_txns) = }')
+    return filtered_txns
 
 def get_user_details(key):
     def __get_key(key):
@@ -352,31 +388,31 @@ class CatvOutbound(APIView):
                     key = request.META['HTTP_X_API_KEY']
                 except KeyError:
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
-            res = get_user_details(key)
-            validated_request = validate_request(request,  key, res,required_params_list=[
-                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
-            if isinstance(validated_request, JsonResponse):
-                return validated_request
-            if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
-                return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
-            ratelimit_status = validated_request['ratelimit_status']
-            if ratelimit_status:
-                return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {validated_request['rate_limit']}"}}, status=429)
+            # res = get_user_details(key)
+            # validated_request = validate_request(request,  key, res,required_params_list=[
+            #     'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
+            # if isinstance(validated_request, JsonResponse):
+            #     return validated_request
+            # if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
+            #     return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
+            # ratelimit_status = validated_request['ratelimit_status']
+            # if ratelimit_status:
+            #     return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {validated_request['rate_limit']}"}}, status=429)
             chain = request.GET.get('chain').upper()
             token = request.GET.get(
                 'token', '0x0000000000000000000000000000000000000000')
-            if not validate_addr(request.GET.get('address'), chain, token=token, is_catv=True):
-                return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}}, status=400)
+            # if not validate_addr(request.GET.get('address'), chain, token=token, is_catv=True):
+            #     return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}}, status=400)
             bloxy_res = catv_query('outbound', request, chain)
             if not bloxy_res:
                 return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
             
-            user_data = ast.literal_eval(res)
-            api_user = user_data['api_user'][0]
-            user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
-
-            consume_key(user_details, key)
+            # user_data = ast.literal_eval(res)
+            # api_user = user_data['api_user'][0]
+            # user_details = {'user_id': user_data['auth']['user_id'],
+            #                 'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
+            #
+            # consume_key(user_details, key)
             return JsonResponse({"status": True, "data": bloxy_res})
         except Exception as e:
             print("Exception in CatvOutbound: ", traceback.format_exc())
