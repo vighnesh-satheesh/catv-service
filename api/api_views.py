@@ -175,46 +175,51 @@ def catv_query(route, request, chain):
             for i in ['annotation', 'security_category']:
                 d[f'sender_{i}'] = sender_details[i]
                 d[f'receiver_{i}'] = receiver_details[i]
-        # For chainkeeper filter outgoing txns from exchanges
+        #For chainkeeper filter outgoing txns from exchanges
         if filter_exchange_txns:
-            exchanges = [key for key, value in annotation_dict.items() if
-                         'exchange' in value.get('annotation', '').lower()]
-            if exchanges:
-                bloxy_res = filter_exchange_outgoing_txns(bloxy_res, set(exchanges))
+            print("Filtering txs")
+            bloxy_res = filter_exchange_transactions(bloxy_res,route)
+
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
         return False
 
 
-def filter_exchange_outgoing_txns(txns, exchange_nodes):
+def dfs(address,visited,txns_to_remove,graph):  
+    if address in visited:  
+        return  
+    visited.add(address)  
+    if address in graph:  
+        for tx_hash, nxt_address in graph[address]:  
+            txns_to_remove.add(tx_hash)  
+            dfs(nxt_address,visited,txns_to_remove,graph) 
+
+def filter_exchange_transactions(txns,direction):
     graph = defaultdict(set)
     txns_to_remove = set()
-    sender_to_tx_hashes = defaultdict(list)
-    visited_addresses = set()
-
+    visited = set() 
     # Build the graph data
+    if direction == 'outbound':
+        outer = 'receiver'
+        inner = 'sender'
+    else :
+        outer = 'sender'
+        inner = 'receiver'
+    
     for txn in txns:
-        sender = txn["sender"]
-        receiver = txn["receiver"]
-        tx_hash = txn["tx_hash"]
-        graph[sender].add(receiver)
-        sender_to_tx_hashes[sender].append(tx_hash)
+        address = txn[inner]  
+        if address not in graph:  
+            graph[address] = []  
+        graph[address].append((txn['tx_hash'], txn[outer]))  
 
-    # Perform BFS from each exchange address
-    for exchange_node in exchange_nodes:
-        queue = deque([exchange_node])
-        while queue:
-            sender = queue.popleft()
-            visited_addresses.add(sender)
-            txns_to_remove.update(sender_to_tx_hashes[sender])
-            receivers = graph[sender]
-            for receiver in receivers:
-                if receiver not in visited_addresses:
-                    queue.append(receiver)
-    print(f'{txns_to_remove = }')
-    filtered_txns = [txn for txn in txns if txn["tx_hash"] not in txns_to_remove]
-    print(f'{len(filtered_txns) = }')
+    for tx in txns:  
+        nxt_address = tx[outer]  
+        if 'Exchange' in tx[f'{outer}_annotation']:  
+            dfs(nxt_address,visited,txns_to_remove,graph) 
+  
+    filtered_txns = [txn for txn in txns if txn['tx_hash'] not in txns_to_remove]
+
     return filtered_txns
 
 def get_user_details(key):
