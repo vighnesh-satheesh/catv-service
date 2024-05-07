@@ -491,7 +491,7 @@ class CatvInbound(APIView):
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
             res = get_user_details(key)
             validated_request = validate_request(request,  key, res, required_params_list=[
-                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset'])
+                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset', 'filter_exchange_txns'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
             if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
