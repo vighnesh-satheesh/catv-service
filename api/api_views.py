@@ -215,7 +215,7 @@ def filter_exchange_transactions(txns,direction):
 
     for tx in txns:  
         nxt_address = tx[outer]  
-        if 'Exchange' in tx[f'{outer}_annotation']:  
+        if 'exchange' in tx.get(f'{outer}_annotation','').lower():
             dfs(nxt_address,visited,txns_to_remove,graph) 
   
     filtered_txns = [txn for txn in txns if txn['tx_hash'] not in txns_to_remove]
