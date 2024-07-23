@@ -17,16 +17,98 @@ from rest_framework.views import exception_handler
 
 from .response import APIResponse
 from .models import (
-    CatvTokens, CatvHistory, UserRoles
+    CatvTokens, CatvHistory, UserRoles, CatvSearchType
 )
 from google.cloud import storage
 from google.cloud.exceptions import NotFound
 from django.core.exceptions import SuspiciousOperation
 
 from . import exceptions
+from .serializers import CATVBTCCoinpathSerializer, CatvBtcPathSerializer, CATVSerializer, CATVEthPathSerializer
+from .tasks import catv_history_task, catv_path_history_task
 
 SUBSCRIBED_ROLES = [UserRoles.INVESTIGATOR_STARTER_CAMS.value, UserRoles.INVESTIGATOR_ADVANCED_CAMS.value,
                         UserRoles.INVESTIGATOR_PRO_CAMS.value]
+
+serializer_map = {
+    CatvTokens.ETH.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BTC.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.TRON.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.LTC.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.BCH.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.XRP.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.EOS.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.XLM.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BNB.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ADA.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.BSC.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.KLAY.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.LUNC.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.FTM.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.POL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.AVAX.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.DOGE.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.ZEC.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.DASH.value: {
+        CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
+        CatvSearchType.PATH.value: CatvBtcPathSerializer
+    }
+}
+
 def get_validation_error_detail(data):
     if isinstance(data, list):
         ret = [
@@ -288,3 +370,14 @@ def retry_on_db_error(*db_aliases, max_retries=3, retry_delay=2):
                         raise
         return wrapper
     return decorator
+
+utils_map = {
+    CatvSearchType.FLOW.value: {
+        'pattern_creator': create_tracking_cache_pattern,
+        'history_runner': catv_history_task
+    },
+    CatvSearchType.PATH.value: {
+        'pattern_creator': create_path_cache_pattern,
+        'history_runner': catv_path_history_task
+    }
+}
