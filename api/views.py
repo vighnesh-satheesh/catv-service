@@ -1,26 +1,23 @@
 import ast
-import gzip
 import json
 import uuid
-from operator import gt, lt
+
 import pandas as pd
+from django.core.exceptions import SuspiciousOperation
 from django.db import transaction
-import boto3
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
-from django.core.exceptions import SuspiciousOperation
 from rest_framework import generics
 from rest_framework.authentication import get_authorization_header
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from api.permissions import IsCATVAuthenticated
-from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList, RPCClientCATVCheckTerraAccess, RPCClientUpdateUsageCSVCatvCall
+from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResultFileUid, RPCClientFetchResultFileList, \
+    RPCClientCATVCheckTerraAccess, RPCClientUpdateUsageCSVCatvCall
 from . import exceptions
 from . import utils
-from .cache.catv import TrackingCache
-from .catvutils.metrics import CatvMetrics
 from .catvutils.process_node_list import ProcessNodeList
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
@@ -31,18 +28,17 @@ from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .pagination import CatvRequestPagination, CustomPagination
 from .response import APIResponse
 from .serializers import (
-    CATVSerializer, CATVBTCSerializer, CATVBTCTxlistSerializer,
-    CATVHistorySerializer, CATVBTCCoinpathSerializer,
-    CATVEthPathSerializer, CatvBtcPathSerializer,
-    CATVRequestListSerializer, CATVNodeLabelPostSerializer
+    CATVBTCSerializer, CATVBTCTxlistSerializer,
+    CATVHistorySerializer, CATVRequestListSerializer, CATVNodeLabelPostSerializer
 )
 from .settings import api_settings
 from .tasks import (
-    catv_history_task, catv_path_history_task, CatvRequestTask
+    catv_history_task, CatvRequestTask
 )
 from .throttling import (
     CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle
 )
+from .utils import serializer_map
 
 
 class HealthCheckView(APIView):
@@ -56,6 +52,53 @@ class HealthCheckView(APIView):
         })
 
 
+def validate_request_parameters(token_type, search_type):
+    allowed_tokens = [token.value for token in CatvTokens]
+    allowed_search = [search.value for search in CatvSearchType]
+    if token_type not in allowed_tokens:
+        raise exceptions.ValidationError(f"Invalid token type. Supported: {(', ').join(allowed_tokens)}")
+    if search_type not in allowed_search:
+        raise exceptions.ValidationError(f"Invalid search type. Supported: {(', ').join(allowed_search)}")
+
+
+def check_permission_for_lunc(token_type, user_details):
+    if token_type == CatvTokens.LUNC.value:
+        rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
+        res = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
+        if "False" in res:
+            print("User doesn't have permission to submit/view Terra reports.")
+            return False
+    return True
+
+
+def submit_catv_request(token_type, search_type, history, request, is_api=False):
+    catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+                                    token_type=token_type,
+                                    search_type=search_type,
+                                    search_params=history,
+                                    user=request.user
+                                    )
+    catv_req_task.run()
+    task = catv_req_task.save()
+    task_serializer = CATVRequestListSerializer(task)
+
+    if not is_api:
+        rpc = RPCClientUpdateUsageCatvCall()
+        auth = get_authorization_header(request).split()
+        token = auth[1].decode()
+        timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+        user_details, verified_token = MultiToken.get_user_from_key(request)
+        user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
+                    'source': 'portal',
+                    "uid": str(user_details['user_uid']),
+                    "credits_required": user_details['usage']['credits_requirement']['catv']}
+        res = (rpc.call(user_rpc)).decode('UTF-8')
+        print("Submission Status: ", res)
+
+    return task_serializer.data
+
+
+# Original view refactored to use new functions
 class CATVView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
     permission_classes = (IsCATVAuthenticated,)
@@ -65,102 +108,11 @@ class CATVView(APIView):
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
 
     def post(self, request):
-        token_type = self.request.query_params.get('token_type', CatvTokens.ETH.value)
-        search_type = self.request.query_params.get('search_type', CatvSearchType.FLOW.value)
-        allowed_tokens = [token.value for token in CatvTokens]
-        allowed_search = [search.value for search in CatvSearchType]
-        if token_type not in allowed_tokens:
-            raise exceptions.ValidationError(f"Invalid token type. Supported: {(', ').join(allowed_tokens)}")
-        if search_type not in allowed_search:
-            raise exceptions.ValidationError(f"Invalid search type. Supported: {(', ').join(allowed_search)}")
-        serializer_map = {
-            CatvTokens.ETH.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.BTC.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            },
-            CatvTokens.TRON.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.LTC.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            },
-            CatvTokens.BCH.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            },
-            CatvTokens.XRP.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.EOS.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.XLM.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.BNB.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.ADA.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            },
-            CatvTokens.BSC.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.KLAY.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.LUNC.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.FTM.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.POL.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.AVAX.value: {
-                CatvSearchType.FLOW.value: CATVSerializer,
-                CatvSearchType.PATH.value: CATVEthPathSerializer
-            },
-            CatvTokens.DOGE.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            },
-            CatvTokens.ZEC.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            },
-            CatvTokens.DASH.value: {
-                CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
-                CatvSearchType.PATH.value: CatvBtcPathSerializer
-            }            
-        }
-        utils_map = {
-            CatvSearchType.FLOW.value: {
-                'pattern_creator': utils.create_tracking_cache_pattern,
-                'history_runner': catv_history_task
-            },
-            CatvSearchType.PATH.value: {
-                'pattern_creator': utils.create_path_cache_pattern,
-                'history_runner': catv_path_history_task
-            }
-        }
+        token_type = request.query_params.get('token_type', CatvTokens.ETH.value)
+        search_type = request.query_params.get('search_type', CatvSearchType.FLOW.value)
+
+        # Validate request parameters
+        validate_request_parameters(token_type, search_type)
 
         serializer_cls = serializer_map[token_type][search_type]
         serializer = serializer_cls(data=request.data, context={"request": request})
@@ -169,83 +121,60 @@ class CATVView(APIView):
         history = serializer.data
         user_details, verified_token = MultiToken.get_user_from_key(request)
 
-        if token_type == CatvTokens.LUNC.value:
-            rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
-            res = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
-            if "False" in res:
-                print("User doesn't have permission to submit/view Terra reports.")
-                return APIResponse({
-                    "data": {},
-                    "messages": {
-                        "source": "No access for this request. Please contact support for more information."
-                    }
-                })
-
-        if api_settings.SWITCH_CATV_KAFKA:
-            try:
-                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
-                                                token_type=token_type,
-                                                search_type=search_type,
-                                                search_params=history,
-                                                user=request.user
-                                                )
-                catv_req_task.run()
-                task = catv_req_task.save()
-                task_serializer = CATVRequestListSerializer(task)
-
-                rpc = RPCClientUpdateUsageCatvCall()
-                auth = get_authorization_header(request).split()
-                token = auth[1].decode()
-                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
-                # user_details, verified_token = MultiToken.get_user_from_key(request)
-                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),'source':'portal',
-                            "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
-                res = (rpc.call(user_rpc)).decode('UTF-8')
-                print("Submission Status: ", res)
-
-                return APIResponse({
-                    "data": {
-                        **task_serializer.data
-                    },
-                    "messages": {
-                        "source": "Address successfully submitted for report generation."
-                    }
-                })
-            except Exception as e:
-                print(str(e))
-                raise exceptions.ServerError(detail="Something went wrong while submitting your request. Please try again later.")
-
-        else:
-            tracking_cache = TrackingCache()
-            cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
-            history_runner = utils_map[search_type]['history_runner']
-            cached_entry = tracking_cache.get_cache_entry(cache_key)
-            history.update({'user_id': user_details['user_id'], 'token_type': token_type})
-            if not serializer.data.get('force_lookup', False) and cached_entry:
-                results = json.loads(gzip.decompress(cached_entry).decode())
-                history_runner.delay(history=history, from_history=True)
-            else:
-                results = serializer.get_tracking_results()
-                from_db = results["api_calls"] > 0
-                tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-                history_runner.delay(history=history, from_history=from_db)
-
-            catv_metrics = CatvMetrics(results["graph"])
-            if history.get("distribution_depth", 0) > 0:
-                dist_metrics = catv_metrics.generate_metrics(gt)
-                print(dist_metrics)
-            if history.get("source_depth", 0) > 0:
-                src_metrics = catv_metrics.generate_metrics(lt)
-                print(src_metrics)
-                
-            if "graph" in results and "messages" in results:
-                return APIResponse({
-                    "data": {**results["graph"]},
-                    "messages": {**results["messages"]}
-                })
+        # Check permission for LUNC
+        if not check_permission_for_lunc(token_type, user_details):
             return APIResponse({
-                "data": results
+                "data": {},
+                "messages": {
+                    "source": "No access for this request. Please contact support for more information."
+                }
             })
+
+        try:
+            # Submit CATV request
+            task_data = submit_catv_request(token_type, search_type, history, request)
+            return APIResponse({
+                "data": task_data,
+                "messages": {
+                    "source": "Address successfully submitted for report generation."
+                }
+            })
+        except Exception as e:
+            print(str(e))
+            raise exceptions.ServerError(
+                detail="Something went wrong while submitting your request. Please try again later.")
+
+            # else:
+        #     tracking_cache = TrackingCache()
+        #     cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
+        #     history_runner = utils_map[search_type]['history_runner']
+        #     cached_entry = tracking_cache.get_cache_entry(cache_key)
+        #     history.update({'user_id': user_details['user_id'], 'token_type': token_type})
+        #     if not serializer.data.get('force_lookup', False) and cached_entry:
+        #         results = json.loads(gzip.decompress(cached_entry).decode())
+        #         history_runner.delay(history=history, from_history=True)
+        #     else:
+        #         results = serializer.get_tracking_results()
+        #         from_db = results["api_calls"] > 0
+        #         tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
+        #         history_runner.delay(history=history, from_history=from_db)
+        #
+        #     catv_metrics = CatvMetrics(results["graph"])
+        #     if history.get("distribution_depth", 0) > 0:
+        #         dist_metrics = catv_metrics.generate_metrics(gt)
+        #         print(dist_metrics)
+        #     if history.get("source_depth", 0) > 0:
+        #         src_metrics = catv_metrics.generate_metrics(lt)
+        #         print(src_metrics)
+        #
+        #     if "graph" in results and "messages" in results:
+        #         return APIResponse({
+        #             "data": {**results["graph"]},
+        #             "messages": {**results["messages"]}
+        #         })
+        #     return APIResponse({
+        #         "data": results
+        #     })
 
 
 class CATVBTCView(APIView):
