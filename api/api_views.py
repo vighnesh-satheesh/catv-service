@@ -606,6 +606,7 @@ class CATVReportLinkView(APIView):
     permission_classes = []
     request_uid = None
     released = False
+    failed = False
 
     def post(self, request):
         try:
@@ -638,19 +639,34 @@ class CATVReportLinkView(APIView):
                 return APIResponse({
                     "status": False,
                     "request_uid": self.request_uid,
-                    "data": {"message": Constants.CATV_API["CATV_REPORT_TIMED_OUT"]},
+                    "data": {
+                        "message": Constants.CATV_API["CATV_REPORT_TIMED_OUT"]
+                    },
                     "request_params": data
                 })
 
             if self.released:
-                update_usage(key, res)
+                update_usage(key, res)  # update usage only if released
                 return APIResponse({
                     "status": True,
                     "request_uid": self.request_uid,
-                    "data": {"report_url": self.get_catv_report_url(),
-                             "message": Constants.CATV_API["CATV_REPORT_SUCCESS"]},
+                    "data": {
+                        "report_url": self.get_catv_report_url(),
+                        "message": Constants.CATV_API["CATV_REPORT_SUCCESS"]
+                    },
                     "request_params": data
                 })
+
+            if self.failed:
+                return APIResponse({
+                    "status": False,
+                    "request_uid": self.request_uid,
+                    "data": {
+                        "message": Constants.CATV_API["CATV_REPORT_FAILED"]
+                    },
+                    "request_params": data
+                })
+
         except Exception:
             traceback.print_exc()
             raise ServerError(
@@ -672,6 +688,9 @@ class CATVReportLinkView(APIView):
                 sleep(7)
             elif catv_request.status == CatvTaskStatusType.RELEASED:
                 self.released = True
+                break
+            elif catv_request.status == CatvTaskStatusType.FAILED:
+                self.failed = True
                 break
 
     def get_catv_report_url(self):
