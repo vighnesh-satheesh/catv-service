@@ -646,6 +646,7 @@ class CATVReportLinkView(APIView):
                 update_usage(key, res)
                 return APIResponse({
                     "status": True,
+                    "request_uid": self.request_uid,
                     "data": {"report_url": self.get_catv_report_url(),
                              "message": Constants.CATV_API["CATV_REPORT_SUCCESS"]},
                     "request_params": data
