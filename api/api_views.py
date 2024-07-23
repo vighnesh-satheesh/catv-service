@@ -617,7 +617,7 @@ class CATVReportLinkView(APIView):
             data["token_address"] = Constants.CATV_API["DEFAULT_TOKEN_ADDRESS"]
         if not data.get("transaction_limit"):
             data["transaction_limit"] = 2000
-        token_type = data.get('token_type', CatvTokens.ETH.value)
+        token_type = data.get('token_type', CatvTokens.ETH.value).upper()
         search_type = data.get('search_type', CatvSearchType.FLOW.value)
         serializer_cls = serializer_map[token_type][search_type]
         serializer = serializer_cls(data=data, context={"request": request})
@@ -658,7 +658,7 @@ class CATVReportLinkView(APIView):
     def check_status(self):
         catv_request = CatvRequestStatus.objects.get(uid=self.request_uid)
 
-        timeout_time = datetime.now() + timedelta(seconds=1.5)
+        timeout_time = datetime.now() + timedelta(minutes=1.5)
 
         while True:
             if datetime.now() >= timeout_time:
