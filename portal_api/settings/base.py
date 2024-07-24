@@ -305,7 +305,8 @@ API_SETTINGS = {
     "BLOXY_API_KEY" : env.str('API_BLOXY_KEY', 'ACCG4wmxpYKkd'),
     "ES_INDEX": env.str('ES_INDEX', 'dev_latest_indicator'),
     "API_ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
-    "ES_FLAG": env.bool('ES_FLAG', True)
+    "ES_FLAG": env.bool('ES_FLAG', True),
+    "CATV_REPORT_BASE_URL": env.str('CATV_REPORT_BASE_URL', "https://stgportal.sentinelprotocol.io/catv-report")
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.

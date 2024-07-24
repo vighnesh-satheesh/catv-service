@@ -42,6 +42,7 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^ck/source', api_views.ChainkeeperInbound.as_view(),name='ck-catv-inbound'),
         re_path(r'^v1/destination', api_views.CatvOutbound.as_view(),name='catv-outbound'),
         re_path(r'^ck/destination', api_views.ChainKeeperOutbound.as_view(),name='ck-catv-outbound'),
+        re_path(r'^v1/catv-report/?$', api_views.CATVReportLinkView.as_view(),name='catv-report-api'),
         re_path(r'^v1/supported_networks', api_views.CatvSupportedNetworks.as_view(),name='catv-supported-networks'),
         re_path(r'^time?$', api_views.ServerTime.as_view(), name='server-time')
 

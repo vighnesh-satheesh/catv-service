@@ -90,5 +90,10 @@ class Constants:
                                'EOS', 'XLM', 'ADA', 'BNB', 'BCH', 'XRP', 'BSC', 'KLAY',
                                'DASH', 'DOGE', 'ZEC', 'FTM', 'POL', 'AVAX'],
         "QUORUM_CHAINS": ['XRP', 'XLM'],
-        "UTXO_CHAINS": ['BTC', 'LTC', 'BCH', 'ADA', 'DASH', 'DOGE', 'ZEC']
+        "UTXO_CHAINS": ['BTC', 'LTC', 'BCH', 'ADA', 'DASH', 'DOGE', 'ZEC'],
+        "CATV_REPORT_TIMED_OUT": "The API request timed out due to extensive processing time."
+                                " Please try again with a lower 'depth' or 'transaction_limit'.",
+        "CATV_REPORT_SUCCESS": "CATV Report generated successfully.",
+        "CATV_REPORT_FAILED": "CATV Report generation failed for the input wallet address. Please try again.",
+        "DEFAULT_TOKEN_ADDRESS": "0x0000000000000000000000000000000000000000"
     }

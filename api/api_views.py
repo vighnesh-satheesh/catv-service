@@ -3,8 +3,10 @@ import json
 import math
 import re
 import traceback
-from collections import deque, defaultdict
+from collections import defaultdict
+from datetime import datetime, timedelta
 from json import JSONDecodeError
+from time import sleep
 
 import arrow
 import requests
@@ -19,12 +21,15 @@ from web3 import Web3
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
-from api.utils import validate_coin, is_eth_based_wallet
+from api.utils import validate_coin, is_eth_based_wallet, serializer_map
 from .constants import Constants
+from .exceptions import ServerError
+from .models import CatvTokens, CatvSearchType, CatvRequestStatus, CatvTaskStatusType
 from .response import APIResponse
 from .settings import api_settings
 from .validators import bech32
 from .validators.coindata import coindata
+from .views import submit_catv_request
 
 API_CACHE = caches[api_settings.API_ICF_CACHE]
 API_BLOXY_KEY = api_settings.BLOXY_API_KEY
@@ -32,6 +37,7 @@ API_ELASTICSEARCH_HOST = api_settings.API_ELASTICSEARCH_HOST
 ES_FLAG = api_settings.ES_FLAG
 ES_INDEX = api_settings.ES_INDEX
 ES_AUTH = api_settings.API_ELASTICSEARCH_CREDENTIALS.split(':')
+
 
 class HealthCheckView(APIView):
     authentication_classes = ()
@@ -41,7 +47,7 @@ class HealthCheckView(APIView):
         return APIResponse({
             "status": "ok"
         })
-    
+
 
 class ServerTime(GenericAPIView):
     authentication_classes = ()
@@ -63,7 +69,7 @@ def check_es_status():
 
 def consume_key(user_details, key):
     rpc = RPCClientUpdateUsageCatvCall()
-    user_rpc = {"id": user_details['user_id'], "token": '', "timestamp": '','source':'api',
+    user_rpc = {"id": user_details['user_id'], "token": '', "timestamp": '', 'source': 'api',
                 "uid": str(user_details['user_uid']), "credits_required": user_details['credits_required']}
     res = (rpc.call(user_rpc)).decode('UTF-8')
     print("RPCClientUpdateUsageCatvCall() status: ", res)
@@ -84,6 +90,7 @@ def get_rate(_id, key):
             except KeyError:
                 return None
         return rate
+
     # Check if exists in mem cache
     rate = __get_key(f"apiroleinfo_{_id}", key)
     if not rate:
@@ -93,7 +100,7 @@ def get_rate(_id, key):
         auth_response = ast.literal_eval(res)
         for i in auth_response:
             API_CACHE.set(
-                f"apiroleinfo_{i['role_id']}", json.dumps(i), 60*60*12)
+                f"apiroleinfo_{i['role_id']}", json.dumps(i), 60 * 60 * 12)
         return __get_key(_id, key)
     return rate
 
@@ -117,13 +124,15 @@ def catv_query(route, request, chain):
         if route == 'outbound':
             source = False
         bloxy_res = bloxy.get_transactions(params['address'], 50000, params['limit'],
-                                                   params['depth_limit'], source, chain,
-                                                   params['from_date'], params['till_date'], token
-                                                )
+                                           params['depth_limit'], source, chain,
+                                           params['from_date'], params['till_date'], token
+                                           )
         if 'error' in bloxy_res:
             return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
         addr_list = [Web3.to_checksum_address(a['sender']) if is_eth_based_wallet(chain.upper()) else a['sender']
-                     for a in bloxy_res]+[Web3.to_checksum_address(a['receiver']) if is_eth_based_wallet(chain.upper()) else a['receiver'] for a in bloxy_res]
+                     for a in bloxy_res] + [
+                        Web3.to_checksum_address(a['receiver']) if is_eth_based_wallet(chain.upper()) else a['receiver']
+                        for a in bloxy_res]
         addr_list = list(set(addr_list))
         addr_query = [{"bool": {"must": {"match": {"pattern": a}}, "should": [{"match": {
             "cases": "released"}}, {"match": {"cases": "confirmed"}}]}} for a in addr_list]
@@ -133,9 +142,9 @@ def catv_query(route, request, chain):
             chunk_size = 200
             start = 0
             annotation_dict = {}
-            for a in range(0, math.ceil((len(addr_query)+1)/chunk_size)):
+            for a in range(0, math.ceil((len(addr_query) + 1) / chunk_size)):
                 # Query from es
-                chunked_addr_query = addr_query[start:start+chunk_size]
+                chunked_addr_query = addr_query[start:start + chunk_size]
                 query = {
                     "size": 10000,
                     "_source": ["pattern", "annotations", "security_category"],
@@ -156,9 +165,11 @@ def catv_query(route, request, chain):
                 es_res = [r['_source']
                           for r in es_res.json()['hits']['hits']]
                 es_res.reverse()
-                annotation_dict.update({q['pattern'].lower(): {"annotation": q['annotations'], "security_category": q['security_category']} if q['annotations'] else {"annotation": "", "security_category": ""}
+                annotation_dict.update({q['pattern'].lower(): {"annotation": q['annotations'],
+                                                               "security_category": q['security_category']} if q[
+                    'annotations'] else {"annotation": "", "security_category": ""}
                                         for q in es_res})
-                start = start+chunk_size
+                start = start + chunk_size
         else:
             # RPC to fetch indicators from portal-api
             request_dict = {'addr_list': [addr.lower() for addr in addr_list], 'token_type': str(chain.upper())}
@@ -168,7 +179,7 @@ def catv_query(route, request, chain):
             annotation_dict = {ind['pattern'].lower(): (
                 {"annotation": ind['annotation'], "security_category": ind['security_category']} if ind[
                     'annotation'] else {"annotation": "", "security_category": ""})
-                               for ind in indicators}
+                for ind in indicators}
         for d in bloxy_res:
             sender_details = annotation_dict.get(
                 d['sender'].lower(), {"annotation": "", "security_category": ""})
@@ -177,10 +188,10 @@ def catv_query(route, request, chain):
             for i in ['annotation', 'security_category']:
                 d[f'sender_{i}'] = sender_details[i]
                 d[f'receiver_{i}'] = receiver_details[i]
-        #For chainkeeper filter outgoing txns from exchanges
+        # For chainkeeper filter outgoing txns from exchanges
         if filter_exchange_txns:
             print("Filtering txs")
-            bloxy_res = filter_exchange_transactions(bloxy_res,route)
+            bloxy_res = filter_exchange_transactions(bloxy_res, route)
             print(f'{len(bloxy_res) = }')
         return bloxy_res
     except Exception as e:
@@ -188,41 +199,43 @@ def catv_query(route, request, chain):
         return False
 
 
-def dfs(address,visited,txns_to_remove,graph):  
-    if address in visited:  
-        return  
-    visited.add(address)  
-    if address in graph:  
-        for tx_hash, nxt_address in graph[address]:  
-            txns_to_remove.add(tx_hash)  
-            dfs(nxt_address,visited,txns_to_remove,graph) 
+def dfs(address, visited, txns_to_remove, graph):
+    if address in visited:
+        return
+    visited.add(address)
+    if address in graph:
+        for tx_hash, nxt_address in graph[address]:
+            txns_to_remove.add(tx_hash)
+            dfs(nxt_address, visited, txns_to_remove, graph)
 
-def filter_exchange_transactions(txns,direction):
+
+def filter_exchange_transactions(txns, direction):
     graph = defaultdict(set)
     txns_to_remove = set()
-    visited = set() 
+    visited = set()
     # Build the graph data
     if direction == 'outbound':
         outer = 'receiver'
         inner = 'sender'
-    else :
+    else:
         outer = 'sender'
         inner = 'receiver'
-    
-    for txn in txns:
-        address = txn[inner]  
-        if address not in graph:  
-            graph[address] = []  
-        graph[address].append((txn['tx_hash'], txn[outer]))  
 
-    for tx in txns:  
-        nxt_address = tx[outer]  
-        if 'exchange' in tx.get(f'{outer}_annotation','').lower():
-            dfs(nxt_address,visited,txns_to_remove,graph) 
-  
+    for txn in txns:
+        address = txn[inner]
+        if address not in graph:
+            graph[address] = []
+        graph[address].append((txn['tx_hash'], txn[outer]))
+
+    for tx in txns:
+        nxt_address = tx[outer]
+        if 'exchange' in tx.get(f'{outer}_annotation', '').lower():
+            dfs(nxt_address, visited, txns_to_remove, graph)
+
     filtered_txns = [txn for txn in txns if txn['tx_hash'] not in txns_to_remove]
 
     return filtered_txns
+
 
 def get_user_details(key):
     def __get_key(key):
@@ -234,6 +247,7 @@ def get_user_details(key):
                 return None
         # return user
         return None
+
     # Check if exists in mem cache
     rate = __get_key(key)
     if rate is None or rate == "Failed":
@@ -241,7 +255,7 @@ def get_user_details(key):
         user_rpc = {"key": key}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         if res != "Failed":
-            API_CACHE.set(key, json.dumps(res), 60*60*12)
+            API_CACHE.set(key, json.dumps(res), 60 * 60 * 12)
         else:
             return None
         return res
@@ -251,6 +265,7 @@ def get_user_details(key):
 def validate_key(key, request, rpc_response1):
     def f():
         pass
+
     # Get the user_id
     try:
         rpc_response = ast.literal_eval(rpc_response1)
@@ -274,7 +289,6 @@ def validate_key(key, request, rpc_response1):
         }
 
         credits = rpc_response['credits']
-
 
         user_detail['catv_count'] = credits['catv_calls']
         user_detail['credits_left'] = credits['credits_left']
@@ -310,9 +324,11 @@ def validate_request(request, key, rpc_response, required_params_list=None, allo
                     return JsonResponse(Constants.CATV_API_RESPONSE["REQUEST_BODY_MISSING"], status=400)
             if required_params_list:
                 missing_params = list(
-                    set(required_params_list)-set(list(request_body.keys())))
+                    set(required_params_list) - set(list(request_body.keys())))
                 if missing_params:
-                    return JsonResponse({"status": False, "data": {"message": f"Missing parameter(s) {', '.join(missing_params)}"}}, status=400)
+                    return JsonResponse(
+                        {"status": False, "data": {"message": f"Missing parameter(s) {', '.join(missing_params)}"}},
+                        status=400)
             return key_details
         elif request.method == 'GET':
 
@@ -321,19 +337,23 @@ def validate_request(request, key, rpc_response, required_params_list=None, allo
                 return JsonResponse(Constants.CATV_API_RESPONSE["UNAUTHORIZED"], status=401)
             if required_params_list:
                 missing_params = list(
-                    set(required_params_list)-set(list(dict(request.GET).keys())))
+                    set(required_params_list) - set(list(dict(request.GET).keys())))
                 if missing_params:
-                    return JsonResponse({"status": False, "data": {"message": f"Missing parameter(s) {', '.join(missing_params)}"}}, status=400)
+                    return JsonResponse(
+                        {"status": False, "data": {"message": f"Missing parameter(s) {', '.join(missing_params)}"}},
+                        status=400)
             if allowed_param_list:
                 invalid_params = [p for p in list(dict(request.GET).keys(
-                )) if p not in allowed_param_list+required_params_list]
+                )) if p not in allowed_param_list + required_params_list]
                 if invalid_params:
-                    return JsonResponse({"status": False, "data": {"message": f"Invalid parameter(s) {', '.join(invalid_params)}"}}, status=400)
+                    return JsonResponse(
+                        {"status": False, "data": {"message": f"Invalid parameter(s) {', '.join(invalid_params)}"}},
+                        status=400)
             return key_details
     except Exception:
         print("Exception in validate_request: ", traceback.format_exc())
         return None
-    
+
 
 def validate_addr(addr, chain=None, token=None, is_catv=True):
     try:
@@ -341,7 +361,8 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
         if not addr:
             return None
         if not chain:
-            if addr[:3].lower() != 'bc1' and addr[:2].lower() != '0x' and addr[:1].lower() != '1' and addr[:1].lower() != '3':
+            if addr[:3].lower() != 'bc1' and addr[:2].lower() != '0x' and addr[:1].lower() != '1' and addr[
+                                                                                                      :1].lower() != '3':
                 return None
             if addr[:2].lower() == '0x':
                 # Validate eth
@@ -367,7 +388,12 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
                 return None
             val = bool(re.match(
                 coindata[chain.upper()]['networkList'][chain.upper()]['addressRegex'], addr))
-            if token and chain.lower() not in Constants.CATV_API["UTXO_CHAINS"] and chain.lower() not in [c for c in Constants.CATV_API["QUORUM_CHAINS"] if c != 'XLM'] and token != '0x0000000000000000000000000000000000000000' and not isinstance(token, int):
+            if token and chain.lower() not in Constants.CATV_API["UTXO_CHAINS"] and chain.lower() not in [c for c in
+                                                                                                          Constants.CATV_API[
+                                                                                                              "QUORUM_CHAINS"]
+                                                                                                          if
+                                                                                                          c != 'XLM'] and token != '0x0000000000000000000000000000000000000000' and not isinstance(
+                token, int):
                 # Validates token with assumption that token address is consistent with user address
                 token_val = bool(re.match(
                     coindata[chain.upper()]['networkList'][chain.upper()]['addressRegex'], token))
@@ -383,6 +409,15 @@ def validate_addr(addr, chain=None, token=None, is_catv=True):
         return None
 
 
+def update_usage(key, res):
+    user_data = ast.literal_eval(res)
+    api_user = user_data['api_user'][0]
+    user_details = {'user_id': user_data['auth']['user_id'],
+                    'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
+
+    consume_key(user_details, key)
+
+
 class CatvOutbound(APIView):
     authentication_classes = []
     permission_classes = []
@@ -396,30 +431,28 @@ class CatvOutbound(APIView):
                 except KeyError:
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
             res = get_user_details(key)
-            validated_request = validate_request(request,  key, res,required_params_list=[
-                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset', 'filter_exchange_txns'])
+            validated_request = validate_request(request, key, res, required_params_list=[
+                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit',
+                                                         'min_tx_amount', 'limit', 'offset', 'filter_exchange_txns'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
             if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
                 return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
             ratelimit_status = validated_request['ratelimit_status']
             if ratelimit_status:
-                return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {validated_request['rate_limit']}"}}, status=429)
+                return JsonResponse({"status": False, "data": {
+                    "message": f"Too many requests, your rate limit is {validated_request['rate_limit']}"}}, status=429)
             chain = request.GET.get('chain').upper()
             token = request.GET.get(
                 'token', '0x0000000000000000000000000000000000000000')
             if not validate_addr(request.GET.get('address'), chain, token=token, is_catv=True):
-                return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}}, status=400)
+                return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}},
+                                    status=400)
             bloxy_res = catv_query('outbound', request, chain)
             if not bloxy_res:
                 return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
-            
-            user_data = ast.literal_eval(res)
-            api_user = user_data['api_user'][0]
-            user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
 
-            consume_key(user_details, key)
+            update_usage(key, res)
             return JsonResponse({"status": True, "data": bloxy_res})
         except Exception as e:
             print("Exception in CatvOutbound: ", traceback.format_exc())
@@ -468,7 +501,8 @@ class CatvSupportedNetworks(APIView):
             if isinstance(auth, JsonResponse):
                 return auth
             res = [{"chain": n, "tokens": (
-                True if n not in [c for c in Constants.CATV_API["UTXO_CHAINS"]]+['XRP'] else False)} for n in Constants.CATV_API["SUPPORTED_NETWORKS"]]
+                True if n not in [c for c in Constants.CATV_API["UTXO_CHAINS"]] + ['XRP'] else False)} for n in
+                   Constants.CATV_API["SUPPORTED_NETWORKS"]]
             return JsonResponse({"status": True, "data": res}, status=200)
         except Exception:
             print("Exception in CatvSupportedNetworks: ", traceback.format_exc())
@@ -476,7 +510,6 @@ class CatvSupportedNetworks(APIView):
 
 
 class ApiKeyInfo(GenericAPIView):
-
     authentication_classes = []
     permission_classes = []
 
@@ -493,9 +526,10 @@ class ApiKeyInfo(GenericAPIView):
                 return auth
             ratelimit_status = auth['ratelimit_status']
             if ratelimit_status:
-                return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {auth['rate_limit']}"}}, status=429)
-            
-            data = {"catv_count": auth['catv_count'],"credits_left": auth['credits_left']}
+                return JsonResponse({"status": False, "data": {
+                    "message": f"Too many requests, your rate limit is {auth['rate_limit']}"}}, status=429)
+
+            data = {"catv_count": auth['catv_count'], "credits_left": auth['credits_left']}
             return JsonResponse({"status": True, "data": data}, status=200)
         except Exception:
             traceback.print_exc()
@@ -515,29 +549,29 @@ class CatvInbound(APIView):
                 except KeyError:
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
             res = get_user_details(key)
-            validated_request = validate_request(request,  key, res, required_params_list=[
-                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit', 'min_tx_amount', 'limit', 'offset', 'filter_exchange_txns'])
+            validated_request = validate_request(request, key, res, required_params_list=[
+                'address', 'chain'], allowed_param_list=['key', 'token', 'from_date', 'till_date', 'depth_limit',
+                                                         'min_tx_amount', 'limit', 'offset', 'filter_exchange_txns'])
             if isinstance(validated_request, JsonResponse):
                 return validated_request
             if not validated_request or validated_request['credits_left'] < validated_request['credits_required']:
                 return JsonResponse(Constants.CATV_API_RESPONSE["INSUFFICIENT_CREDIT"], status=402)
             ratelimit_status = validated_request['ratelimit_status']
             if ratelimit_status:
-                return JsonResponse({"status": False, "data": {"message": f"Too many requests, your rate limit is {validated_request['rate_limit']}"}}, status=429)
+                return JsonResponse({"status": False, "data": {
+                    "message": f"Too many requests, your rate limit is {validated_request['rate_limit']}"}}, status=429)
             chain = request.GET.get('chain').upper()
             token = request.GET.get(
                 'token', '0x0000000000000000000000000000000000000000')
             if not validate_addr(request.GET.get('address'), chain, token=token, is_catv=True):
-                return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}}, status=400)
+                return JsonResponse({"status": False, "data": {"message": f"Invalid address for specified chain"}},
+                                    status=400)
             bloxy_res = catv_query('inbound', request, chain)
             if not bloxy_res:
                 return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
-            user_data = ast.literal_eval(res)
-            api_user = user_data['api_user'][0]
-            user_details = {'user_id': user_data['auth']['user_id'],
-                            'user_uid': api_user['uid'], 'credits_required': user_data['credits_required']}
 
-            consume_key(user_details, key)
+            update_usage(key, res)
+
             return JsonResponse({"status": True, "data": bloxy_res})
         except Exception as e:
             print("Exception in CatvInbound: ", traceback.format_exc())
@@ -565,3 +599,99 @@ class ChainkeeperInbound(APIView):
         except Exception as e:
             print("Exception in CatvInbound: ", traceback.format_exc())
             return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
+
+
+class CATVReportLinkView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    request_uid = None
+    released = False
+    failed = False
+
+    def post(self, request):
+        try:
+            key = request.META['HTTP_X_API_KEY']
+        except KeyError:
+            return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
+        data = request.data
+        if not data.get("token_address"):
+            data["token_address"] = Constants.CATV_API["DEFAULT_TOKEN_ADDRESS"]
+        if not data.get("transaction_limit"):
+            data["transaction_limit"] = 2000
+        token_type = data.get('token_type', CatvTokens.ETH.value).upper()
+        search_type = data.get('search_type', CatvSearchType.FLOW.value)
+        serializer_cls = serializer_map[token_type][search_type]
+        serializer = serializer_cls(data=data, context={"request": request})
+        serializer._token_type = token_type
+        serializer.is_valid(raise_exception=True)
+        history = serializer.data
+        try:
+            res = get_user_details(key)
+            rpc_response = ast.literal_eval(res)
+            auth = rpc_response["auth"]
+            request.user = auth
+            # Submit CATV request
+            catv_sub_res = submit_catv_request(token_type, search_type, history, request, True)
+            self.request_uid = catv_sub_res["uid"]
+            try:
+                self.check_status()
+            except TimeoutError:
+                return APIResponse({
+                    "status": False,
+                    "request_uid": self.request_uid,
+                    "data": {
+                        "message": Constants.CATV_API["CATV_REPORT_TIMED_OUT"]
+                    },
+                    "request_params": data
+                })
+
+            if self.released:
+                update_usage(key, res)  # update usage only if released
+                return APIResponse({
+                    "status": True,
+                    "request_uid": self.request_uid,
+                    "data": {
+                        "report_url": self.get_catv_report_url(),
+                        "message": Constants.CATV_API["CATV_REPORT_SUCCESS"]
+                    },
+                    "request_params": data
+                })
+
+            if self.failed:
+                return APIResponse({
+                    "status": False,
+                    "request_uid": self.request_uid,
+                    "data": {
+                        "message": Constants.CATV_API["CATV_REPORT_FAILED"]
+                    },
+                    "request_params": data
+                })
+
+        except Exception:
+            traceback.print_exc()
+            raise ServerError(
+                detail="Something went wrong while submitting your request. Please try again later.")
+
+    def check_status(self):
+        catv_request = CatvRequestStatus.objects.get(uid=self.request_uid)
+
+        timeout_time = datetime.now() + timedelta(minutes=1.5)
+
+        while True:
+            if datetime.now() >= timeout_time:
+                raise TimeoutError("Polling timed out after 1.5 minutes.")
+
+            catv_request.refresh_from_db()
+
+            if catv_request and catv_request.status == CatvTaskStatusType.PROGRESS:
+                print(f"Processing {self.request_uid}...")
+                sleep(7)
+            elif catv_request.status == CatvTaskStatusType.RELEASED:
+                self.released = True
+                break
+            elif catv_request.status == CatvTaskStatusType.FAILED:
+                self.failed = True
+                break
+
+    def get_catv_report_url(self):
+        return f'{api_settings.CATV_REPORT_BASE_URL}/{self.request_uid}'
