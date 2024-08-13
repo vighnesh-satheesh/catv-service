@@ -379,9 +379,17 @@ utils_map = {
     }
 }
 
-def validate_dateformat_and_randomize_seconds(value, input_format,output_format):
+
+def validate_dateformat_and_randomize_seconds(value, output_format):
     random_seconds = random.randint(1, 59)
-    date_obj = datetime.strptime(value, input_format)
+    try:
+        date_obj = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        try:
+            date_obj = datetime.strptime(value, '%Y-%m-%d')
+            date_obj = date_obj.replace(hour=0, minute=0, second=0)
+        except ValueError:
+            raise ValueError(f"Time data '{value}' does not match format '%Y-%m-%d %H:%M:%S' or '%Y-%m-%d'")
     date_obj += timedelta(seconds=random_seconds)
     return date_obj.strftime(output_format)
 
