@@ -5,6 +5,7 @@ import requests
 from django.conf import settings
 from requests.exceptions import Timeout, RequestException
 
+from api import utils
 from api.constants import Constants
 from api.settings import api_settings
 
@@ -85,6 +86,7 @@ class GraphQLInterfaceUnified:
         self.source = source
         self.address = address
         self.depth = depth_limit
+        from_time = utils.validate_dateformat_and_randomize_seconds(from_time,'%Y-%m-%d',"%Y-%m-%dT%H:%M:%S")
         self.from_time = str(from_time).replace(" ", "T")
         self.till_time = str(till_time).replace(" ", "T")
         self.limit = int(limit)
@@ -317,12 +319,13 @@ class GraphQLInterfaceUnified:
             return flattened_response
         except Timeout:
             print(f"Bitquery Graphql call timed out for: {self.address} {self.chain}")
-            return []
+            error_resp = {'errors':[{'message': 'Bitquery request timed out'}]}
+            return error_resp
         except RequestException:
             print(f"Bitquery Graphql call request exception: {self.address} {self.chain}")
             return []
-        except Exception as e:
+        except Exception:
             if "errors" in response and response["errors"]:
                 print("Bitquery error response: ", response["errors"])
             traceback.print_exc()
-            return []
+            return response
