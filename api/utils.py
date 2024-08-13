@@ -1,29 +1,26 @@
-import time
-from functools import wraps
-import re
-from datetime import datetime
 import binascii
-import base58
 import hashlib
+import random
+import re
+import time
+from datetime import datetime, timedelta
+from functools import wraps
 
+import base58
+from django.core.exceptions import SuspiciousOperation
 from django.db import connections, close_old_connections, OperationalError
 from django.db.utils import InterfaceError
-from django.db.models import Q
-from six import text_type
 from django.utils.encoding import force_str
-
-from rest_framework import exceptions as rf_exceptions
-from rest_framework.views import exception_handler
-
-from .response import APIResponse
-from .models import (
-    CatvTokens, CatvHistory, UserRoles, CatvSearchType
-)
 from google.cloud import storage
 from google.cloud.exceptions import NotFound
-from django.core.exceptions import SuspiciousOperation
+from rest_framework import exceptions as rf_exceptions
+from rest_framework.views import exception_handler
+from six import text_type
 
-from . import exceptions
+from .models import (
+    CatvTokens, UserRoles, CatvSearchType
+)
+from .response import APIResponse
 from .serializers import CATVBTCCoinpathSerializer, CatvBtcPathSerializer, CATVSerializer, CATVEthPathSerializer
 from .tasks import catv_history_task, catv_path_history_task
 
@@ -381,3 +378,40 @@ utils_map = {
         'history_runner': catv_path_history_task
     }
 }
+
+def validate_dateformat_and_randomize_seconds(value, input_format,output_format):
+    random_seconds = random.randint(1, 59)
+    date_obj = datetime.strptime(value, input_format)
+    date_obj += timedelta(seconds=random_seconds)
+    return date_obj.strftime(output_format)
+
+
+def extract_error_type(message):
+    if "ActiveRecord::ActiveRecordError" in message:
+        return "MemoryLimitExceeded"
+    elif "Net::ReadTimeout" in message:
+        return "ReadTimeout"
+    elif "It is not possible to execute 2 simultaneous requests" in message:
+        return "ConcurrencyLimitExceeded"
+    elif "Bitquery request timed out" in message:
+        return  "BitqueryRequestTimedOut"
+    else:
+        return "UnknownError"
+
+
+def build_error_response(bitquery_res):
+    # Extract the error details from the first item in the list
+    error_details = bitquery_res['errors'][0]
+
+    error_type = extract_error_type(error_details['message'])
+    # Build the standardized error response
+    standardized_error = {
+        "error": {
+            "type": error_type,
+            "message": error_details['message'],
+            "query_id": error_details.get('query_id', ''),
+            "path": error_details.get('path', [])
+        }
+    }
+
+    return standardized_error

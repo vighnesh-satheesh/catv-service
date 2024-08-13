@@ -21,7 +21,7 @@ from web3 import Web3
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
-from api.utils import validate_coin, is_eth_based_wallet, serializer_map
+from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response
 from .constants import Constants
 from .exceptions import ServerError
 from .models import CatvTokens, CatvSearchType, CatvRequestStatus, CatvTaskStatusType
@@ -105,7 +105,7 @@ def get_rate(_id, key):
     return rate
 
 
-def catv_query(route, request, chain):
+def catv_query(route, request, chain, is_ck_request=False):
     try:
         source = True
         token = None
@@ -127,7 +127,10 @@ def catv_query(route, request, chain):
                                            params['depth_limit'], source, chain,
                                            params['from_date'], params['till_date'], token
                                            )
-        if 'error' in bloxy_res:
+        if 'errors' in bloxy_res and bloxy_res['errors']:
+            if is_ck_request:
+                standardized_response = build_error_response(bloxy_res)
+                return JsonResponse(standardized_response, status=502)
             return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
         addr_list = [Web3.to_checksum_address(a['sender']) if is_eth_based_wallet(chain.upper()) else a['sender']
                      for a in bloxy_res] + [
@@ -473,7 +476,9 @@ class ChainKeeperOutbound(APIView):
                 except KeyError:
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
             chain = request.GET.get('chain').upper()
-            bloxy_res = catv_query('outbound', request, chain)
+            bloxy_res = catv_query('outbound', request, chain, True)
+            if isinstance(bloxy_res, JsonResponse):
+                return bloxy_res
             if not bloxy_res:
                 return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
             return JsonResponse({"status": True, "data": bloxy_res})
@@ -592,7 +597,9 @@ class ChainkeeperInbound(APIView):
                 except KeyError:
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
             chain = request.GET.get('chain').upper()
-            bloxy_res = catv_query('inbound', request, chain)
+            bloxy_res = catv_query('inbound', request, chain, True)
+            if isinstance(bloxy_res, JsonResponse):
+                return bloxy_res
             if not bloxy_res:
                 return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
             return JsonResponse({"status": True, "data": bloxy_res})
