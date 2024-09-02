@@ -17,6 +17,7 @@ from requests.exceptions import ConnectTimeout
 from rest_framework.generics import GenericAPIView
 from rest_framework.views import APIView
 from web3 import Web3
+from multiprocessing.pool import ThreadPool
 
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
@@ -119,13 +120,32 @@ def catv_query(route, request, chain, is_ck_request=False):
                 token = params['symbol']
         else:
             token = params.pop('token', None)
-        filter_exchange_txns = params.pop('filter_exchange_txns', False)
         bloxy = BloxyAPIInterface(API_BLOXY_KEY)
-        if route == 'outbound':
-            source = False
-        bloxy_res = bloxy.get_transactions(params['address'], 50000, params['limit'],
-                                           params['depth_limit'], source, chain,
-                                           params['from_date'], params['till_date'], token
+        filter_exchange_txns = params.pop('filter_exchange_txns', False)
+        is_exchange = check_if_exchange_dex(params['address'])
+        threat_address = params.pop("threat_address", None)
+        
+        if is_exchange and threat_address and threat_address != "not_available":
+            pool = ThreadPool(processes=2)
+            async_bloxy_res_dist = pool.apply_async(
+                bloxy.get_transactions, [threat_address, 50000, params['limit'],
+                                    3, False, chain, params['from_date'], params['till_date'], token])
+            async_bloxy_res_src = pool.apply_async(
+                bloxy.get_transactions, [threat_address, 50000, params['limit'],
+                                    1, True, chain, params['from_date'], params['till_date'], token])
+            bloxy_res_src = async_bloxy_res_src.get()
+            bloxy_res_dist = async_bloxy_res_dist.get()
+            pool.close()
+            for item in bloxy_res_src:
+                item["depth"] = -1*item["depth"]
+            bloxy_res = [*bloxy_res_src, *bloxy_res_dist]
+            pool.join()
+        else:
+            if route == 'outbound':
+                source = False
+            bloxy_res = bloxy.get_transactions(params['address'], 50000, params['limit'],
+                                            params['depth_limit'], source, chain,
+                                            params['from_date'], params['till_date'], token
                                            )
         if 'errors' in bloxy_res and bloxy_res['errors']:
             if is_ck_request:
@@ -201,6 +221,44 @@ def catv_query(route, request, chain, is_ck_request=False):
         print("Exception in catv_query: ", traceback.format_exc())
         return False
 
+def check_if_exchange_dex(address):
+    try:
+        addr_query = {"bool": {"must": {"match": {"pattern": address}}, "should": [{"match": {
+            "cases": "released"}}, {"match": {"cases": "confirmed"}}]}}
+        es_status = check_es_status()
+        if es_status:
+            # Query from elastic-search
+            query = {
+                "_source": ["pattern", "annotations", "security_category"],
+                "query": {
+                    "bool": {
+                        "should":
+                            addr_query
+                    },
+                },
+                "sort": {
+                    "created": {"order": "desc"}
+                }
+            }
+            es_res = requests.post(
+                f"{API_ELASTICSEARCH_HOST}/{ES_INDEX}/_search", json=query, auth=tuple(ES_AUTH))
+            if not es_res.ok:
+                pass
+            es_res = [r['_source']
+                        for r in es_res.json()['hits']['hits']]
+            es_res.reverse()
+            annotation_list = es_res[0]["annotations"]
+            annotation_list = annotation_list.casefold().split(", ")
+            print("check_if_exchange_dex:",  annotation_list)
+            for annotation in annotation_list:
+                if "exchange" in annotation or "dex" in annotation:
+                    return True
+            return False
+        else:
+            return False
+    except Exception as e:
+        print("Exception in checking whether the address is an exchange/dex: ", traceback.format_exc())
+        return False       
 
 def dfs(address, visited, txns_to_remove, graph):
     if address in visited:
