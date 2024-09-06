@@ -47,20 +47,6 @@ class BloxyAPIInterface:
                          from_time=datetime(2015, 1, 1, 0, 0),
                          till_time=datetime.now(),
                          token_address=None):
-        # if chain == 'BTC':
-        #     payload = {
-        #         'key': self._key,
-        #         'address': address,
-        #         'depth_limit': depth_limit,
-        #         'from_date': from_time,
-        #         'till_date': till_time,
-        #         'limit': limit,
-        #         'chain': chain.lower()
-        #     }
-        #     api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
-        #     r = self.call_bloxy_api(api_url, payload)
-        #     return r
-        # else:
         graphql_interface = GraphQLInterfaceUnified(
             chain,
             source,
@@ -73,7 +59,7 @@ class BloxyAPIInterface:
         )
         results = graphql_interface.call_graphql_endpoint()
         return results
-      
+
 
 class GraphQLInterfaceUnified:
 
@@ -86,7 +72,7 @@ class GraphQLInterfaceUnified:
         self.source = source
         self.address = address
         self.depth = depth_limit
-        from_time = utils.validate_dateformat_and_randomize_seconds(from_time,"%Y-%m-%dT%H:%M:%S")
+        from_time = utils.validate_dateformat_and_randomize_seconds(from_time, "%Y-%m-%dT%H:%M:%S")
         self.from_time = str(from_time).replace(" ", "T")
         self.till_time = str(till_time).replace(" ", "T")
         self.limit = int(limit)
@@ -297,7 +283,7 @@ class GraphQLInterfaceUnified:
                                 current_iter_dict["token"] = self.token_address
                                 current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
                                 current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
-                                item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
+                                    item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
                                 current_iter_dict["receiver_type"] = item["receiver"]["smartContract"][
                                     "contractType"] if item["receiver"]["smartContract"]["contractType"] not in [None,
                                                                                                                  "None"] else "Wallet"
@@ -319,7 +305,7 @@ class GraphQLInterfaceUnified:
             return flattened_response
         except Timeout:
             print(f"Bitquery Graphql call timed out for: {self.address} {self.chain}")
-            error_resp = {'errors':[{'message': 'Bitquery request timed out'}]}
+            error_resp = {'errors': [{'message': 'Bitquery request timed out'}]}
             return error_resp
         except RequestException:
             print(f"Bitquery Graphql call request exception: {self.address} {self.chain}")
