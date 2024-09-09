@@ -43,7 +43,7 @@ class BloxyAPIInterface:
             traceback.print_exc()
             return []
 
-    def get_transactions(self, address, tx_limit=10000, limit=10000, depth_limit=2, source=True, chain='ETH',
+    def get_transactions(self, address, limit=10000, depth_limit=2, source=True, chain='ETH',
                          from_time=datetime(2015, 1, 1, 0, 0),
                          till_time=datetime.now(),
                          token_address=None):

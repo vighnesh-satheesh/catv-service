@@ -128,10 +128,10 @@ def catv_query(route, request, chain, is_ck_request=False):
         if is_victim_dex and threat_address and threat_address != "not_available":
             pool = ThreadPool(processes=2)
             async_bloxy_res_dist = pool.apply_async(
-                bloxy.get_transactions, [threat_address, 2500, params['limit'],
+                bloxy.get_transactions, [threat_address, params['limit'],
                                     3, False, chain, params['from_date'], params['till_date'], token])
             async_bloxy_res_src = pool.apply_async(
-                bloxy.get_transactions, [threat_address, 2500, params['limit'],
+                bloxy.get_transactions, [threat_address, params['limit'],
                                     1, True, chain, params['from_date'], params['till_date'], token])
             bloxy_res_src = async_bloxy_res_src.get()
             bloxy_res_dist = async_bloxy_res_dist.get()
@@ -143,7 +143,7 @@ def catv_query(route, request, chain, is_ck_request=False):
         else:
             if route == 'outbound':
                 source = False
-            bloxy_res = bloxy.get_transactions(params['address'], 50000, params['limit'],
+            bloxy_res = bloxy.get_transactions(params['address'], params['limit'],
                                             params['depth_limit'], source, chain,
                                             params['from_date'], params['till_date'], token
                                            )
