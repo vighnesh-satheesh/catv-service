@@ -22,7 +22,7 @@ from multiprocessing.pool import ThreadPool
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
-from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response
+from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, string_to_bool
 from .constants import Constants
 from .exceptions import ServerError
 from .models import CatvTokens, CatvSearchType, CatvRequestStatus, CatvTaskStatusType
@@ -141,7 +141,9 @@ def check_if_victim_dex(address):
             return False
         else:
             return False
-    except Exception as e:
+    except IndexError:
+        return False
+    except Exception:
         print("Exception in checking whether the address is an exchange/dex: ", traceback.format_exc())
         return False
 
@@ -164,8 +166,6 @@ def catv_query(route, request, chain):
         token = _get_token(chain, params)
 
         bloxy = BloxyAPIInterface(API_BLOXY_KEY)
-
-        filter_exchange_txns = params.pop('filter_exchange_txns', False)
 
         if route == 'outbound':
             source = False
@@ -202,7 +202,8 @@ def extract_addresses(params, chain):
 def fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex):
     address_to_query, source_depth, dist_depth = determine_address_to_use(is_victim_dex, threat_address, victim_address, params['depth_limit'])
 
-    if params['query_source'] or is_victim_dex:
+    query_source = string_to_bool(params['query_source'])
+    if query_source or is_victim_dex:
         return fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
     else:
         # only query dist
@@ -213,6 +214,7 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
 
 def determine_address_to_use(is_victim_dex, threat_address, victim_address, depth_limit):
     if is_victim_dex and threat_address and threat_address != 'not_available':
+        print(f"Using threat_address {threat_address} to query with depths (1,3)")
         return threat_address, 1, 3
     return victim_address, 2, depth_limit
 

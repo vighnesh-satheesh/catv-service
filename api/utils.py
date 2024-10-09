@@ -423,3 +423,11 @@ def build_error_response(bitquery_res):
     }
 
     return standardized_error
+
+def string_to_bool(x):
+    if x == "False":
+        return False
+    elif x == "True":
+        return True
+    else:
+        return False
