@@ -106,116 +106,248 @@ def get_rate(_id, key):
     return rate
 
 
-def catv_query(route, request, chain, is_ck_request=False):
+def check_if_victim_dex(address):
     try:
-        source = True
-        token = None
-        params = {k: v for k, v in request.GET.items()}
-
-        if chain.upper() in Constants.CATV_API["UTXO_CHAINS"]:
-            params.pop('token', None)
-        elif chain.upper() in Constants.CATV_API["QUORUM_CHAINS"]:
-            if 'token' in params:
-                params['symbol'] = params.pop('token', None)
-                token = params['symbol']
-        else:
-            token = params.pop('token', None)
-        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
-        filter_exchange_txns = params.pop('filter_exchange_txns', False)
-        is_victim_dex = params.pop('is_victim_dex', False)
-        threat_address = params.pop("threat_address", None)
-
-        if is_victim_dex and threat_address and threat_address != "not_available":
-            pool = ThreadPool(processes=2)
-            async_bloxy_res_dist = pool.apply_async(
-                bloxy.get_transactions, [threat_address, params['limit'],
-                                    3, False, chain, params['from_date'], params['till_date'], token])
-            async_bloxy_res_src = pool.apply_async(
-                bloxy.get_transactions, [threat_address, params['limit'],
-                                    1, True, chain, params['from_date'], params['till_date'], token])
-            bloxy_res_src = async_bloxy_res_src.get()
-            bloxy_res_dist = async_bloxy_res_dist.get()
-            pool.close()
-            for item in bloxy_res_src:
-                item["depth"] = -1*item["depth"]
-            bloxy_res = [*bloxy_res_src, *bloxy_res_dist]
-            pool.join()
-        else:
-            if route == 'outbound':
-                source = False
-            bloxy_res = bloxy.get_transactions(params['address'], params['limit'],
-                                            params['depth_limit'], source, chain,
-                                            params['from_date'], params['till_date'], token
-                                           )
-        if 'errors' in bloxy_res and bloxy_res['errors']:
-            if is_ck_request:
-                standardized_response = build_error_response(bloxy_res)
-                return JsonResponse(standardized_response, status=502)
-            return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
-        addr_list = [Web3.to_checksum_address(a['sender']) if is_eth_based_wallet(chain.upper()) else a['sender']
-                     for a in bloxy_res] + [
-                        Web3.to_checksum_address(a['receiver']) if is_eth_based_wallet(chain.upper()) else a['receiver']
-                        for a in bloxy_res]
-        addr_list = list(set(addr_list))
-        addr_query = [{"bool": {"must": {"match": {"pattern": a}}, "should": [{"match": {
-            "cases": "released"}}, {"match": {"cases": "confirmed"}}]}} for a in addr_list]
+        addr_query = {"bool": {"must": {"match": {"pattern": address}}, "should": [{"match": {
+            "cases": "released"}}, {"match": {"cases": "confirmed"}}]}}
         es_status = check_es_status()
         if es_status:
-            # Split queries into chunks
-            chunk_size = 200
-            start = 0
-            annotation_dict = {}
-            for a in range(0, math.ceil((len(addr_query) + 1) / chunk_size)):
-                # Query from es
-                chunked_addr_query = addr_query[start:start + chunk_size]
-                query = {
-                    "size": 10000,
-                    "_source": ["pattern", "annotations", "security_category"],
-                    "query": {
-                        "bool": {
-                            "should":
-                                chunked_addr_query
-                        },
+            # Query from elastic-search
+            query = {
+                "_source": ["pattern", "annotations", "security_category"],
+                "query": {
+                    "bool": {
+                        "should":
+                            addr_query
                     },
-                    "sort": {
-                        "created": {"order": "desc"}
-                    }
+                },
+                "sort": {
+                    "created": {"order": "desc"}
                 }
-                es_res = requests.post(
-                    f"{API_ELASTICSEARCH_HOST}/{ES_INDEX}/_search", json=query, auth=tuple(ES_AUTH))
-                if not es_res.ok:
-                    pass
-                es_res = [r['_source']
-                          for r in es_res.json()['hits']['hits']]
-                es_res.reverse()
-                annotation_dict.update({q['pattern'].lower(): {"annotation": q['annotations'],
-                                                               "security_category": q['security_category']} if q[
-                    'annotations'] else {"annotation": "", "security_category": ""}
-                                        for q in es_res})
-                start = start + chunk_size
+            }
+            es_res = requests.post(
+                f"{API_ELASTICSEARCH_HOST}/{ES_INDEX}/_search", json=query, auth=tuple(ES_AUTH))
+            if not es_res.ok:
+                pass
+            es_res = [r['_source']
+                      for r in es_res.json()['hits']['hits']]
+            es_res.reverse()
+            annotation_list = es_res[0]["annotations"]
+            annotation_list = annotation_list.casefold().split(", ")
+            print("check_if_exchange_dex:", annotation_list)
+            for annotation in annotation_list:
+                if "exchange" in annotation or "dex" in annotation:
+                    return True
+            return False
         else:
-            # RPC to fetch indicators from portal-api
-            request_dict = {'addr_list': [addr.lower() for addr in addr_list], 'token_type': str(chain.upper())}
-            rpc = RPCClientCATVFetchIndicators()
-            res = rpc.call(request_dict).decode("utf-8")
-            indicators = json.loads(res)
-            annotation_dict = {ind['pattern'].lower(): (
-                {"annotation": ind['annotation'], "security_category": ind['security_category']} if ind[
-                    'annotation'] else {"annotation": "", "security_category": ""})
-                for ind in indicators}
-        for d in bloxy_res:
-            sender_details = annotation_dict.get(
-                d['sender'].lower(), {"annotation": "", "security_category": ""})
-            receiver_details = annotation_dict.get(
-                d['receiver'].lower(), {"annotation": "", "security_category": ""})
-            for i in ['annotation', 'security_category']:
-                d[f'sender_{i}'] = sender_details[i]
-                d[f'receiver_{i}'] = receiver_details[i]
-        # For chainkeeper filter outgoing txns from exchanges
-        if filter_exchange_txns and not is_victim_dex:
-            print("Filtering txs")
-            bloxy_res = filter_exchange_transactions(bloxy_res, route)
-            print(f'{len(bloxy_res) = }')
+            return False
+    except Exception as e:
+        print("Exception in checking whether the address is an exchange/dex: ", traceback.format_exc())
+        return False
+
+def _get_token(chain, params):
+    token = None
+    if chain.upper() in Constants.CATV_API["UTXO_CHAINS"]:
+        params.pop('token', None)
+    elif chain.upper() in Constants.CATV_API["QUORUM_CHAINS"]:
+        if 'token' in params:
+            params['symbol'] = params.pop('token', None)
+            token = params['symbol']
+    else:
+        token = params.pop('token', None)
+    return token
+
+def catv_query(route, request, chain):
+    try:
+        source = True
+        params = {k: v for k, v in request.GET.items()}
+        token = _get_token(chain, params)
+
+        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+
+        filter_exchange_txns = params.pop('filter_exchange_txns', False)
+
+        if route == 'outbound':
+            source = False
+        bloxy_res = bloxy.get_transactions(params['address'], params['limit'],
+                                           params['depth_limit'], source, chain,
+                                           params['from_date'], params['till_date'], token
+                                           )
+        if 'errors' in bloxy_res and bloxy_res['errors']:
+            return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
+        addr_list = create_address_list(bloxy_res, chain)
+        annotation_dict = fetch_annotations(addr_list, chain)
+        bloxy_res = annotate_transactions(bloxy_res, annotation_dict)
+        return bloxy_res
+    except Exception as e:
+        print("Exception in catv_query: ", traceback.format_exc())
+        return False
+
+
+def parse_request_params(request):
+    params = {k: v for k, v in request.GET.items()}
+    params['query_source'] = params.pop('query_source', False)
+    params['txn_hashes'] = params.pop("txn_hashes", [])
+    return params
+
+
+def extract_addresses(params, chain):
+    threat_address = params.pop("threat_address", None)
+    victim_address = params['address']
+    token = _get_token(chain, params)
+
+    return token, threat_address, victim_address
+
+
+def fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex):
+    address_to_query, source_depth, dist_depth = determine_address_to_use(is_victim_dex, threat_address, victim_address, params['depth_limit'])
+
+    if params['query_source'] or is_victim_dex:
+        return fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
+    else:
+        # only query dist
+        return bloxy.get_transactions(address_to_query, params['limit'],
+                                      dist_depth, False, chain,
+                                      params['from_date'], params['till_date'], token)
+
+
+def determine_address_to_use(is_victim_dex, threat_address, victim_address, depth_limit):
+    if is_victim_dex and threat_address and threat_address != 'not_available':
+        return threat_address, 1, 3
+    return victim_address, 2, depth_limit
+
+
+def fetch_transactions_with_source(bloxy, params, chain, token, address, source_depth, dist_depth):
+    pool = ThreadPool(processes=2)
+    async_bloxy_res_dist = pool.apply_async(
+        bloxy.get_transactions, [address, params['limit'],
+                                 dist_depth, False, chain, params['from_date'], params['till_date'], token])
+    async_bloxy_res_src = pool.apply_async(
+        bloxy.get_transactions, [address, params['limit'],
+                                 source_depth, True, chain, params['from_date'], params['till_date'], token])
+    pool.close()
+
+    bloxy_res_dist = async_bloxy_res_dist.get()
+    if 'errors' in bloxy_res_dist:
+        pool.terminate()
+        pool.join()
+        return bloxy_res_dist
+
+    bloxy_res_src = async_bloxy_res_src.get()
+    if 'errors' in bloxy_res_src:
+        pool.join()
+        return bloxy_res_dist
+
+    for item in bloxy_res_src:
+        item["depth"] = -1 * item["depth"]
+
+    bloxy_res = [*bloxy_res_src, *bloxy_res_dist]
+    pool.join()
+
+    return bloxy_res
+
+
+def handle_bloxy_errors(bloxy_res):
+    standardized_response = build_error_response(bloxy_res)
+    return JsonResponse(standardized_response, status=502)
+
+
+def create_address_list(bloxy_res, chain):
+    addr_list = [Web3.to_checksum_address(a['sender']) if is_eth_based_wallet(chain.upper()) else a['sender']
+                 for a in bloxy_res] + [
+                    Web3.to_checksum_address(a['receiver']) if is_eth_based_wallet(chain.upper()) else a['receiver']
+                    for a in bloxy_res]
+    return list(set(addr_list))
+
+
+def fetch_annotations_from_es(addr_list):
+    # Split queries into chunks
+    chunk_size = 200
+    start = 0
+    annotation_dict = {}
+    addr_query = [{"bool": {"must": {"match": {"pattern": a}}, "should": [{"match": {
+        "cases": "released"}}, {"match": {"cases": "confirmed"}}]}} for a in addr_list]
+    for a in range(0, math.ceil((len(addr_query) + 1) / chunk_size)):
+        # Query from es
+        chunked_addr_query = addr_query[start:start + chunk_size]
+        query = {
+            "size": 10000,
+            "_source": ["pattern", "annotations", "security_category"],
+            "query": {
+                "bool": {
+                    "should":
+                        chunked_addr_query
+                },
+            },
+            "sort": {
+                "created": {"order": "desc"}
+            }
+        }
+        es_res = requests.post(
+            f"{API_ELASTICSEARCH_HOST}/{ES_INDEX}/_search", json=query, auth=tuple(ES_AUTH))
+        if not es_res.ok:
+            pass
+        es_res = [r['_source']
+                  for r in es_res.json()['hits']['hits']]
+        es_res.reverse()
+        annotation_dict.update({q['pattern'].lower(): {"annotation": q['annotations'],
+                                                       "security_category": q['security_category']} if q[
+            'annotations'] else {"annotation": "", "security_category": ""}
+                                for q in es_res})
+        start = start + chunk_size
+    return annotation_dict
+
+
+def fetch_annotations_from_rpc(addr_list, chain):
+    # RPC to fetch indicators from portal-api
+    request_dict = {'addr_list': [addr.lower() for addr in addr_list], 'token_type': str(chain.upper())}
+    rpc = RPCClientCATVFetchIndicators()
+    res = rpc.call(request_dict).decode("utf-8")
+    indicators = json.loads(res)
+    annotation_dict = {ind['pattern'].lower(): (
+        {"annotation": ind['annotation'], "security_category": ind['security_category']} if ind[
+            'annotation'] else {"annotation": "", "security_category": ""})
+        for ind in indicators}
+    return annotation_dict
+
+def fetch_annotations(addr_list, chain):
+    es_status = check_es_status()
+    if es_status:
+        return fetch_annotations_from_es(addr_list)
+    else:
+        return fetch_annotations_from_rpc(addr_list, chain)
+
+
+def annotate_transactions(bloxy_res, annotation_dict):
+    for d in bloxy_res:
+        sender_details = annotation_dict.get(
+            d['sender'].lower(), {"annotation": "", "security_category": ""})
+        receiver_details = annotation_dict.get(
+            d['receiver'].lower(), {"annotation": "", "security_category": ""})
+        for i in ['annotation', 'security_category']:
+            d[f'sender_{i}'] = sender_details[i]
+            d[f'receiver_{i}'] = receiver_details[i]
+    return bloxy_res
+
+def ck_query(request, chain):
+    try:
+        params = parse_request_params(request)
+        token, threat_address, victim_address = extract_addresses(params, chain)
+        is_victim_dex = check_if_victim_dex(victim_address)
+
+        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+        bloxy_res = fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex)
+
+        if 'errors' in bloxy_res and bloxy_res['errors']:
+            return handle_bloxy_errors(bloxy_res)
+
+        addr_list = create_address_list(bloxy_res, chain)
+        annotation_dict = fetch_annotations(addr_list, chain)
+        bloxy_res = annotate_transactions(bloxy_res, annotation_dict)
+
+        if not is_victim_dex:
+            bloxy_res = filter_exchange_transactions(bloxy_res, "outbound")
+
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
@@ -482,7 +614,7 @@ class CatvOutbound(APIView):
             return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
 
 
-class ChainKeeperOutbound(APIView):
+class ChainKeeperTransactions(APIView):
     authentication_classes = []
     permission_classes = []
 
@@ -492,11 +624,11 @@ class ChainKeeperOutbound(APIView):
             if not key:
                 try:
                     key = request.META['HTTP_X_API_KEY']
-                    print(f"Chainkeeper destination api call: {key}")
+                    print(f"Chainkeeper transactions api call: {key}")
                 except KeyError:
                     return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
             chain = request.GET.get('chain').upper()
-            bloxy_res = catv_query('outbound', request, chain, True)
+            bloxy_res = ck_query(request, chain)
             if isinstance(bloxy_res, JsonResponse):
                 return bloxy_res
             if not bloxy_res:
@@ -597,31 +729,6 @@ class CatvInbound(APIView):
 
             update_usage(key, res)
 
-            return JsonResponse({"status": True, "data": bloxy_res})
-        except Exception as e:
-            print("Exception in CatvInbound: ", traceback.format_exc())
-            return JsonResponse(Constants.CATV_API_RESPONSE["INTERNAL_SERVER_ERROR"], status=500)
-
-
-class ChainkeeperInbound(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        try:
-            key = self.request.GET.get('key')
-            if not key:
-                try:
-                    key = request.META['HTTP_X_API_KEY']
-                    print(f"Chainkeeper source api call {key}")
-                except KeyError:
-                    return JsonResponse(Constants.CATV_API_RESPONSE["API_KEY_MISSING"], status=401)
-            chain = request.GET.get('chain').upper()
-            bloxy_res = catv_query('inbound', request, chain, True)
-            if isinstance(bloxy_res, JsonResponse):
-                return bloxy_res
-            if not bloxy_res:
-                return JsonResponse(Constants.CATV_API_RESPONSE["NO_DATA_FOUND"], status=500)
             return JsonResponse({"status": True, "data": bloxy_res})
         except Exception as e:
             print("Exception in CatvInbound: ", traceback.format_exc())
