@@ -350,6 +350,9 @@ def ck_query(request, chain):
         if not is_victim_dex:
             bloxy_res = filter_exchange_transactions(bloxy_res, "outbound")
 
+        if params['txn_hashes']:
+            bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'])
+
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
@@ -393,6 +396,52 @@ def filter_exchange_transactions(txns, direction):
 
     return filtered_txns
 
+
+def dfst(address, visited, txns_to_add, graph, address_to_skip):
+    
+    if address in visited:
+        return
+    visited.add(address)
+    if address in graph:
+        for tx_hash, nxt_address in graph[address]:
+            txns_to_add.add(tx_hash)
+            dfst(nxt_address, visited, txns_to_add, graph, address_to_skip)
+
+def filter_transaction_path(txns, direction, tx_hashes):
+    graph = defaultdict(set)
+    txns_to_add = set()
+    visited = set()
+    
+    address_to_skip = set()
+    # Build the graph data
+    if direction == 'outbound':
+        outer = 'receiver'
+        inner = 'sender'
+    else:
+        outer = 'sender'
+        inner = 'receiver'
+
+    visited.add(txns[0][inner])
+    for txn in txns:
+        address = txn[inner]
+        if txn['tx_hash'] in tx_hashes:
+            address_to_skip.add(txn[outer]) 
+            txns_to_add.add(txn['tx_hash'])
+
+        if address not in graph:
+            graph[address] = []
+        graph[address].append((txn['tx_hash'], txn[outer]))
+    
+
+    for tx in txns:
+        nxt_address = tx[outer]
+        if tx.get('tx_hash') in tx_hashes:
+            if nxt_address in address_to_skip:
+                dfst(nxt_address, visited, txns_to_add, graph, address_to_skip)
+
+    filtered_txns = [txn for txn in txns if txn['tx_hash'] in txns_to_add]
+
+    return filtered_txns
 
 def get_user_details(key):
     def __get_key(key):
