@@ -1,10 +1,12 @@
 import ast
+import concurrent
 import json
 import math
 import re
 import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
+from functools import partial
 from json import JSONDecodeError
 from time import sleep
 
@@ -187,7 +189,10 @@ def catv_query(route, request, chain):
 def parse_request_params(request):
     params = {k: v for k, v in request.GET.items()}
     params['query_source'] = params.pop('query_source', False)
-    params['txn_hashes'] = params.pop("txn_hashes", [])
+    txn_hashes_str = params.get('txn_hashes', '[]')
+    params['txn_hashes'] = json.loads(txn_hashes_str)
+    print(f"{params['txn_hashes'] = }")
+    print(f"{type(params['txn_hashes']) = }")
     return params
 
 
@@ -203,13 +208,15 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
     address_to_query, source_depth, dist_depth = determine_address_to_use(is_victim_dex, threat_address, victim_address, params['depth_limit'])
 
     query_source = string_to_bool(params['query_source'])
+    print(f"{query_source=}")
     if query_source or is_victim_dex:
+        print("calling fetch_transactions_with_source")
         return fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
     else:
         # only query dist
         return bloxy.get_transactions(address_to_query, params['limit'],
                                       dist_depth, False, chain,
-                                      params['from_date'], params['till_date'], token)
+                                      params['from_date'], params['till_date'], token), []
 
 
 def determine_address_to_use(is_victim_dex, threat_address, victim_address, depth_limit):
@@ -233,20 +240,19 @@ def fetch_transactions_with_source(bloxy, params, chain, token, address, source_
     if 'errors' in bloxy_res_dist:
         pool.terminate()
         pool.join()
-        return bloxy_res_dist
+        return bloxy_res_dist, []
 
     bloxy_res_src = async_bloxy_res_src.get()
     if 'errors' in bloxy_res_src:
         pool.join()
-        return bloxy_res_dist
+        return bloxy_res_dist, []
 
     for item in bloxy_res_src:
         item["depth"] = -1 * item["depth"]
 
-    bloxy_res = [*bloxy_res_src, *bloxy_res_dist]
     pool.join()
 
-    return bloxy_res
+    return bloxy_res_dist, bloxy_res_src
 
 
 def handle_bloxy_errors(bloxy_res):
@@ -255,6 +261,7 @@ def handle_bloxy_errors(bloxy_res):
 
 
 def create_address_list(bloxy_res, chain):
+    # combine src and dist bloxy res before creating address list
     addr_list = [Web3.to_checksum_address(a['sender']) if is_eth_based_wallet(chain.upper()) else a['sender']
                  for a in bloxy_res] + [
                     Web3.to_checksum_address(a['receiver']) if is_eth_based_wallet(chain.upper()) else a['receiver']
@@ -336,28 +343,72 @@ def ck_query(request, chain):
         params = parse_request_params(request)
         token, threat_address, victim_address = extract_addresses(params, chain)
         is_victim_dex = check_if_victim_dex(victim_address)
-
+        print(f"{is_victim_dex=}")
         bloxy = BloxyAPIInterface(API_BLOXY_KEY)
-        bloxy_res = fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex)
+        # split into src and dist
+        bloxy_res_dist, bloxy_res_src = fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex)
 
-        if 'errors' in bloxy_res and bloxy_res['errors']:
-            return handle_bloxy_errors(bloxy_res)
+        if 'errors' in bloxy_res_dist and bloxy_res_dist['errors']:
+            return handle_bloxy_errors(bloxy_res_dist)
 
-        addr_list = create_address_list(bloxy_res, chain)
+        if 'errors' in bloxy_res_src and bloxy_res_src['errors']:
+            bloxy_res_src = []
+
+        # offset depth if victim is dex
+        # if is_victim_dex:
+        #     for item in bloxy_res_src:
+        #         item["depth"] = -1 * item["depth"]
+        #
+        #     for item in bloxy_res_dist:
+        #         item["depth"] = item["depth"] + 1
+
+        all_transactions = bloxy_res_src + bloxy_res_dist
+
+        if not all_transactions:
+            return []
+
+        addr_list = create_address_list(all_transactions, chain)
         annotation_dict = fetch_annotations(addr_list, chain)
-        bloxy_res = annotate_transactions(bloxy_res, annotation_dict)
 
-        if not is_victim_dex:
-            bloxy_res = filter_exchange_transactions(bloxy_res, "outbound")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            annotate_and_filter = partial(annotate_and_filter_transactions, annotation_dict=annotation_dict)
 
+            future_dist = executor.submit(annotate_and_filter, bloxy_res_dist, "outbound")
+            future_src = executor.submit(annotate_and_filter, bloxy_res_src, "inbound")
+
+            filtered_dist_txns = future_dist.result()
+            print(f'{len(filtered_dist_txns) = }')
+            filtered_src_txns = future_src.result()
+            print(f'{len(filtered_src_txns) = }')
+
+        bloxy_res =  filtered_src_txns + filtered_dist_txns
+        print(f'{len(bloxy_res) = }')
+        # process only dist bloxy res here
         if params['txn_hashes']:
-            bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'])
-
+            bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
+        print(f'{len(bloxy_res) = }')
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
         return False
 
+
+def annotate_and_filter_transactions(transactions, direction, annotation_dict):
+    if not transactions:
+        return []
+    # Annotate all transactions
+    annotated = annotate_transactions(transactions, annotation_dict)
+
+    # Filter based on direction
+    if direction == "inbound":
+        # For inbound, we only want transactions with depth < 0
+        filtered = [tx for tx in annotated if tx.get('depth', 0) < 0]
+    elif direction == "outbound":
+        # For outbound, we want transactions with depth >= 1
+        filtered = [tx for tx in annotated if tx.get('depth', 0) >= 1]
+
+    # Apply exchange transaction filtering
+    return filter_exchange_transactions(filtered, direction)
 
 def dfs(address, visited, txns_to_remove, graph):
     if address in visited:
@@ -370,13 +421,15 @@ def dfs(address, visited, txns_to_remove, graph):
 
 
 def filter_exchange_transactions(txns, direction):
+    if not txns:
+        return []
     graph = defaultdict(set)
     txns_to_remove = set()
     visited = set()
     # Build the graph data
     if direction == 'outbound':
-        outer = 'receiver'
         inner = 'sender'
+        outer = 'receiver'
     else:
         outer = 'sender'
         inner = 'receiver'
@@ -407,7 +460,7 @@ def dfst(address, visited, txns_to_add, graph, address_to_skip):
             txns_to_add.add(tx_hash)
             dfst(nxt_address, visited, txns_to_add, graph, address_to_skip)
 
-def filter_transaction_path(txns, direction, tx_hashes):
+def filter_transaction_path(txns, direction, tx_hashes, victim_address):
     graph = defaultdict(set)
     txns_to_add = set()
     visited = set()
@@ -421,7 +474,7 @@ def filter_transaction_path(txns, direction, tx_hashes):
         outer = 'sender'
         inner = 'receiver'
 
-    visited.add(txns[0][inner])
+    visited.add(victim_address)
     for txn in txns:
         address = txn[inner]
         if txn['tx_hash'] in tx_hashes:

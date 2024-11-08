@@ -403,6 +403,8 @@ def extract_error_type(message):
         return "ConcurrencyLimitExceeded"
     elif "Bitquery request timed out" in message:
         return  "BitqueryRequestTimedOut"
+    elif "Ck Transactions limit exceeded" in message:
+        return "CkTransactionsLimitExceeded"
     else:
         return "UnknownError"
 
@@ -425,9 +427,10 @@ def build_error_response(bitquery_res):
     return standardized_error
 
 def string_to_bool(x):
-    if x == "False":
+    x = x.lower()
+    if x == "false":
         return False
-    elif x == "True":
+    elif x == "true":
         return True
     else:
         return False
