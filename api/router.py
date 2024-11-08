@@ -39,9 +39,8 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^catvcsvupload/?$', views.CATVCSVUploadView.as_view(), name='catv-csv-upload'),
         re_path(r'^api_key_info', api_views.ApiKeyInfo.as_view(),name='api-key-info'),
         re_path(r'^v1/source', api_views.CatvInbound.as_view(),name='catv-inbound'),
-        re_path(r'^ck/source', api_views.ChainkeeperInbound.as_view(),name='ck-catv-inbound'),
         re_path(r'^v1/destination', api_views.CatvOutbound.as_view(),name='catv-outbound'),
-        re_path(r'^ck/destination', api_views.ChainKeeperOutbound.as_view(),name='ck-catv-outbound'),
+        re_path(r'^ck/destination', api_views.ChainKeeperTransactions.as_view(),name='ck-catv-txns'),
         re_path(r'^v1/catv-report/?$', api_views.CATVReportLinkView.as_view(),name='catv-report-api'),
         re_path(r'^v1/supported_networks', api_views.CatvSupportedNetworks.as_view(),name='catv-supported-networks'),
         re_path(r'^time?$', api_views.ServerTime.as_view(), name='server-time')
