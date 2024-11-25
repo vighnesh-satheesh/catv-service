@@ -192,6 +192,7 @@ class GraphQLInterfaceUnified:
             print("graphql query: ", request_body)
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
+            print(f"Bitquery query-id: {r.headers['x-graphql-query-id']}")
             response = r.json()
             for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
                 # These dict items are common to all response bodies
@@ -243,10 +244,12 @@ class GraphQLInterfaceUnified:
                         # BCH, LTC, DOGE, ZEC, DASH and ADA have almost all parameters in common
                         # except sender_type and receiver_type
                         if self.chain in ["BTC", "BCH", "LTC", "ADA", "DOGE", "ZEC", "DASH"]:
+                            if self.chain in ["BTC", "DOGE", "DASH"]:
+                                if item["receiver"]["type"] == "coinbase" and item["receiver"]["address"] == "":
+                                    continue
                             current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
                             current_iter_dict["tx_value_in"] = item["transaction"]["valueIn"]
                             current_iter_dict["tx_value_out"] = item["transaction"]["valueOut"]
-
                             if self.chain in ["BTC", "BCH", "LTC", "DOGE", "ZEC", "DASH"]:
                                 current_iter_dict["sender_type"] = item["sender"]["type"]
                                 current_iter_dict["receiver_type"] = item["receiver"]["type"]
@@ -308,10 +311,12 @@ class GraphQLInterfaceUnified:
             error_resp = {'errors': [{'message': 'Bitquery request timed out'}]}
             return error_resp
         except RequestException:
-            print(f"Bitquery Graphql call request exception: {self.address} {self.chain}")
+            traceback.print_exc()
+            if r and response and "errors" in response and response["errors"]:
+                print("Bitquery error response: ", response["errors"])
             return []
         except Exception:
+            traceback.print_exc()
             if "errors" in response and response["errors"]:
                 print("Bitquery error response: ", response["errors"])
-            traceback.print_exc()
             return response
