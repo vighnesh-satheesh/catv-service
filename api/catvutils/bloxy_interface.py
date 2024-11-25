@@ -1,3 +1,4 @@
+from multiprocessing.pool import ThreadPool
 import traceback
 from datetime import datetime
 
@@ -50,37 +51,33 @@ class BloxyAPIInterface:
         graphql_interface = GraphQLInterfaceUnified(
             chain,
             source,
-            address,
-            token_address,
             depth_limit,
-            from_time,
             till_time,
             limit
         )
-        results = graphql_interface.call_graphql_endpoint()
+        initial_depth = 0
+        results = graphql_interface.call_graphql_endpoint(address, token_address, from_time, initial_depth)
         return results
 
 
 class GraphQLInterfaceUnified:
 
-    def __init__(self, chain, source, address, token_address, depth_limit, from_time, till_time, limit):
+    def __init__(self, chain, source, depth_limit, till_time, limit):
         self._graphql_key = api_settings.GRAPHQL_X_API_KEY
         self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
         self._headers = {'X-API-KEY': self._graphql_key}
-        self.token_address = token_address
         self.chain = chain
         self.source = source
-        self.address = address
         self.depth = depth_limit
-        from_time = utils.validate_dateformat_and_randomize_seconds(from_time, "%Y-%m-%dT%H:%M:%S")
-        self.from_time = str(from_time).replace(" ", "T")
         self.till_time = str(till_time).replace(" ", "T")
         self.limit = int(limit)
         self.connect_timeout = 60
         self.read_timeout = 300
 
-    def _graphql_query_builder(self):
+    def _graphql_query_builder(self, address, token_address, from_time):
         # define the direction of transaction flow:
+        from_time = utils.validate_dateformat_and_randomize_seconds(from_time, "%Y-%m-%dT%H:%M:%S")
+        from_time = str(from_time).replace(" ", "T")
         direction = "inbound" if self.source else "outbound"
         # define starter query parameter modules (these will be modified based on the chain)
         amount_details = " amountOut amountIn balance "
@@ -92,8 +89,8 @@ class GraphQLInterfaceUnified:
         sender = receiver.replace("receiver", "sender")
         extra_params = " depth amount amount_usd: amount(in: USD) currency { symbol } "
         time = " var { time } "
-        if self.token_address is not None and self.token_address != "" and self.token_address != '0x0000000000000000000000000000000000000000':
-            currency_value = self.token_address
+        if token_address is not None and token_address != "" and token_address != '0x0000000000000000000000000000000000000000':
+            currency_value = token_address
         else:
             currency_value = Constants.GRAPHQL_CURRENCY_MAPPING.get(self.chain, None)
         network = Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain] + \
@@ -161,9 +158,9 @@ class GraphQLInterfaceUnified:
                     {network} {{
                         coinpath(
                         options: {{ direction: {direction}, asc: "depth", limit: {self.limit} }}
-                        initialAddress: {{ is: "{self.address}" }}
+                        initialAddress: {{ is: "{address}" }}
                         depth: {{ lteq: {self.depth} }}
-                        date: {{ since: "{self.from_time}", till: "{self.till_time}" }}
+                        date: {{ since: "{from_time}", till: "{self.till_time}" }}
                         {currency}
                         ) {{
                             {destination_tag}
@@ -180,15 +177,126 @@ class GraphQLInterfaceUnified:
         except Exception as e:
             traceback.print_exc()
             return None
+        
+    def _graphql_dex_trades_query_builder(self, tx_hash):
 
-    def call_graphql_endpoint(self):
-        request_body = self._graphql_query_builder()
+        network = Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain] + \
+                  " (network: " + Constants.NETWORK_CHAIN_MAPPING_FOR_QUERY[self.chain] + " ) "
+        
+        try:
+            GRAPHQL_DEX_QUERY = f"""
+                query sentinel_query {{
+                    {network} {{
+                        dexTrades(
+                        txHash: {{ is: "{tx_hash}" }}
+                        ) {{
+                            block {{
+                                timestamp {{
+                                time(format: "%Y-%m-%d %H:%M:%S")
+                                }}
+                                height
+                            }}
+                            tradeIndex
+                            protocol
+                            exchange {{
+                                fullName
+                            }}
+                            smartContract {{
+                                address {{
+                                address
+                                annotation
+                                }}
+                            }}
+                            buyAmount
+                            buy_amount_usd: buyAmount(in: USD)
+                            buyCurrency {{
+                                address
+                                symbol
+                            }}
+                            sellAmount
+                            sell_amount_usd: sellAmount(in: USD)
+                            sellCurrency {{
+                                address
+                                symbol
+                            }}
+                        }}
+                    }}
+                }}   
+                """
+            return GRAPHQL_DEX_QUERY
+        except Exception as e:
+            traceback.print_exc()
+            return None
+
+    def process_swap(self,swap):
+        tx_hash = swap["transaction"]["hash"]
+        initial_depth = swap["depth"]
+        sender = swap["sender"]["address"] 
+        request_body = self._graphql_dex_trades_query_builder(tx_hash)
+        if request_body is None or len(request_body) == 0:
+            return []
+        
+        try:
+            r = requests.post(self._graphql_endpoint, json={'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
+            response_object = r.json()
+            dex_trades = response_object["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["dexTrades"]
+            if len(dex_trades) < 1:
+                return None
+            initial_smartcontract_address = dex_trades[0]['smartContract']['address']['address']
+            if initial_smartcontract_address != swap["receiver"]["address"] :
+                return None
+            exchange_name = dex_trades[0]['exchange']['fullName']
+            final_currency_address = dex_trades[-1]['sellCurrency']['address']
+            from_time = dex_trades[-1]['block']['timestamp']['time']
+
+            results = self.call_graphql_endpoint(sender, final_currency_address, from_time, initial_depth)
+            return results
+        except Exception:
+            traceback.print_exc() 
+            return []
+                 
+    def get_tx_with_swaps(self, initial_data, possible_swaps):
+        
+        if len(possible_swaps) > 0 :
+            with ThreadPool(processes=len(possible_swaps)) as pool:
+                results = pool.map(self.process_swap, possible_swaps)
+
+            valid_requests = [item for result in results if result is not None for item in result]
+            initial_data.extend(valid_requests)
+
+        return initial_data
+ 
+    def is_swaps(self, item):
+
+        dex_keywords = [
+            'dex', 'swap', 'exchange', 'uniswap', 'sushiswap', 
+            'pancakeswap'
+        ]
+
+        receiver = item.get('receiver', {})
+        annotation = receiver.get('annotation', '').lower() if receiver.get('annotation') else ''
+        contract_type = (receiver.get('smartContract', {}).get('contractType', '') if receiver.get('smartContract') else '')
+        
+        if contract_type :
+            for keyword in dex_keywords:
+                if keyword in annotation or keyword in contract_type.lower():
+                    return True
+                
+        return False
+
+    def call_graphql_endpoint(self,address, token_address, from_time, initial_depth):
+
+        if initial_depth >= int(self.depth) :
+            return []
+        
+        request_body = self._graphql_query_builder(address, token_address, from_time)
         if request_body is None or len(request_body) == 0:
             print("Error while forming query")
             return []
         try:
             # flattened response is used to convert the GraphQL response format to REST API response format
             flattened_response = []
+            possible_swaps = []
             print("graphql query: ", request_body)
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
@@ -200,8 +308,10 @@ class GraphQLInterfaceUnified:
 
                 # Once all parameters have been assinged to current_iter_dict, it is appended to the
                 # flattened response array, and the loop continues
+                depth = int(item["depth"]) + initial_depth
+        
                 current_iter_dict = {
-                    "depth": item["depth"],
+                    "depth": depth,
                     "tx_hash": item["transaction"]["hash"],
                     "sender": item["sender"]["address"],
                     "receiver": item["receiver"]["address"],
@@ -283,13 +393,15 @@ class GraphQLInterfaceUnified:
                             current_iter_dict["receiver_amount_in"] = float(item["receiver"]["amountIn"])
                             current_iter_dict["receiver_balance"] = float(item["receiver"]["balance"])
                             if self.chain in ["ETH", "KLAY", "BSC", "FTM", "POL", "AVAX"]:
-                                current_iter_dict["token"] = self.token_address
+                                current_iter_dict["token"] = token_address
                                 current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
                                 current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
                                     item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
                                 current_iter_dict["receiver_type"] = item["receiver"]["smartContract"][
                                     "contractType"] if item["receiver"]["smartContract"]["contractType"] not in [None,
                                                                                                                  "None"] else "Wallet"
+                                if self.is_swaps(item):
+                                    possible_swaps.append(item)
                                 flattened_response.append(current_iter_dict)
                                 continue
                             else:
@@ -297,7 +409,7 @@ class GraphQLInterfaceUnified:
                                 current_iter_dict["sender_type"] = item["sender"]["type"]
                                 current_iter_dict["receiver_type"] = item["receiver"]["type"]
                                 if self.chain in ["BNB", "TRX"]:
-                                    current_iter_dict["token"] = self.token_address
+                                    current_iter_dict["token"] = token_address
                                     flattened_response.append(current_iter_dict)
                                     continue
                                 if self.chain == "EOS":
@@ -305,15 +417,14 @@ class GraphQLInterfaceUnified:
                                     flattened_response.append(current_iter_dict)
                                     continue
                                     # Once the loop has run its course, the flattened response array is returned
+            return self.get_tx_with_swaps(flattened_response, possible_swaps)
             return flattened_response
         except Timeout:
-            print(f"Bitquery Graphql call timed out for: {self.address} {self.chain}")
+            print(f"Bitquery Graphql call timed out for: {address} {self.chain}")
             error_resp = {'errors': [{'message': 'Bitquery request timed out'}]}
             return error_resp
         except RequestException:
-            traceback.print_exc()
-            if r and response and "errors" in response and response["errors"]:
-                print("Bitquery error response: ", response["errors"])
+            print(f"Bitquery Graphql call request exception: {address} {self.chain}")
             return []
         except Exception:
             traceback.print_exc()
