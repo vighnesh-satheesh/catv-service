@@ -230,7 +230,7 @@ class GraphQLInterfaceUnified:
 
     def process_swap(self,swap):
         tx_hash = swap["transaction"]["hash"]
-        initial_depth = swap["depth"]
+        initial_depth = swap["depth"] - 1 # to adjust for the depth issue
         sender = swap["sender"]["address"] 
         request_body = self._graphql_dex_trades_query_builder(tx_hash)
         if request_body is None or len(request_body) == 0:
@@ -252,37 +252,51 @@ class GraphQLInterfaceUnified:
             results = self.call_graphql_endpoint(sender, final_currency_address, from_time, initial_depth)
             return results
         except Exception:
+            print("ERROR : process_swap")
             traceback.print_exc() 
             return []
                  
     def get_tx_with_swaps(self, initial_data, possible_swaps):
         
-        if len(possible_swaps) > 0 :
-            with ThreadPool(processes=len(possible_swaps)) as pool:
-                results = pool.map(self.process_swap, possible_swaps)
+        try:
 
-            valid_requests = [item for result in results if result is not None for item in result]
-            initial_data.extend(valid_requests)
+            if len(possible_swaps) > 0 :
+                with ThreadPool(processes=len(possible_swaps)) as pool:
+                    results = pool.map(self.process_swap, possible_swaps)
 
-        return initial_data
+                valid_requests = [item for result in results if result is not None for item in result]        
+                initial_data.extend(valid_requests)
+                
+            return initial_data
+        
+        except Exception as e:
+            print("ERROR : get_tx_with_swaps")
+            traceback.print_exc() 
+            return None
  
     def is_swaps(self, item):
 
-        dex_keywords = [
-            'dex', 'swap', 'exchange', 'uniswap', 'sushiswap', 
-            'pancakeswap'
-        ]
+        try:
 
-        receiver = item.get('receiver', {})
-        annotation = receiver.get('annotation', '').lower() if receiver.get('annotation') else ''
-        contract_type = (receiver.get('smartContract', {}).get('contractType', '') if receiver.get('smartContract') else '')
-        
-        if contract_type :
-            for keyword in dex_keywords:
-                if keyword in annotation or keyword in contract_type.lower():
-                    return True
-                
-        return False
+            dex_keywords = [
+                'dex', 'swap', 'exchange', 'uniswap', 'sushiswap', 
+                'pancakeswap'
+            ]
+
+            receiver = item.get('receiver', {})
+            annotation = receiver.get('annotation', '').lower() if receiver.get('annotation') else ''
+            contract_type = (receiver.get('smartContract', {}).get('contractType', '') if receiver.get('smartContract') else '')
+            
+            if contract_type :
+                for keyword in dex_keywords:
+                    if keyword in annotation or keyword in contract_type.lower():
+                        return True
+                    
+            return False
+        except Exception:
+            print("ERROR : is_swaps")
+            traceback.print_exc() 
+            return False
 
     def call_graphql_endpoint(self,address, token_address, from_time, initial_depth):
 
@@ -418,7 +432,6 @@ class GraphQLInterfaceUnified:
                                     continue
                                     # Once the loop has run its course, the flattened response array is returned
             return self.get_tx_with_swaps(flattened_response, possible_swaps)
-            return flattened_response
         except Timeout:
             print(f"Bitquery Graphql call timed out for: {address} {self.chain}")
             error_resp = {'errors': [{'message': 'Bitquery request timed out'}]}
