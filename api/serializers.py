@@ -17,6 +17,7 @@ from .catvutils.tracking_results import (
     BtcPathResults
 )
 from .catvutils.vendor_api import LyzeAPIInterface
+from .models import CatvNodeLabelModel
 from .settings import api_settings
 
 
@@ -383,6 +384,23 @@ class CATVNodeLabelPostSerializer(serializers.ModelSerializer):
     wallet_address = serializers.CharField(required=True)
     label = serializers.CharField(required=True)
     class Meta:
-        model = models.CatvNodeLabelModel
+        model = CatvNodeLabelModel
         fields = ("id", "uid", "wallet_address", "user_id", "label")
-        read_only_fields = ("id", "uid", "wallet_address", "user_id", "label")
+        read_only_fields = ("id", "user_id")
+
+    def create(self, validated_data):
+        # Check if label already exists for this wallet and uid for the user
+        existing_label = CatvNodeLabelModel.objects.filter(
+            uid=validated_data['uid'],
+            wallet_address=validated_data['wallet_address'],
+            user_id=validated_data['user_id']
+        ).first()
+
+        if existing_label:
+            # Update existing label
+            existing_label.label = validated_data['label']
+            existing_label.save()
+            return existing_label
+
+        # Create new label if it doesn't exist
+        return super().create(validated_data)
