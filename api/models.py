@@ -297,3 +297,17 @@ class ApiKey(models.Model):
     user_id = models.IntegerField(default=0, blank=False, null=False)
     # cara_calls = models.ForeignKey(
     #     ApiUsage, on_delete=models.CASCADE)
+
+class ConsumerErrorLogs(models.Model):
+    request_uid = models.UUIDField(default=uuid.uuid4(), null=False, blank=False)
+    topic = models.CharField(max_length=100)
+    message = JSONField(default=dict)
+    error_trace = models.TextField()
+    user_error_message = models.TextField(default=None)
+    logged_time = models.DateTimeField(default=now)
+
+    class Meta:
+        db_table = 'api_consumer_error_logs'
+        indexes = [
+            models.Index(fields=['request_uid'])
+        ]
