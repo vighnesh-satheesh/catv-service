@@ -299,7 +299,8 @@ class ApiKey(models.Model):
     #     ApiUsage, on_delete=models.CASCADE)
 
 class ConsumerErrorLogs(models.Model):
-    request_uid = models.UUIDField(default=uuid.uuid4(), null=False, blank=False)
+    request = models.ForeignKey(CatvRequestStatus, null=True,
+                                blank=False, on_delete=models.CASCADE, related_name='error_logs')
     topic = models.CharField(max_length=100)
     message = JSONField(default=dict)
     error_trace = models.TextField()
@@ -308,6 +309,4 @@ class ConsumerErrorLogs(models.Model):
 
     class Meta:
         db_table = 'api_consumer_error_logs'
-        indexes = [
-            models.Index(fields=['request_uid'])
-        ]
+        indexes = [models.Index(fields=["request"])]

@@ -332,13 +332,14 @@ class CATVRequestListSerializer(NonNullModelSerializer):
     token_address = serializers.SerializerMethodField()
     token_type = fields.EnumField(enum=models.CatvTokens)
     labels = serializers.ListField(child=serializers.CharField(), required=False, read_only=True)
+    user_error_message = serializers.CharField(source='error_message', read_only=True)
 
     class Meta:
         model = models.CatvRequestStatus
         fields = ("id", "uid", "created", "status", "wallet_address",
-                  "address_type", "date_range", "depth", "token_address", "token_type", "labels")
+                  "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message")
         read_only_fields = ("id", "uid", "created", "status", "wallet_address",
-                            "address_type", "date_range", "depth", "token_address", "token_type", "labels")
+                            "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message")
 
     def get_wallet_address(self, obj):
         if obj.params:

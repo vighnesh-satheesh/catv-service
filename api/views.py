@@ -5,7 +5,8 @@ import uuid
 import pandas as pd
 from django.core.exceptions import SuspiciousOperation
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import OuterRef, Subquery, Q, Case, When, Value, TextField
+from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
 from rest_framework import generics
@@ -22,7 +23,7 @@ from .catvutils.process_node_list import ProcessNodeList
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
-    ProductType, CatvNodeLabelModel, CatvCSVJobQueue
+    ProductType, CatvNodeLabelModel, CatvCSVJobQueue, ConsumerErrorLogs
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .pagination import CatvRequestPagination, CustomPagination
@@ -316,13 +317,30 @@ class CATVRequestsView(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         serializer = CATVRequestListSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
-    
+
     def get_queryset(self, user_id, status):
         filter_queries = Q(user_id=user_id)
         if status:
             filter_queries &= Q(status=status)
-        objs = CatvRequestStatus.objects.filter(filter_queries).order_by('-pk')
-        return objs
+
+        # Subquery to get the user_error_message from ConsumerErrorLogs
+        error_message_subquery = ConsumerErrorLogs.objects.filter(
+            request=OuterRef('pk')
+        ).order_by('-logged_time').values('user_error_message')[:1]
+
+        queryset = CatvRequestStatus.objects.filter(filter_queries).annotate(
+            error_message=Coalesce(
+                Case(
+                    When(status=CatvTaskStatusType.FAILED, then=Subquery(error_message_subquery)),
+                    default=Value(''),
+                    output_field=TextField(),
+                ),
+                Value('Something went wrong! Please try again.'),
+                output_field=TextField(),
+            )
+        ).order_by('-pk')
+
+        return queryset
 
     def get_paginated_response(self, data):
         assert self.paginator is not None
