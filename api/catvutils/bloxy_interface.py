@@ -43,24 +43,10 @@ class BloxyAPIInterface:
             traceback.print_exc()
             return []
 
-    def get_transactions(self, address, tx_limit=10000, limit=10000, depth_limit=2, source=True, chain='ETH',
+    def get_transactions(self, address, limit=10000, depth_limit=2, source=True, chain='ETH',
                          from_time=datetime(2015, 1, 1, 0, 0),
                          till_time=datetime.now(),
                          token_address=None):
-        # if chain == 'BTC':
-        #     payload = {
-        #         'key': self._key,
-        #         'address': address,
-        #         'depth_limit': depth_limit,
-        #         'from_date': from_time,
-        #         'till_date': till_time,
-        #         'limit': limit,
-        #         'chain': chain.lower()
-        #     }
-        #     api_url = self._source_endpoint_btc if source else self._distribution_endpoint_btc
-        #     r = self.call_bloxy_api(api_url, payload)
-        #     return r
-        # else:
         graphql_interface = GraphQLInterfaceUnified(
             chain,
             source,
@@ -73,7 +59,7 @@ class BloxyAPIInterface:
         )
         results = graphql_interface.call_graphql_endpoint()
         return results
-      
+
 
 class GraphQLInterfaceUnified:
 
@@ -86,7 +72,7 @@ class GraphQLInterfaceUnified:
         self.source = source
         self.address = address
         self.depth = depth_limit
-        from_time = utils.validate_dateformat_and_randomize_seconds(from_time,"%Y-%m-%dT%H:%M:%S")
+        from_time = utils.validate_dateformat_and_randomize_seconds(from_time, "%Y-%m-%dT%H:%M:%S")
         self.from_time = str(from_time).replace(" ", "T")
         self.till_time = str(till_time).replace(" ", "T")
         self.limit = int(limit)
@@ -203,10 +189,11 @@ class GraphQLInterfaceUnified:
         try:
             # flattened response is used to convert the GraphQL response format to REST API response format
             flattened_response = []
+            print("graphql query: ", request_body)
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
+            print(f"Bitquery query-id: {r.headers['x-graphql-query-id']}")
             response = r.json()
-            print("graphql query: ", request_body)
             for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
                 # These dict items are common to all response bodies
                 # After this, the code enters the nested if-else block and the other parameters are assigned
@@ -257,10 +244,12 @@ class GraphQLInterfaceUnified:
                         # BCH, LTC, DOGE, ZEC, DASH and ADA have almost all parameters in common
                         # except sender_type and receiver_type
                         if self.chain in ["BTC", "BCH", "LTC", "ADA", "DOGE", "ZEC", "DASH"]:
+                            if self.chain in ["BTC", "DOGE", "DASH"]:
+                                if item["receiver"]["type"] == "coinbase" and item["receiver"]["address"] == "":
+                                    continue
                             current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
                             current_iter_dict["tx_value_in"] = item["transaction"]["valueIn"]
                             current_iter_dict["tx_value_out"] = item["transaction"]["valueOut"]
-
                             if self.chain in ["BTC", "BCH", "LTC", "DOGE", "ZEC", "DASH"]:
                                 current_iter_dict["sender_type"] = item["sender"]["type"]
                                 current_iter_dict["receiver_type"] = item["receiver"]["type"]
@@ -297,7 +286,7 @@ class GraphQLInterfaceUnified:
                                 current_iter_dict["token"] = self.token_address
                                 current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
                                 current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
-                                item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
+                                    item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
                                 current_iter_dict["receiver_type"] = item["receiver"]["smartContract"][
                                     "contractType"] if item["receiver"]["smartContract"]["contractType"] not in [None,
                                                                                                                  "None"] else "Wallet"
@@ -319,13 +308,15 @@ class GraphQLInterfaceUnified:
             return flattened_response
         except Timeout:
             print(f"Bitquery Graphql call timed out for: {self.address} {self.chain}")
-            error_resp = {'errors':[{'message': 'Bitquery request timed out'}]}
+            error_resp = {'errors': [{'message': 'Bitquery request timed out'}]}
             return error_resp
         except RequestException:
-            print(f"Bitquery Graphql call request exception: {self.address} {self.chain}")
+            traceback.print_exc()
+            if r and response and "errors" in response and response["errors"]:
+                print("Bitquery error response: ", response["errors"])
             return []
         except Exception:
+            traceback.print_exc()
             if "errors" in response and response["errors"]:
                 print("Bitquery error response: ", response["errors"])
-            traceback.print_exc()
             return response

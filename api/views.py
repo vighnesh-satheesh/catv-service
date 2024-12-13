@@ -5,7 +5,8 @@ import uuid
 import pandas as pd
 from django.core.exceptions import SuspiciousOperation
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import OuterRef, Subquery, Q, Case, When, Value, TextField
+from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
 from rest_framework import generics
@@ -22,7 +23,7 @@ from .catvutils.process_node_list import ProcessNodeList
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
-    ProductType, CatvNodeLabelModel, CatvCSVJobQueue
+    ProductType, CatvNodeLabelModel, CatvCSVJobQueue, ConsumerErrorLogs
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .pagination import CatvRequestPagination, CustomPagination
@@ -316,13 +317,30 @@ class CATVRequestsView(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         serializer = CATVRequestListSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
-    
+
     def get_queryset(self, user_id, status):
         filter_queries = Q(user_id=user_id)
         if status:
             filter_queries &= Q(status=status)
-        objs = CatvRequestStatus.objects.filter(filter_queries).order_by('-pk')
-        return objs
+
+        # Subquery to get the user_error_message from ConsumerErrorLogs
+        error_message_subquery = ConsumerErrorLogs.objects.filter(
+            request=OuterRef('pk')
+        ).order_by('-logged_time').values('user_error_message')[:1]
+
+        queryset = CatvRequestStatus.objects.filter(filter_queries).annotate(
+            error_message=Coalesce(
+                Case(
+                    When(status=CatvTaskStatusType.FAILED, then=Subquery(error_message_subquery)),
+                    default=Value(''),
+                    output_field=TextField(),
+                ),
+                Value('Something went wrong! Please try again.'),
+                output_field=TextField(),
+            )
+        ).order_by('-pk')
+
+        return queryset
 
     def get_paginated_response(self, data):
         assert self.paginator is not None
@@ -351,7 +369,31 @@ class CATVReportView(APIView):
             return CatvRequestStatus.objects.get(uid__iexact=pk)
         except CatvRequestStatus.DoesNotExist:
             raise exceptions.CATVReportNotFound()
-    
+
+    def _apply_user_labels_to_nodes(self, results, request_uid):
+        """Helper method to efficiently apply user labels to nodes"""
+        if not results.get("data", {}).get("node_list"):
+            return results
+
+        # Get all labels for this report in a single query
+        node_labels = CatvNodeLabelModel.objects.filter(
+            uid=request_uid
+        ).values('wallet_address', 'label')
+
+        # Create a mapping of wallet addresses to labels for O(1) lookup
+        label_mapping = {
+            label['wallet_address']: label['label']
+            for label in node_labels
+        }
+
+        # Update nodes in a single pass
+        for node in results["data"]["node_list"]:
+            if node['address'] in label_mapping:
+                node['userLabel'] = label_mapping[node['address']]
+                node['group'] = 'User Label'
+
+        return results
+
     def get(self, request, pk=None):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
@@ -391,12 +433,7 @@ class CATVReportView(APIView):
 
         serializer = CATVRequestListSerializer(obj.request)
         request_params = serializer.data
-        nodeLabel = queryset.filter(Q(uid=request_params["uid"])).values()
-        for node in nodeLabel:
-            for obj in results["data"]["node_list"]:
-                if obj['address'] == node["wallet_address"]:
-                    obj['userLabel'] = node["label"]
-                    obj['group'] = 'User Label'
+        results = self._apply_user_labels_to_nodes(results, request_params["uid"])
 
         node_list = results['data']['node_list']
         if type(request_params['depth']) is int:
@@ -662,21 +699,47 @@ class CATVNodeLabelView(APIView):
         user_details, verified_token = MultiToken.get_user_from_key(request)
         serializer = CATVNodeLabelPostSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(user_id = user_details['user_id'])
-        data = serializer.data
+        serializer.save(user_id=user_details['user_id'])
         return APIResponse({
-            'data': data
+            'data': serializer.data
         })
     
     def delete(self, request):
-        queryset = CatvNodeLabelModel.objects.all()
         user_details, verified_token = MultiToken.get_user_from_key(request)
-        uid = self.request.query_params.get('uid', None)
-        wallet_address = self.request.query_params.get('wallet_address', None)
+        uid = self.request.query_params.get('uid')
+        wallet_address = self.request.query_params.get('wallet_address')
         user_id = user_details['user_id']
-        nodeLabel = queryset.filter(Q(uid=uid), Q(wallet_address=wallet_address), Q(user_id=user_id))
-        if nodeLabel.exists():
-            nodeLabel.delete()
+
+        if not uid or not wallet_address:
+            return APIResponse({
+                "data": {
+                    "error":  "Both uid and wallet_address are required"
+                }
+            })
+
+        label = CatvNodeLabelModel.objects.filter(
+            uid=uid,
+            wallet_address=wallet_address
+        ).first()
+
+        if not label:
+            return APIResponse({
+                "data": {
+                    "error": "No matching label found"
+                }
+            }, status=404)
+
+        # Check if the current user is the creator of the label
+        if label.user_id != user_id:
+            return APIResponse({
+                "data": {
+                    "error": "You do not have the required permission to delete this label."
+                }
+            }, status=403)
+
+        # If we get here, the user is authorized to delete the label
+        label.delete()
+
         return APIResponse({
             "data": "Successfully Deleted"
         })

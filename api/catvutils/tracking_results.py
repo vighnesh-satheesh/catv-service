@@ -58,7 +58,7 @@ class TrackingResults:
             self.error = args[0]['error']
 
     def get_results_from_bloxy(self, bloxy_interface, depth, till_date, tx_limit, limit, for_source=False):
-        bloxy_response = bloxy_interface.get_transactions(self.wallet_address, tx_limit, limit, depth,
+        bloxy_response = bloxy_interface.get_transactions(self.wallet_address, limit, depth,
                                                           self.from_date, till_date, self.token_address, for_source, self.chain)
         if not bloxy_response:
             error_key = "source" if for_source else "distribution"
