@@ -217,6 +217,7 @@ class GraphQLInterfaceUnified:
                             sell_amount_usd: sellAmount(in: USD)
                             sellCurrency {{
                                 address
+                                name
                                 symbol
                             }}
                         }}
@@ -228,11 +229,101 @@ class GraphQLInterfaceUnified:
             traceback.print_exc()
             return None
 
+    def modify_swap_data(self, swap, new_amount=0, new_amount_usd=0, new_currency=None):
+
+        def deep_copy_safe(obj):
+            if isinstance(obj, dict):
+                return {k: deep_copy_safe(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [deep_copy_safe(x) for x in obj]
+            else:
+                return obj
+
+        def update_amount_fields(obj, new_val):
+            if isinstance(obj, dict):
+                for key in obj:
+                    if isinstance(obj[key], (dict, list)):
+                        update_amount_fields(obj[key], new_val)
+                    elif key in ['amount', 'value', 'txValue']:
+                        obj[key] = float(new_val)
+                    elif key in ['amountOut', 'amountIn']:
+                        obj[key] = str(new_val)
+
+        try:
+
+            modified_swap = deep_copy_safe(swap)
+        
+            original_sender = deep_copy_safe(swap.get('sender', {}))
+            original_receiver = deep_copy_safe(swap.get('receiver', {}))
+            
+            modified_swap['sender'] = {
+                'address': original_receiver.get('address', ''),
+                'annotation': original_receiver.get('annotation'),
+                'type': original_receiver.get('type', 'Wallet'),
+                'receiversCount': original_receiver.get('receiversCount'),
+                'sendersCount': original_receiver.get('sendersCount'),
+                'amountOut': str(new_amount),
+                'amountIn': str(new_amount),
+                'balance': original_receiver.get('balance', '0.0'),
+                'firstTxAt': original_receiver.get('firstTxAt'),
+                'lastTxAt': original_receiver.get('lastTxAt'),
+                'smartContract': original_receiver.get('smartContract')
+            }
+            
+            modified_swap['receiver'] = {
+                'address': original_sender.get('address', ''),
+                'annotation': original_sender.get('annotation'),
+                'type': original_sender.get('type', 'Wallet'),
+                'receiversCount': original_sender.get('receiversCount'),
+                'sendersCount': original_sender.get('sendersCount'),
+                'amountOut': str(new_amount),
+                'amountIn': str(new_amount),
+                'balance': original_sender.get('balance', '0.0'),
+                'firstTxAt': original_sender.get('firstTxAt'),
+                'lastTxAt': original_sender.get('lastTxAt'),
+                'smartContract': original_sender.get('smartContract')
+            }
+            
+            update_amount_fields(modified_swap, new_amount)
+            
+            if 'amount_usd' in modified_swap:
+                modified_swap['amount_usd'] = new_amount_usd
+                
+            default_currency = {
+                'name': '',
+                'symbol': '',
+                'tokenId': '',
+                'tokenType': '',
+                'address': ''
+            }
+            
+            if new_currency and isinstance(new_currency, dict):
+                modified_swap['currency'] = {**default_currency, **new_currency}
+            else:
+                modified_swap['currency'] = default_currency
+            
+            if 'transaction' in modified_swap:
+                modified_swap['transaction']['value'] = new_amount
+                
+            if 'transactions' in modified_swap:
+                for tx in modified_swap['transactions']:
+                    tx['txValue'] = new_amount
+                    tx['amount'] = new_amount
+                    
+            return modified_swap
+            
+        except Exception as e:
+            print(f"Error modifying swap data: {str(e)}")
+            return None
+
+
     def process_swap(self,swap):
         tx_hash = swap["transaction"]["hash"]
         initial_depth = swap["depth"] - 1 # to adjust for the depth issue
         sender = swap["sender"]["address"] 
         request_body = self._graphql_dex_trades_query_builder(tx_hash)
+        print(f"THE TRANSCATION COMING TO SWAP IS : {swap}")
+        results = []
         if request_body is None or len(request_body) == 0:
             return []
         
@@ -248,9 +339,25 @@ class GraphQLInterfaceUnified:
             exchange_name = dex_trades[0]['exchange']['fullName']
             final_currency_address = dex_trades[-1]['sellCurrency']['address']
             from_time = dex_trades[-1]['block']['timestamp']['time']
+            new_amount =  dex_trades[-1]['sellAmount']
+            new_amount_usd =  dex_trades[-1]['sell_amount_usd']
+
+            token_address =  dex_trades[-1]['sellCurrency']['address']
+
+            new_currency = {"name" : dex_trades[-1]['sellCurrency']['name'],
+                            "symbol" : dex_trades[-1]['sellCurrency']['symbol'],
+                            "address": token_address
+                            }
+            swap_node = self.modify_swap_data(swap, new_amount, new_amount_usd, new_currency)
+
+            print(f"THE TRANSCATION COMING TO swap_node IS : {swap_node}")
+
+            response = []
+
+            self.flatten_node(0, swap_node, response, [], token_address)
 
             results = self.call_graphql_endpoint(sender, final_currency_address, from_time, initial_depth)
-            return results
+            return response + results
         except Exception:
             print("ERROR : process_swap")
             traceback.print_exc() 
@@ -298,6 +405,124 @@ class GraphQLInterfaceUnified:
             traceback.print_exc() 
             return False
 
+    def flatten_node(self, initial_depth, item, flattened_response, possible_swaps, token_address):
+
+        depth = int(item["depth"]) + initial_depth
+
+        current_iter_dict = {
+            "depth": depth,
+            "tx_hash": item["transaction"]["hash"],
+            "sender": item["sender"]["address"],
+            "receiver": item["receiver"]["address"],
+            "sender_annotation": item["sender"]["annotation"] if item["sender"]["annotation"] not in [None,
+                                                                                                        "None"] else "",
+            "receiver_annotation": item["receiver"]["annotation"] if item["receiver"]["annotation"] not in [
+                None, "None"] else ""
+        }
+        # XRP and XLM have the same parameters so they are grouped together
+        if self.chain in ["XRP", "XLM"]:
+            current_iter_dict["tx_time"] = item["transaction"]["time"]["time"]
+            current_iter_dict["sent_amount"] = item["amountFrom"]
+            current_iter_dict["sent_tx_value"] = item["transaction"]["valueFrom"]
+            current_iter_dict["sent_currency"] = item["currencyFrom"]["symbol"]
+            current_iter_dict["received_amount"] = item["amountTo"]
+            current_iter_dict["received_tx_value"] = item["transaction"]["valueTo"]
+            current_iter_dict["received_currency"] = item["currencyTo"]["symbol"]
+            current_iter_dict["operation_type"] = item["operation"]
+            current_iter_dict["receiver_receive_from_count"] = item["receiver"]["receiversCount"]
+            current_iter_dict["receiver_send_to_count"] = item["receiver"]["sendersCount"]
+            current_iter_dict["receiver_first_transfer_at"] = item["receiver"]["firstTransferAt"]["time"] if item["receiver"]["firstTransferAt"] not in [
+                None, "None"] else None
+            current_iter_dict["receiver_last_transfer_at"] = item["receiver"]["lastTransferAt"]["time"] if item["receiver"]["lastTransferAt"] not in [
+                None, "None"] else None
+            if self.chain == "XRP" and item.get("destinationTag"):
+                current_iter_dict["destination_tag"] = item["destinationTag"]
+            if self.chain == "XRP" and item.get("sourceTag"):
+                current_iter_dict["source_tag"] = item["sourceTag"]
+            flattened_response.append(current_iter_dict)
+            return
+        else:
+            # The symbol and amount/amount_usd parameters are common to all except XRP and XLM, they are assigned here itself
+            current_iter_dict["symbol"] = item["currency"]["symbol"]
+            current_iter_dict["amount"] = item["amount"]
+            current_iter_dict["amount_usd"] = item["amount_usd"]
+            if self.chain == "LUNC":
+                current_iter_dict["tx_time"] = item["block"]["timestamp"]["time"]
+                current_iter_dict["tx_value"] = item["transaction"]["value"]
+                flattened_response.append(current_iter_dict)
+                return
+            else:
+                # BCH, LTC, DOGE, ZEC, DASH and ADA have almost all parameters in common
+                # except sender_type and receiver_type
+                if self.chain in ["BTC", "BCH", "LTC", "ADA", "DOGE", "ZEC", "DASH"]:
+                    if self.chain in ["BTC", "DOGE", "DASH"]:
+                        if item["receiver"]["type"] == "coinbase" and item["receiver"]["address"] == "":
+                            return
+                    current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
+                    current_iter_dict["tx_value_in"] = item["transaction"]["valueIn"]
+                    current_iter_dict["tx_value_out"] = item["transaction"]["valueOut"]
+                    if self.chain in ["BTC", "BCH", "LTC", "DOGE", "ZEC", "DASH"]:
+                        current_iter_dict["sender_type"] = item["sender"]["type"]
+                        current_iter_dict["receiver_type"] = item["receiver"]["type"]
+                        if self.chain == "ZEC":
+                            if current_iter_dict["sender"] == "" and current_iter_dict["sender_type"]:
+                                current_iter_dict["sender"] = current_iter_dict["sender_type"]
+                            if current_iter_dict["sender"] == "<shielded>" and current_iter_dict[
+                                "sender_type"] == "shielded":
+                                current_iter_dict["sender"] = "shielded"
+                            if current_iter_dict["receiver"] == "" and current_iter_dict["receiver_type"]:
+                                current_iter_dict["receiver"] = current_iter_dict["receiver_type"]
+                            if current_iter_dict["receiver"] == "<shielded>" and current_iter_dict[
+                                "receiver_type"] == "shielded":
+                                current_iter_dict["receiver"] = "shielded"
+                        flattened_response.append(current_iter_dict)
+                        return
+                    elif self.chain == "ADA":
+                        current_iter_dict["sender_type"] = "unknown"
+                        current_iter_dict["receiver_type"] = "unknown"
+                        flattened_response.append(current_iter_dict)
+                        return
+                else:
+                    # the parameters below are common to all the following blockchains
+                    current_iter_dict["token_id"] = item["currency"]["tokenId"]
+                    current_iter_dict["token_type"] = item["currency"]["tokenType"]
+                    current_iter_dict["receiver_receivers_count"] = item["receiver"]["receiversCount"]
+                    current_iter_dict["receiver_senders_count"] = item["receiver"]["sendersCount"]
+                    current_iter_dict["receiver_first_tx_at"] = item["receiver"]["firstTxAt"]["time"] if item["receiver"]["firstTxAt"] not in [
+                    None, "None"] else None
+                    current_iter_dict["receiver_last_tx_at"] = item["receiver"]["lastTxAt"]["time"] if item["receiver"]["lastTxAt"] not in [
+                    None, "None"] else None
+                    current_iter_dict["receiver_amount_out"] = float(item["receiver"]["amountOut"])
+                    current_iter_dict["receiver_amount_in"] = float(item["receiver"]["amountIn"])
+                    current_iter_dict["receiver_balance"] = float(item["receiver"]["balance"])
+                    if self.chain in ["ETH", "KLAY", "BSC", "FTM", "POL", "AVAX"]:
+                        current_iter_dict["token"] = token_address
+                        current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
+                        current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
+                            item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
+                        current_iter_dict["receiver_type"] = item["receiver"]["smartContract"][
+                            "contractType"] if item["receiver"]["smartContract"]["contractType"] not in [None,
+                                                                                                            "None"] else "Wallet"
+                        if self.is_swaps(item):
+                            possible_swaps.append(item)
+                        flattened_response.append(current_iter_dict)
+                        return
+                    else:
+                        current_iter_dict["tx_time"] = item["transaction"]["time"]["time"]
+                        current_iter_dict["sender_type"] = item["sender"]["type"]
+                        current_iter_dict["receiver_type"] = item["receiver"]["type"]
+                        if self.chain in ["BNB", "TRX"]:
+                            current_iter_dict["token"] = token_address
+                            flattened_response.append(current_iter_dict)
+                            return
+                        if self.chain == "EOS":
+                            current_iter_dict["token"] = item["currency"]["name"]
+                            flattened_response.append(current_iter_dict)
+                            return
+                            # Once the loop has run its course, the flattened response array is returned
+
+
+        
     def call_graphql_endpoint(self,address, token_address, from_time, initial_depth):
 
         if initial_depth >= int(self.depth) :
@@ -322,115 +547,9 @@ class GraphQLInterfaceUnified:
 
                 # Once all parameters have been assinged to current_iter_dict, it is appended to the
                 # flattened response array, and the loop continues
-                depth = int(item["depth"]) + initial_depth
-        
-                current_iter_dict = {
-                    "depth": depth,
-                    "tx_hash": item["transaction"]["hash"],
-                    "sender": item["sender"]["address"],
-                    "receiver": item["receiver"]["address"],
-                    "sender_annotation": item["sender"]["annotation"] if item["sender"]["annotation"] not in [None,
-                                                                                                              "None"] else "",
-                    "receiver_annotation": item["receiver"]["annotation"] if item["receiver"]["annotation"] not in [
-                        None, "None"] else ""
-                }
-                # XRP and XLM have the same parameters so they are grouped together
-                if self.chain in ["XRP", "XLM"]:
-                    current_iter_dict["tx_time"] = item["transaction"]["time"]["time"]
-                    current_iter_dict["sent_amount"] = item["amountFrom"]
-                    current_iter_dict["sent_tx_value"] = item["transaction"]["valueFrom"]
-                    current_iter_dict["sent_currency"] = item["currencyFrom"]["symbol"]
-                    current_iter_dict["received_amount"] = item["amountTo"]
-                    current_iter_dict["received_tx_value"] = item["transaction"]["valueTo"]
-                    current_iter_dict["received_currency"] = item["currencyTo"]["symbol"]
-                    current_iter_dict["operation_type"] = item["operation"]
-                    current_iter_dict["receiver_receive_from_count"] = item["receiver"]["receiversCount"]
-                    current_iter_dict["receiver_send_to_count"] = item["receiver"]["sendersCount"]
-                    current_iter_dict["receiver_first_transfer_at"] = item["receiver"]["firstTransferAt"]["time"]
-                    current_iter_dict["receiver_last_transfer_at"] = item["receiver"]["lastTransferAt"]["time"]
-                    if self.chain == "XRP" and item.get("destinationTag"):
-                        current_iter_dict["destination_tag"] = item["destinationTag"]
-                    if self.chain == "XRP" and item.get("sourceTag"):
-                        current_iter_dict["source_tag"] = item["sourceTag"]
-                    flattened_response.append(current_iter_dict)
-                    continue
-                else:
-                    # The symbol and amount/amount_usd parameters are common to all except XRP and XLM, they are assigned here itself
-                    current_iter_dict["symbol"] = item["currency"]["symbol"]
-                    current_iter_dict["amount"] = item["amount"]
-                    current_iter_dict["amount_usd"] = item["amount_usd"]
-                    if self.chain == "LUNC":
-                        current_iter_dict["tx_time"] = item["block"]["timestamp"]["time"]
-                        current_iter_dict["tx_value"] = item["transaction"]["value"]
-                        flattened_response.append(current_iter_dict)
-                        continue
-                    else:
-                        # BCH, LTC, DOGE, ZEC, DASH and ADA have almost all parameters in common
-                        # except sender_type and receiver_type
-                        if self.chain in ["BTC", "BCH", "LTC", "ADA", "DOGE", "ZEC", "DASH"]:
-                            if self.chain in ["BTC", "DOGE", "DASH"]:
-                                if item["receiver"]["type"] == "coinbase" and item["receiver"]["address"] == "":
-                                    continue
-                            current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
-                            current_iter_dict["tx_value_in"] = item["transaction"]["valueIn"]
-                            current_iter_dict["tx_value_out"] = item["transaction"]["valueOut"]
-                            if self.chain in ["BTC", "BCH", "LTC", "DOGE", "ZEC", "DASH"]:
-                                current_iter_dict["sender_type"] = item["sender"]["type"]
-                                current_iter_dict["receiver_type"] = item["receiver"]["type"]
-                                if self.chain == "ZEC":
-                                    if current_iter_dict["sender"] == "" and current_iter_dict["sender_type"]:
-                                        current_iter_dict["sender"] = current_iter_dict["sender_type"]
-                                    if current_iter_dict["sender"] == "<shielded>" and current_iter_dict[
-                                        "sender_type"] == "shielded":
-                                        current_iter_dict["sender"] = "shielded"
-                                    if current_iter_dict["receiver"] == "" and current_iter_dict["receiver_type"]:
-                                        current_iter_dict["receiver"] = current_iter_dict["receiver_type"]
-                                    if current_iter_dict["receiver"] == "<shielded>" and current_iter_dict[
-                                        "receiver_type"] == "shielded":
-                                        current_iter_dict["receiver"] = "shielded"
-                                flattened_response.append(current_iter_dict)
-                                continue
-                            elif self.chain == "ADA":
-                                current_iter_dict["sender_type"] = "unknown"
-                                current_iter_dict["receiver_type"] = "unknown"
-                                flattened_response.append(current_iter_dict)
-                                continue
-                        else:
-                            # the parameters below are common to all the following blockchains
-                            current_iter_dict["token_id"] = item["currency"]["tokenId"]
-                            current_iter_dict["token_type"] = item["currency"]["tokenType"]
-                            current_iter_dict["receiver_receivers_count"] = item["receiver"]["receiversCount"]
-                            current_iter_dict["receiver_senders_count"] = item["receiver"]["sendersCount"]
-                            current_iter_dict["receiver_first_tx_at"] = item["receiver"]["firstTxAt"]["time"]
-                            current_iter_dict["receiver_last_tx_at"] = item["receiver"]["lastTxAt"]["time"]
-                            current_iter_dict["receiver_amount_out"] = float(item["receiver"]["amountOut"])
-                            current_iter_dict["receiver_amount_in"] = float(item["receiver"]["amountIn"])
-                            current_iter_dict["receiver_balance"] = float(item["receiver"]["balance"])
-                            if self.chain in ["ETH", "KLAY", "BSC", "FTM", "POL", "AVAX"]:
-                                current_iter_dict["token"] = token_address
-                                current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
-                                current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
-                                    item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
-                                current_iter_dict["receiver_type"] = item["receiver"]["smartContract"][
-                                    "contractType"] if item["receiver"]["smartContract"]["contractType"] not in [None,
-                                                                                                                 "None"] else "Wallet"
-                                if self.is_swaps(item):
-                                    possible_swaps.append(item)
-                                flattened_response.append(current_iter_dict)
-                                continue
-                            else:
-                                current_iter_dict["tx_time"] = item["transaction"]["time"]["time"]
-                                current_iter_dict["sender_type"] = item["sender"]["type"]
-                                current_iter_dict["receiver_type"] = item["receiver"]["type"]
-                                if self.chain in ["BNB", "TRX"]:
-                                    current_iter_dict["token"] = token_address
-                                    flattened_response.append(current_iter_dict)
-                                    continue
-                                if self.chain == "EOS":
-                                    current_iter_dict["token"] = item["currency"]["name"]
-                                    flattened_response.append(current_iter_dict)
-                                    continue
-                                    # Once the loop has run its course, the flattened response array is returned
+
+                self.flatten_node(initial_depth, item, flattened_response, possible_swaps, token_address)
+
             return self.get_tx_with_swaps(flattened_response, possible_swaps)
         except Timeout:
             print(f"Bitquery Graphql call timed out for: {address} {self.chain}")
