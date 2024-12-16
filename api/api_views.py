@@ -384,9 +384,9 @@ def ck_query(request, chain):
         bloxy_res =  filtered_src_txns + filtered_dist_txns
         print(f'{len(bloxy_res) = }')
         # process only dist bloxy res here
-        # if params['txn_hashes']:
-        #     bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
-        # print(f'{len(bloxy_res) = }')
+        if params['txn_hashes']:
+            bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
+        print(f'{len(bloxy_res) = }')
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
