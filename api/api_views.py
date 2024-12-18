@@ -167,7 +167,7 @@ def catv_query(route, request, chain):
         params = {k: v for k, v in request.GET.items()}
         token = _get_token(chain, params)
 
-        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+        bloxy = BloxyAPIInterface()
 
         if route == 'outbound':
             source = False
@@ -344,7 +344,7 @@ def ck_query(request, chain):
         token, threat_address, victim_address = extract_addresses(params, chain)
         is_victim_dex = check_if_victim_dex(victim_address)
         print(f"{is_victim_dex=}")
-        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+        bloxy = BloxyAPIInterface(True)
         # split into src and dist
         bloxy_res_dist, bloxy_res_src = fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex)
 
