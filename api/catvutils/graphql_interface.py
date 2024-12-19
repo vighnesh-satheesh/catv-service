@@ -41,7 +41,7 @@ class GraphQLInterface:
         template_key = Constants.CHAIN_TEMPLATE_MAPPING[self.chain]
 
         if self.is_ck_request:
-            template = Constants.CK_QUERY_TEMPLATES[template_key]
+            template = Constants.CATV_QUERY_TEMPLATES[template_key]
         else:
             template = Constants.CATV_QUERY_TEMPLATES[template_key]
 
@@ -591,6 +591,7 @@ class GraphQLInterface:
             print("graphql query: ", request_body)
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
+
             print(f"Bitquery query-id: {r.headers['x-graphql-query-id']}")
             response = r.json()
             for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
