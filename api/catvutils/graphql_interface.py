@@ -7,16 +7,32 @@ from api.constants import Constants
 from api.settings import api_settings
 from api import utils
 
+
 def safe_get(dict_obj, *keys, default=None):
-    """Safely get nested dictionary values"""
+    """
+    Safely get nested values from dictionaries and lists
+    Args:
+        dict_obj: The object to traverse (can be dict or list)
+        *keys: Keys/indices to access nested values
+        default: Default value if path doesn't exist
+    """
     try:
         result = dict_obj
         for key in keys:
-            if not isinstance(result, dict):
+            if isinstance(result, dict):
+                if key not in result:
+                    return default
+                result = result[key]
+            elif isinstance(result, list):
+                if not isinstance(key, int) or key >= len(result):
+                    return default
+                result = result[key]
+            else:
                 return default
-            result = result.get(key)
+
             if result in [None, "None"]:
                 return default
+
         return result
     except Exception:
         return default
@@ -226,7 +242,7 @@ class GraphQLInterface:
         initial_depth = swap["depth"] - 1  # to adjust for the depth issue
         sender = swap["sender"]["address"]
         request_body = self._graphql_dex_trades_query_builder(tx_hash)
-        print(f"THE TRANSCATION COMING TO SWAP IS : {swap}")
+        # print(f"THE TRANSCATION COMING TO SWAP IS : {swap}")
         if request_body is None or len(request_body) == 0:
             return []
 
@@ -269,7 +285,7 @@ class GraphQLInterface:
     def get_tx_with_swaps(self, initial_data, possible_swaps):
 
         try:
-
+            print(f"{len(possible_swaps)=}")
             if len(possible_swaps) > 0:
                 with ThreadPool(processes=len(possible_swaps)) as pool:
                     results = pool.map(self.process_swap, possible_swaps)
