@@ -397,7 +397,6 @@ class CATVReportView(APIView):
     def get(self, request, pk=None):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
-        queryset = CatvNodeLabelModel.objects.all()
 
         res = (RPCClientFetchResultFileUid().call(file_id)).decode("UTF-8")
         print("RES", res)
