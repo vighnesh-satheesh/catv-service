@@ -382,11 +382,11 @@ def ck_query(request, chain):
             print(f'{len(filtered_src_txns) = }')
 
         bloxy_res =  filtered_src_txns + filtered_dist_txns
-        print(f'{len(bloxy_res) = }')
+        print(f'Length before filter_transaction_path: {len(bloxy_res)}')
         # process only dist bloxy res here
-        # if params['txn_hashes']:
-        #     bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
-        # print(f'{len(bloxy_res) = }')
+        if params['txn_hashes']:
+            bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
+        print(f'Final bloxy response length: {len(bloxy_res)}')
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())

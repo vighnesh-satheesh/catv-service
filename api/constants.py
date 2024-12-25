@@ -106,7 +106,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -137,7 +137,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -165,7 +165,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -193,7 +193,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -218,7 +218,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -242,7 +242,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -263,7 +263,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -286,7 +286,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -314,7 +314,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -339,7 +339,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -365,7 +365,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -390,7 +390,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -414,7 +414,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
@@ -435,7 +435,7 @@ class Constants:
             query sentinel_query {
                 $network {
                     coinpath(
-                        options: { direction: $direction, asc: "depth", limit: $limit }
+                        options: { direction: $direction, asc: "depth", limitBy: {each: "depth", limit: $limit} }
                         initialAddress: { is: "$address" }
                         depth: { lteq: $depth }
                         date: { since: "$from_time", till: "$till_time" }
