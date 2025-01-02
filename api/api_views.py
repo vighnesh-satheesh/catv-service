@@ -211,7 +211,9 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
     print(f"{query_source=}")
     if query_source or is_victim_dex:
         print("calling fetch_transactions_with_source")
-        return fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
+        dist_res, source_res =  fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
+        filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
+        return  dist_res, filtered_src
     else:
         # only query dist
         return bloxy.get_transactions(address_to_query, params['limit'],
@@ -354,13 +356,6 @@ def ck_query(request, chain):
         if 'errors' in bloxy_res_src and bloxy_res_src['errors']:
             bloxy_res_src = []
 
-        # offset depth if victim is dex
-        # if is_victim_dex:
-        #     for item in bloxy_res_src:
-        #         item["depth"] = -1 * item["depth"]
-        #
-        #     for item in bloxy_res_dist:
-        #         item["depth"] = item["depth"] + 1
 
         all_transactions = bloxy_res_src + bloxy_res_dist
 
@@ -381,6 +376,13 @@ def ck_query(request, chain):
             filtered_src_txns = future_src.result()
             print(f'{len(filtered_src_txns) = }')
 
+        # offset depth if victim is dex
+        if is_victim_dex:
+            for item in filtered_src_txns:
+                item["depth"] = -1 * item["depth"]
+        
+            for item in filtered_dist_txns:
+                item["depth"] = item["depth"] + 1
         bloxy_res =  filtered_src_txns + filtered_dist_txns
         print(f'Length before filter_transaction_path: {len(bloxy_res)}')
         # process only dist bloxy res here
