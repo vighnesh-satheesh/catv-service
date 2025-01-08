@@ -1,3 +1,4 @@
+import time
 import traceback
 import requests
 from multiprocessing.pool import ThreadPool
@@ -45,12 +46,16 @@ class GraphQLInterface:
         self._headers = {'X-API-KEY': self._graphql_key}
         self.chain = chain
         self.source = source
-        self.depth = depth_limit
+        self.depth = int(depth_limit) # Current limit for retries
+        self.limit = int(limit) # Current limit for retries
+        self.original_depth = int(depth_limit)  # Store original depth
+        self.original_limit = int(limit)   # Store original limit
         self.till_time = str(till_time).replace(" ", "T")
-        self.limit = int(limit)
         self.connect_timeout = 60
         self.read_timeout = 300
         self.is_ck_request = is_ck_request
+        self.max_retries = 2
+        self.base_backoff = 5  # Base seconds for exponential backoff
 
     def _get_template_and_params(self, address: str, token_address: str, from_time: str) -> tuple:
         """Determine which template to use and prepare its parameters"""
@@ -243,6 +248,7 @@ class GraphQLInterface:
         sender = swap["sender"]["address"]
         request_body = self._graphql_dex_trades_query_builder(tx_hash)
         # print(f"THE TRANSCATION COMING TO SWAP IS : {swap}")
+        print(f"dex: {request_body}")
         if request_body is None or len(request_body) == 0:
             return []
 
@@ -323,127 +329,6 @@ class GraphQLInterface:
             print("ERROR : is_swaps")
             traceback.print_exc()
             return False
-
-    # def flatten_node(self, initial_depth, item, flattened_response, possible_swaps, token_address):
-    #
-    #     depth = int(item["depth"]) + initial_depth
-    #
-    #     current_iter_dict = {
-    #         "depth": depth,
-    #         "tx_hash": item["transaction"]["hash"],
-    #         "sender": item["sender"]["address"],
-    #         "receiver": item["receiver"]["address"],
-    #         "sender_annotation": item["sender"]["annotation"] if item["sender"]["annotation"] not in [None,
-    #                                                                                                   "None"] else "",
-    #         "receiver_annotation": item["receiver"]["annotation"] if item["receiver"]["annotation"] not in [
-    #             None, "None"] else ""
-    #     }
-    #     # XRP and XLM have the same parameters so they are grouped together
-    #     if self.chain in ["XRP", "XLM"]:
-    #         current_iter_dict["tx_time"] = item["transaction"]["time"]["time"]
-    #         current_iter_dict["sent_amount"] = item["amountFrom"]
-    #         current_iter_dict["sent_tx_value"] = item["transaction"]["valueFrom"]
-    #         current_iter_dict["sent_currency"] = item["currencyFrom"]["symbol"]
-    #         current_iter_dict["received_amount"] = item["amountTo"]
-    #         current_iter_dict["received_tx_value"] = item["transaction"]["valueTo"]
-    #         current_iter_dict["received_currency"] = item["currencyTo"]["symbol"]
-    #         current_iter_dict["operation_type"] = item["operation"]
-    #         current_iter_dict["receiver_receive_from_count"] = item["receiver"]["receiversCount"]
-    #         current_iter_dict["receiver_send_to_count"] = item["receiver"]["sendersCount"]
-    #         current_iter_dict["receiver_first_transfer_at"] = item["receiver"]["firstTransferAt"]["time"] if \
-    #         item["receiver"]["firstTransferAt"] not in [
-    #             None, "None"] else None
-    #         current_iter_dict["receiver_last_transfer_at"] = item["receiver"]["lastTransferAt"]["time"] if \
-    #         item["receiver"]["lastTransferAt"] not in [
-    #             None, "None"] else None
-    #         if self.chain == "XRP" and item.get("destinationTag"):
-    #             current_iter_dict["destination_tag"] = item["destinationTag"]
-    #         if self.chain == "XRP" and item.get("sourceTag"):
-    #             current_iter_dict["source_tag"] = item["sourceTag"]
-    #         flattened_response.append(current_iter_dict)
-    #         return
-    #     else:
-    #         # The symbol and amount/amount_usd parameters are common to all except XRP and XLM, they are assigned here itself
-    #         current_iter_dict["symbol"] = item["currency"]["symbol"]
-    #         current_iter_dict["amount"] = item["amount"]
-    #         current_iter_dict["amount_usd"] = item["amount_usd"]
-    #         if self.chain == "LUNC":
-    #             current_iter_dict["tx_time"] = item["block"]["timestamp"]["time"]
-    #             current_iter_dict["tx_value"] = item["transaction"]["value"]
-    #             flattened_response.append(current_iter_dict)
-    #             return
-    #         else:
-    #             # BCH, LTC, DOGE, ZEC, DASH and ADA have almost all parameters in common
-    #             # except sender_type and receiver_type
-    #             if self.chain in ["BTC", "BCH", "LTC", "ADA", "DOGE", "ZEC", "DASH"]:
-    #                 if self.chain in ["BTC", "DOGE", "DASH"]:
-    #                     if item["receiver"]["type"] == "coinbase" and item["receiver"]["address"] == "":
-    #                         return
-    #                 current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
-    #                 current_iter_dict["tx_value_in"] = item["transaction"]["valueIn"]
-    #                 current_iter_dict["tx_value_out"] = item["transaction"]["valueOut"]
-    #                 if self.chain in ["BTC", "BCH", "LTC", "DOGE", "ZEC", "DASH"]:
-    #                     current_iter_dict["sender_type"] = item["sender"]["type"]
-    #                     current_iter_dict["receiver_type"] = item["receiver"]["type"]
-    #                     if self.chain == "ZEC":
-    #                         if current_iter_dict["sender"] == "" and current_iter_dict["sender_type"]:
-    #                             current_iter_dict["sender"] = current_iter_dict["sender_type"]
-    #                         if current_iter_dict["sender"] == "<shielded>" and current_iter_dict[
-    #                             "sender_type"] == "shielded":
-    #                             current_iter_dict["sender"] = "shielded"
-    #                         if current_iter_dict["receiver"] == "" and current_iter_dict["receiver_type"]:
-    #                             current_iter_dict["receiver"] = current_iter_dict["receiver_type"]
-    #                         if current_iter_dict["receiver"] == "<shielded>" and current_iter_dict[
-    #                             "receiver_type"] == "shielded":
-    #                             current_iter_dict["receiver"] = "shielded"
-    #                     flattened_response.append(current_iter_dict)
-    #                     return
-    #                 elif self.chain == "ADA":
-    #                     current_iter_dict["sender_type"] = "unknown"
-    #                     current_iter_dict["receiver_type"] = "unknown"
-    #                     flattened_response.append(current_iter_dict)
-    #                     return
-    #             else:
-    #                 # the parameters below are common to all the following blockchains
-    #                 current_iter_dict["token_id"] = item["currency"]["tokenId"]
-    #                 current_iter_dict["token_type"] = item["currency"]["tokenType"]
-    #                 current_iter_dict["receiver_receivers_count"] = item["receiver"]["receiversCount"]
-    #                 current_iter_dict["receiver_senders_count"] = item["receiver"]["sendersCount"]
-    #                 current_iter_dict["receiver_first_tx_at"] = item["receiver"]["firstTxAt"]["time"] if \
-    #                 item["receiver"]["firstTxAt"] not in [
-    #                     None, "None"] else None
-    #                 current_iter_dict["receiver_last_tx_at"] = item["receiver"]["lastTxAt"]["time"] if item["receiver"][
-    #                                                                                                        "lastTxAt"] not in [
-    #                                                                                                        None,
-    #                                                                                                        "None"] else None
-    #                 current_iter_dict["receiver_amount_out"] = float(item["receiver"]["amountOut"])
-    #                 current_iter_dict["receiver_amount_in"] = float(item["receiver"]["amountIn"])
-    #                 current_iter_dict["receiver_balance"] = float(item["receiver"]["balance"])
-    #                 if self.chain in ["ETH", "KLAY", "BSC", "FTM", "POL", "AVAX"]:
-    #                     current_iter_dict["token"] = token_address
-    #                     current_iter_dict["tx_time"] = item["transactions"][0]["timestamp"]
-    #                     current_iter_dict["sender_type"] = item["sender"]["smartContract"]["contractType"] if \
-    #                         item["sender"]["smartContract"]["contractType"] not in [None, "None"] else "Wallet"
-    #                     current_iter_dict["receiver_type"] = item["receiver"]["smartContract"][
-    #                         "contractType"] if item["receiver"]["smartContract"]["contractType"] not in [None,
-    #                                                                                                      "None"] else "Wallet"
-    #                     if self.is_swaps(item):
-    #                         possible_swaps.append(item)
-    #                     flattened_response.append(current_iter_dict)
-    #                     return
-    #                 else:
-    #                     current_iter_dict["tx_time"] = item["transaction"]["time"]["time"]
-    #                     current_iter_dict["sender_type"] = item["sender"]["type"]
-    #                     current_iter_dict["receiver_type"] = item["receiver"]["type"]
-    #                     if self.chain in ["BNB", "TRX"]:
-    #                         current_iter_dict["token"] = token_address
-    #                         flattened_response.append(current_iter_dict)
-    #                         return
-    #                     if self.chain == "EOS":
-    #                         current_iter_dict["token"] = item["currency"]["name"]
-    #                         flattened_response.append(current_iter_dict)
-    #                         return
-    #                         # Once the loop has run its course, the flattened response array is returned
 
     def flatten_node(self, initial_depth, item, flattened_response, possible_swaps, token_address):
         """Process and flatten blockchain transaction data"""
@@ -592,6 +477,82 @@ class GraphQLInterface:
             print(f"Error in flatten_node for chain {self.chain}: {str(e)}")
 
     def call_graphql_endpoint(self, address, token_address, from_time, initial_depth):
+        if initial_depth >= int(self.depth):
+            return []
+
+        retry_count = 0
+        current_depth = self.original_depth
+        current_limit = self.original_limit
+
+        while retry_count <= self.max_retries:
+            try:
+                # Update instance variables for query building
+                self.depth = current_depth
+                self.limit = current_limit
+
+                # Build query with current parameters
+                request_body = self._graphql_query_builder(address, token_address, from_time)
+                if not request_body:
+                    print("Error while forming query")
+                    return []
+
+                print(f"Attempt {retry_count + 1} - depth: {current_depth}, limit: {current_limit}")
+                print(f"graphql query {retry_count + 1}: {request_body}")
+
+                # Make the request
+                r = requests.post(
+                    self._graphql_endpoint,
+                    json={'query': request_body},
+                    headers=self._headers,
+                    timeout=(self.connect_timeout, self.read_timeout)
+                )
+
+                # Log query ID if available
+                if r.headers and 'x-graphql-query-id' in r.headers:
+                    print(f"Bitquery query-id: {r.headers['x-graphql-query-id']}")
+
+                # Check for 504 status or any error status
+                if r.status_code != 200:
+                    raise RequestException(f"Request failed with status code: {r.status_code}")
+
+                # For successful response, process normally
+                response = r.json()
+                flattened_response = []
+                possible_swaps = []
+
+                for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
+                    self.flatten_node(initial_depth, item, flattened_response, possible_swaps, token_address)
+
+                return self.get_tx_with_swaps(flattened_response, possible_swaps)
+
+            except (Timeout, RequestException) as e:
+                print(f"Bitquery Graphql call error for: {address} {self.chain} - {str(e)}")
+
+                if retry_count == self.max_retries:
+                    print(f"Max retries ({self.max_retries}) reached. Returning empty list.")
+                    return []
+
+                # Calculate new parameters
+                current_depth = max(2, current_depth // 2)
+                current_limit = max(100, current_limit // 2)
+
+                # Calculate backoff time with exponential increase
+                backoff_time = self.base_backoff * (2 ** retry_count)
+                print(f"Retrying in {backoff_time} seconds with depth={current_depth}, limit={current_limit}")
+                time.sleep(backoff_time)
+
+                retry_count += 1
+                continue
+
+            except Exception as e:
+                # For any other unexpected exceptions, log and return empty list
+                traceback.print_exc()
+                print(f"Unexpected error: {str(e)}")
+                return []
+        return []  # Return empty list if all retries fail
+
+    # obsolete
+    def call_graphql_endpoint1(self, address, token_address, from_time, initial_depth):
 
         if initial_depth >= int(self.depth):
             return []
@@ -607,7 +568,6 @@ class GraphQLInterface:
             print("graphql query: ", request_body)
             r = requests.post(self._graphql_endpoint, json={
                 'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
-
             print(f"Bitquery query-id: {r.headers['x-graphql-query-id']}")
             response = r.json()
             for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
