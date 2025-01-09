@@ -54,7 +54,7 @@ class GraphQLInterface:
         self.connect_timeout = 60
         self.read_timeout = 300
         self.is_ck_request = is_ck_request
-        self.max_retries = 2
+        self.max_retries = 1
         self.base_backoff = 5  # Base seconds for exponential backoff
 
     def _get_template_and_params(self, address: str, token_address: str, from_time: str) -> tuple:
@@ -545,44 +545,8 @@ class GraphQLInterface:
                 continue
 
             except Exception as e:
-                # For any other unexpected exceptions, log and return empty list
                 traceback.print_exc()
-                print(f"Unexpected error: {str(e)}")
-                return []
+                if "errors" in response and response["errors"]:
+                    print("Bitquery error response: ", response["errors"])
+                return response
         return []  # Return empty list if all retries fail
-
-    # obsolete
-    def call_graphql_endpoint1(self, address, token_address, from_time, initial_depth):
-
-        if initial_depth >= int(self.depth):
-            return []
-
-        request_body = self._graphql_query_builder(address, token_address, from_time)
-        if not request_body:
-            print("Error while forming query")
-            return []
-        try:
-            # flattened response is used to convert the GraphQL response format to REST API response format
-            flattened_response = []
-            possible_swaps = []
-            print("graphql query: ", request_body)
-            r = requests.post(self._graphql_endpoint, json={
-                'query': request_body}, headers=self._headers, timeout=(self.connect_timeout, self.read_timeout))
-            print(f"Bitquery query-id: {r.headers['x-graphql-query-id']}")
-            response = r.json()
-            for item in response["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["coinpath"]:
-                self.flatten_node(initial_depth, item, flattened_response, possible_swaps, token_address)
-
-            return self.get_tx_with_swaps(flattened_response, possible_swaps)
-        except Timeout:
-            print(f"Bitquery Graphql call timed out for: {address} {self.chain}")
-            error_resp = {'errors': [{'message': 'Bitquery request timed out'}]}
-            return error_resp
-        except RequestException:
-            print(f"Bitquery Graphql call request exception: {address} {self.chain}")
-            return []
-        except Exception:
-            traceback.print_exc()
-            if "errors" in response and response["errors"]:
-                print("Bitquery error response: ", response["errors"])
-            return response
