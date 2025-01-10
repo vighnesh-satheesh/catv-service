@@ -33,4 +33,10 @@ class BloxyAPIInterface:
         )
         initial_depth = 0
         results = graphql_interface.call_graphql_endpoint(address, token_address, from_time, initial_depth)
+        if 'errors' in results and results['errors'] and 'message' in results['errors'][0]:
+            error_msg = results['errors'][0]['message']
+            if "Failed to find token" in error_msg:
+                results = graphql_interface.call_graphql_endpoint(address, None, from_time, initial_depth)
+
         return results
+
