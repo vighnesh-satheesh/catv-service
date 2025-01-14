@@ -212,7 +212,10 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
     if query_source or is_victim_dex:
         print("calling fetch_transactions_with_source")
         dist_res, source_res =  fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
-        filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
+        if is_eth_based_wallet(chain):
+            filtered_src = [tx for tx in source_res if tx['sender'].lower() == victim_address.lower()]
+        else:
+            filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
         return  dist_res, filtered_src
     else:
         # only query dist
