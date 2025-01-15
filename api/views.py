@@ -1,5 +1,6 @@
 import ast
 import json
+import traceback
 import uuid
 
 import pandas as pd
@@ -20,6 +21,7 @@ from api.rpc.RPCClient import RPCClientUpdateUsageCatvCall, RPCClientFetchResult
 from . import exceptions
 from . import utils
 from .catvutils.process_node_list import ProcessNodeList
+from .exceptions import ValidationError
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
@@ -39,7 +41,7 @@ from .tasks import (
 from .throttling import (
     CatvPostThrottle, CatvUsageExceededThrottle, CatvNoThrottle
 )
-from .utils import serializer_map
+from .utils import serializer_map, pattern_matches_token
 
 
 class HealthCheckView(APIView):
@@ -397,7 +399,6 @@ class CATVReportView(APIView):
     def get(self, request, pk=None):
         obj = self.get_object(pk)
         file_id = str(obj.result_file_id)
-        queryset = CatvNodeLabelModel.objects.all()
 
         res = (RPCClientFetchResultFileUid().call(file_id)).decode("UTF-8")
         print("RES", res)
@@ -743,6 +744,196 @@ class CATVNodeLabelView(APIView):
         return APIResponse({
             "data": "Successfully Deleted"
         })
+
+
+class CATVCSVUpload(APIView):
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsCATVAuthenticated,)
+
+    REQUIRED_COLUMNS = {
+        'token_type', 'wallet_address', 'source_depth',
+        'distribution_depth', 'from_date', 'to_date',
+        'token_address', 'transaction_limit'
+    }
+
+    DTYPE_MAP = {
+        'source_depth': 'Int64',
+        'distribution_depth': 'Int64',
+        'transaction_limit': 'Int64',
+        'token_type': 'str',
+        'wallet_address': 'str',
+        'from_date': 'str',
+        'to_date': 'str',
+        'token_address': 'str'
+    }
+
+    def get_throttles(self):
+        if self.request.method.lower() == 'post':
+            return [CatvUsageExceededThrottle(), CatvPostThrottle()]
+        return []
+
+    def validate_csv(self, df: pd.DataFrame) -> bool:
+        """Validate CSV structure and data types."""
+        if set(df.columns) != self.REQUIRED_COLUMNS:
+            raise ValidationError(_("CSV format is incorrect. Please check column names."))
+
+        # Validate integer columns
+        integer_columns = ['source_depth', 'distribution_depth', 'transaction_limit']
+        for col in integer_columns:
+            if not pd.api.types.is_integer_dtype(df[col]):
+                raise ValidationError(_(f"Column {col} must contain only integer values"))
+
+        return True
+
+    def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Process and clean the dataframe."""
+        # Chain operations for better performance
+        df = (df
+        .drop_duplicates(subset="wallet_address", keep="first")
+        .assign(
+            token_address=lambda x: x['token_address'].fillna("0x0000000000000000000000000000000000000000"),
+            from_date=lambda x: pd.to_datetime(x['from_date']).dt.strftime('%Y-%m-%d'),
+            to_date=lambda x: pd.to_datetime(x['to_date']).dt.strftime('%Y-%m-%d')
+        ))
+
+        # Filter valid wallet addresses using existing pattern_matches_token function
+        valid_addresses = df.apply(
+            lambda row: bool(pattern_matches_token(row['wallet_address'], row['token_type'])),
+            axis=1
+        )
+        return df[valid_addresses]
+
+    def check_terra_permission(self, df: pd.DataFrame, user_id: str) -> pd.DataFrame:
+        """Check Terra permission and filter if necessary."""
+        if (df['token_type'] == CatvTokens.LUNC.value).any():
+            rpc_client = RPCClientCATVCheckTerraAccess()
+            response = rpc_client.call(user_id).decode('UTF-8')
+
+            if "False" in response:
+                return df[df['token_type'] != CatvTokens.LUNC.value]
+        return df
+
+    def post(self, request):
+        try:
+            # Read and validate CSV
+            csv_file = request.FILES['file']
+            df = pd.read_csv(csv_file, dtype=self.DTYPE_MAP)
+
+            if df.empty:
+                return APIResponse({
+                    "data": {"error": "CSV file is empty"}
+                })
+
+            # Basic validation
+            self.validate_csv(df)
+
+            # Get user details and validate credits
+            user_details, verified_token = MultiToken.get_user_from_key(request)
+
+            # Process dataframe
+            processed_df = self.process_dataframe(df)
+            processed_df = self.check_terra_permission(processed_df, user_details['user_id'])
+
+            final_length = len(processed_df)
+            if final_length == 0:
+                return APIResponse({
+                    "data": {"error": "No valid entries found after processing"}
+                })
+
+            # Check credits
+            credits_per_addr = user_details['usage']['credits_requirement']['catv']
+            credits_required = final_length * credits_per_addr
+            if user_details['usage']['credits_left'] < credits_required:
+                return APIResponse({
+                    "data": {
+                        "error": "You do not have sufficient usage credits to process this CSV. Please purchase more credits to continue."}
+                })
+
+            # Prepare bulk create data
+            job_queue = []
+            request_status = []
+            result_status = []
+
+            # Convert DataFrame to records for processing
+            records = processed_df.to_dict('records')
+
+            for params in records:
+                message_id = uuid.uuid4()
+
+                # Prepare job queue entry
+                job_queue.append(CatvCSVJobQueue(
+                    message={
+                        "message_id": message_id.hex,
+                        "user_id": request.user["user_id"],
+                        "token_type": params['token_type'],
+                        "search_params": params
+                    },
+                    retries_remaining=1
+                ))
+
+                # Prepare request status entry
+                status = CatvRequestStatus(
+                    uid=message_id,
+                    params=params,
+                    user_id=request.user["user_id"],
+                    token_type=params['token_type']
+                )
+                request_status.append(status)
+
+                # Prepare result entry
+                result_status.append(CatvResult(request=status))
+
+            # Bulk create in transaction with chunks
+            with transaction.atomic():
+                for chunk in [job_queue[i:i + 50] for i in range(0, len(job_queue), 100)]:
+                    CatvCSVJobQueue.objects.bulk_create(chunk)
+                for chunk in [request_status[i:i + 50] for i in range(0, len(request_status), 100)]:
+                    CatvRequestStatus.objects.bulk_create(chunk)
+                for chunk in [result_status[i:i + 50] for i in range(0, len(result_status), 100)]:
+                    CatvResult.objects.bulk_create(chunk)
+
+            # Update usage credits
+            rpc = RPCClientUpdateUsageCSVCatvCall()
+            auth = get_authorization_header(request).split()
+            token = auth[1].decode()
+            timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP')
+
+            user_rpc = {
+                "id": user_details['user_id'],
+                "token": str(token),
+                "timestamp": str(timestamp),
+                "uid": str(user_details['user_uid']),
+                "csv_records": final_length,
+                "credits_required": credits_per_addr
+            }
+
+            res = (rpc.call(user_rpc)).decode('UTF-8')
+            print(f"Usage credits update status: {res}")
+
+            return APIResponse({
+                "data": records,
+                "messages": {
+                    "source": f"{final_length} Addresses are successfully submitted for report generation."
+                }
+            })
+
+        except pd.errors.EmptyDataError:
+            return APIResponse({
+                "data": {"error": "Empty CSV file"}
+            })
+        except pd.errors.ParserError:
+            return APIResponse({
+                "data": {"error": "Invalid CSV format"}
+            })
+        except ValidationError as e:
+            return APIResponse({
+                "data": {"error": str(e)}
+            })
+        except Exception as e:
+            traceback.print_exc()
+            raise exceptions.ServerError(
+                detail="Something went wrong while submitting your request. Please try again later."
+            )
 
 class CATVCSVUploadView(APIView):
     authentication_classes = (CachedTokenAuthentication,)
