@@ -189,8 +189,8 @@ def catv_query(route, request, chain):
 def parse_request_params(request):
     params = {k: v for k, v in request.GET.items()}
     params['query_source'] = params.pop('query_source', False)
-    txn_hashes_str = params.get('txn_hashes', '[]')
-    params['txn_hashes'] = json.loads(txn_hashes_str)
+    txn_hashes = json.loads(params.get('txn_hashes', '[]'))
+    params['txn_hashes'] = [] if txn_hashes == ['not_available'] else txn_hashes
     print(f"{params['txn_hashes'] = }")
     print(f"{type(params['txn_hashes']) = }")
     return params
@@ -212,10 +212,12 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
     if query_source or is_victim_dex:
         print("calling fetch_transactions_with_source")
         dist_res, source_res =  fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
-        if is_eth_based_wallet(chain):
-            filtered_src = [tx for tx in source_res if tx['sender'].lower() == victim_address.lower()]
-        else:
-            filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
+        filtered_src = source_res
+        if not query_source:
+            if is_eth_based_wallet(chain):
+                filtered_src = [tx for tx in source_res if tx['sender'].lower() == victim_address.lower()]
+            else:
+                filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
         return  dist_res, filtered_src
     else:
         # only query dist
@@ -227,7 +229,7 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
 def determine_address_to_use(is_victim_dex, threat_address, victim_address, depth_limit):
     if is_victim_dex and threat_address and threat_address != 'not_available':
         print(f"Using threat_address {threat_address} to query with depths (1,3)")
-        return threat_address, 1, 3
+        return threat_address, 1, 5
     return victim_address, 2, depth_limit
 
 
@@ -341,6 +343,10 @@ def annotate_transactions(bloxy_res, annotation_dict):
         for i in ['annotation', 'security_category']:
             d[f'sender_{i}'] = sender_details[i]
             d[f'receiver_{i}'] = receiver_details[i]
+        if d['sender_annotation'] == "" and d['sender_type'].lower() == "dex":
+            d['sender_annotation'] = d['sender_type']
+        if d['receiver_annotation'] == "" and d['receiver_type'].lower() == "dex":
+            d['receiver_annotation'] = d['receiver_type']
     return bloxy_res
 
 def ck_query(request, chain):
