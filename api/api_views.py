@@ -24,7 +24,7 @@ from multiprocessing.pool import ThreadPool
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
-from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, string_to_bool, \
+from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, \
     get_bool_param
 from .constants import Constants
 from .exceptions import ServerError
