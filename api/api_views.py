@@ -24,7 +24,8 @@ from multiprocessing.pool import ThreadPool
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
-from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, string_to_bool
+from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, string_to_bool, \
+    get_bool_param
 from .constants import Constants
 from .exceptions import ServerError
 from .models import CatvTokens, CatvSearchType, CatvRequestStatus, CatvTaskStatusType
@@ -188,7 +189,7 @@ def catv_query(route, request, chain):
 
 def parse_request_params(request):
     params = {k: v for k, v in request.GET.items()}
-    params['query_source'] = params.pop('query_source', False)
+    params['query_source'] = get_bool_param(params, 'query_source', default=False)
     txn_hashes = json.loads(params.get('txn_hashes', '[]'))
     params['txn_hashes'] = [] if txn_hashes == ['not_available'] else txn_hashes
     print(f"{params['txn_hashes'] = }")
@@ -207,17 +208,13 @@ def extract_addresses(params, chain):
 def fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex):
     address_to_query, source_depth, dist_depth = determine_address_to_use(is_victim_dex, threat_address, victim_address, params['depth_limit'])
 
-    query_source = string_to_bool(params['query_source'])
-    print(f"{query_source=}")
-    if query_source or is_victim_dex:
-        print("calling fetch_transactions_with_source")
+    if is_victim_dex:
+        print("Calling fetch_transactions_with_source as victim is dex")
         dist_res, source_res =  fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
-        filtered_src = source_res
-        if not query_source:
-            if is_eth_based_wallet(chain):
-                filtered_src = [tx for tx in source_res if tx['sender'].lower() == victim_address.lower()]
-            else:
-                filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
+        if is_eth_based_wallet(chain):
+            filtered_src = [tx for tx in source_res if tx['sender'].lower() == victim_address.lower()]
+        else:
+            filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
         return  dist_res, filtered_src
     else:
         # only query dist
@@ -228,7 +225,7 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
 
 def determine_address_to_use(is_victim_dex, threat_address, victim_address, depth_limit):
     if is_victim_dex and threat_address and threat_address != 'not_available':
-        print(f"Using threat_address {threat_address} to query with depths (1,3)")
+        print(f"Using threat_address {threat_address} to query with depths (1,5)")
         return threat_address, 1, 5
     return victim_address, 2, depth_limit
 
@@ -353,7 +350,7 @@ def ck_query(request, chain):
     try:
         params = parse_request_params(request)
         token, threat_address, victim_address = extract_addresses(params, chain)
-        is_victim_dex = check_if_victim_dex(victim_address)
+        is_victim_dex = True if params['query_source'] else check_if_victim_dex(victim_address)
         print(f"{is_victim_dex=}")
         bloxy = BloxyAPIInterface(True)
         # split into src and dist
