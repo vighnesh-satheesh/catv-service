@@ -1,4 +1,4 @@
-FROM asia-docker.pkg.dev/uppsala-devops/application-base-image-repository/python:latest
+FROM python:3.13.1-bookworm
 
 MAINTAINER uppsala <developer@sentinelprotocol.io>
 
@@ -37,7 +37,7 @@ RUN apt-get update && \
     nodejs \
     redis-server \
     gettext && \
-    npm install pm2@latest -g
+    npm install pm2@5.4.3 -g
 
 RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
 
@@ -46,7 +46,7 @@ COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
 RUN pip install --upgrade pip setuptools && \
     pip install -r /app/requirements.txt && \
-    pip install uwsgi==2.0.23 && \
+    pip install uwsgi==2.0.28 && \
     pip install -e /app/library/indicator-lib/src/py
 
 # Bundle APP files

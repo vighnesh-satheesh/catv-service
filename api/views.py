@@ -404,9 +404,7 @@ class CATVReportView(APIView):
         print("RES", res)
         filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
 
-        try:            
-        # s3 = boto3.resource('s3')
-        # s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
+        try:
             body = utils.get_gcs_file(api_settings.ATTACHED_FILE_S3_BUCKET_NAME,filename)#s3_obj.get()['Body'].read()
         except SuspiciousOperation:
             return APIResponse({
@@ -561,14 +559,9 @@ class CATVMultiReportView(APIView):
 
                     print('result_file[id]', result_file['id'])
                     print('catv_result[result_file_id]', catv_result.result_file_id)
-                    # file_obj = result_file.file.open(mode="rb")
-                    # file_obj = urlopen(result_file['file']).read()
-                    # buf = file_obj.read()
                     filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + result_file['uid']
                     try:
-                    #s3 = boto3.resource('s3')
-                    #s3_obj = s3.Object(api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename)
-                        body = utils.get_gcs_file(api_settings.ATTACHED_FILE_S3_BUCKET_NAME,filename)#s3_obj.get()['Body'].read()
+                        body = utils.get_gcs_file(api_settings.ATTACHED_FILE_S3_BUCKET_NAME,filename)
                     except SuspiciousOperation:
                         return APIResponse({
                         "data": {},
