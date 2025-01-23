@@ -1,6 +1,8 @@
 FROM asia-docker.pkg.dev/uppsala-devops/application-base-image-repository/python:bookworm
 
-MAINTAINER uppsala <developer@sentinelprotocol.io>
+LABEL maintainer="uppsala <developer@sentinelprotocol.io>" \
+      description="This image is maintained by the Uppsala team for Sentinel Protocol." \
+      version="1.0"
 
 ARG PM2_CONFIG_FILE=pm2_dev.json
 ARG EXPOSE_GENERAL_API=true
