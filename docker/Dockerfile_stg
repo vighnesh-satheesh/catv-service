@@ -33,7 +33,9 @@ WORKDIR /app
 
 # Install packages
 # Install nodejs and pm2
-RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
+RUN apt-get update --fix-missing && \
+    apt-get install -y apt-utils curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get update && \
     apt-get install -y \
     nodejs \
