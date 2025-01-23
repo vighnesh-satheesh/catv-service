@@ -1,4 +1,4 @@
-FROM asia-docker.pkg.dev/uppsala-devops/application-base-image-repository/python:bookworm
+FROM asia-docker.pkg.dev/uppsala-devops/application-base-image-repository/python:3.13.1-bullseye
 
 LABEL maintainer="uppsala <developer@sentinelprotocol.io>" \
       description="This image is maintained by the Uppsala team for Sentinel Protocol." \
