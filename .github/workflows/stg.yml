@@ -2,7 +2,7 @@ name: STG-PORTAL-CATV-API #Only for staging environment
 on:
   push:
     branches:
-      - stage
+      - gcp_stage
   workflow_dispatch:
 jobs:
   build:

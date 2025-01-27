@@ -1,60 +1,13 @@
-import os
-import boto3
-import requests
 import json
+import os
+
+import requests
 from google.cloud import secretmanager
 
 REQUEST_URL = {
     "EC2_PRIVATE_IP": "http://169.254.169.254/latest/meta-data/local-ipv4",
     "ECS_PRIVATE_IP": "http://169.254.170.2/v2/metadata"
 }
-
-
-def set_environment_variables_from_parameter_store():
-    ssm_path = os.environ.get("PORTAL_API_PARAM_PATH")
-    if ssm_path:
-        if ssm_path == "/UPP/PRD/PORTAL-CATV-SERVICE":
-            os.environ["PORTAL_API_MODE"] = "production"
-        else:
-            os.environ["PORTAL_API_MODE"] = "staging"
-
-        region = os.environ.get("AWS_REGION", "ap-southeast-1")
-        ssm = boto3.client('ssm', region_name=region)
-
-        next_token = None
-        while True:
-            req_param = {
-                "Path": ssm_path,
-                "Recursive": True,
-                "MaxResults": 10,
-                "WithDecryption": True
-            }
-
-            if next_token:
-                req_param["NextToken"] = next_token
-
-            response = ssm.get_parameters_by_path(**req_param)
-            params = response["Parameters"]
-            for param in params:
-                name = param["Name"]
-                real_name = name.split("/")[-1].upper()
-                os.environ[real_name] = param["Value"]
-
-            if len(params) < 10:
-                break
-
-            if "NextToken" not in response:
-                break
-
-            next_token = response["NextToken"]
-    else:
-        env_file = os.environ.get("CATVMS_API_ENV_PATH")
-        os.environ["PORTAL_API_MODE"] = "development"
-        if env_file is None or os.path.isfile(env_file) is False:
-            raise AttributeError(
-                "Please set environ variable 'CATVMS_API_ENV_PATH' for env file path."
-                "'export CATVMS_API_ENV_PATH=/env/file/path.env'"
-            )
 
 
 def set_environment_variables_from_secret_manager():
