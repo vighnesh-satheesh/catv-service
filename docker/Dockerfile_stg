@@ -91,4 +91,4 @@ RUN pm2 install pm2-slack && \
     pm2 set pm2-slack:'restart overlimit' true && \
     pm2 set pm2-slack:buffer_seconds 5
 
-CMD ["pm2-runtime", "/app/deploy/conf/$PORTAL_PM2_CONFIG_FILE"]
+CMD pm2-runtime /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE
