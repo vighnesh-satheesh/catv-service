@@ -16,3 +16,5 @@ env-dev/
 celerybeat.pid
 *django.mo
 secret/
+venv
+

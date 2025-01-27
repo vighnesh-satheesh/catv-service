@@ -14,7 +14,7 @@ import arrow
 import requests
 from django.core.cache import caches
 from django.http import JsonResponse
-from ratelimit.utils import is_ratelimited
+from django_ratelimit.core import is_ratelimited
 from requests.exceptions import ConnectTimeout
 from rest_framework.generics import GenericAPIView
 from rest_framework.views import APIView
