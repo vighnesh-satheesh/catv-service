@@ -4,75 +4,83 @@ LABEL maintainer="uppsala <developer@sentinelprotocol.io>" \
       description="This image is maintained by the Uppsala team for Sentinel Protocol." \
       version="1.0"
 
+# Group ARGs together for better readability
 ARG PM2_CONFIG_FILE=pm2.json
-ARG EXPOSE_GENERAL_API=true
-ARG EXPOSE_FILE_API=true
-ARG EXPOSE_SEARCH_API=true
-ARG EXPOSE_INTERNAL_API=true
-ARG EXPOSE_FREESEARCH_ENDPOINT=true
 ARG SLACK_URL
 ARG ALLOWED_HOSTS
 ARG CORS_ORIGIN_WHITELIST
 ARG CATVMS_API_ENV=development
 ARG PORTAL_API_VERSION
 ARG CONTAINER_TYPE=catvms_api
+ARG EXPOSE_GENERAL_API=true \
+ARG EXPOSE_FILE_API=true \
+ARG EXPOSE_SEARCH_API=true \
+ARG EXPOSE_INTERNAL_API=true \
+ARG EXPOSE_FREESEARCH_ENDPOINT=true
 
-ENV EXPOSE_GENERAL_API=$EXPOSE_GENERAL_API
-ENV EXPOSE_FILE_API=$EXPOSE_FILE_API
-ENV EXPOSE_SEARCH_API=$EXPOSE_SEARCH_API
-ENV EXPOSE_INTERNAL_API=$EXPOSE_INTERNAL_API
-ENV EXPOSE_FREESEARCH_ENDPOINT=$EXPOSE_FREESEARCH_ENDPOINT
-ENV ALLOWED_HOSTS=$ALLOWED_HOSTS
-ENV CORS_ORIGIN_WHITELIST=$CORS_ORIGIN_WHITELIST
-ENV CATVMS_API_ENV=$CATVMS_API_ENV
-ENV PORTAL_PM2_CONFIG_FILE=$PM2_CONFIG_FILE
-ENV PORTAL_API_VERSION=$PORTAL_API_VERSION
-ENV CONTAINER_TYPE=$CONTAINER_TYPE
+ENV EXPOSE_GENERAL_API=$EXPOSE_GENERAL_API \
+    EXPOSE_FILE_API=$EXPOSE_FILE_API \
+    EXPOSE_SEARCH_API=$EXPOSE_SEARCH_API \
+    EXPOSE_INTERNAL_API=$EXPOSE_INTERNAL_API \
+    EXPOSE_FREESEARCH_ENDPOINT=$EXPOSE_FREESEARCH_ENDPOINT \
+    ALLOWED_HOSTS=$ALLOWED_HOSTS \
+    CORS_ORIGIN_WHITELIST=$CORS_ORIGIN_WHITELIST \
+    CATVMS_API_ENV=$CATVMS_API_ENV \
+    PORTAL_PM2_CONFIG_FILE=$PM2_CONFIG_FILE \
+    PORTAL_API_VERSION=$PORTAL_API_VERSION \
+    CONTAINER_TYPE=$CONTAINER_TYPE \
+    PATH=$PATH:/root/google-cloud-sdk/bin
 
 WORKDIR /app
 
-# Install packages
-# Install nodejs and pm2
 RUN apt-get update --fix-missing && \
-    apt-get install -y apt-utils curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
+    apt-utils \
+    curl \
+    ca-certificates \
     nodejs \
     redis-server \
-    gettext && \
-    npm install pm2@5.4.3 -g
+    gettext \
+    fonts-arphic-ukai \
+    fonts-arphic-uming \
+    fonts-ipafont-mincho \
+    fonts-ipafont-gothic \
+    fonts-unfonts-core && \
+    curl --proto '=https' --tlsv1.2 -sSf https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    npm install pm2@5.4.3 -g --ignore-scripts && \
+    curl -sSL https://sdk.cloud.google.com | bash && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN apt-get install fonts-arphic-ukai fonts-arphic-uming fonts-ipafont-mincho fonts-ipafont-gothic fonts-unfonts-core
-# Install google cloud CLI
-RUN curl -sSL https://sdk.cloud.google.com | bash
-ENV PATH $PATH:/root/google-cloud-sdk/bin    
 # Install requirements
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
+
 RUN pip install --upgrade pip setuptools && \
     pip install -r /app/requirements.txt && \
     pip install uwsgi==2.0.28 && \
     pip install -e /app/library/indicator-lib/src/py
 
-# Bundle APP files
+# Bundle app files
 COPY . .
 COPY ./deploy ./deploy
 
 # Make translations available
 RUN django-admin compilemessages
 
-# Add uppsala user.
-
+# Add uppsala user and set permissions
 RUN groupadd -g 999 uppsala && \
     useradd -r -u 999 -g uppsala uppsala && \
-    chown uppsala:uppsala /app && \
+    chown -R uppsala:uppsala /app && \
     usermod -d /app uppsala
+
 USER uppsala
 
-# Install pm2-slack
-RUN pm2 install pm2-slack
-RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
+# Configure PM2
+RUN pm2 install pm2-slack && \
+    pm2 set pm2-slack:slack_url ${SLACK_URL} && \
     pm2 set pm2-slack:log false && \
     pm2 set pm2-slack:error false && \
     pm2 set pm2-slack:kill true && \
@@ -83,5 +91,4 @@ RUN pm2 set pm2-slack:slack_url ${SLACK_URL} && \
     pm2 set pm2-slack:'restart overlimit' true && \
     pm2 set pm2-slack:buffer_seconds 5
 
-# RUN
-CMD pm2-runtime /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE
+CMD ["pm2-runtime", "/app/deploy/conf/$PORTAL_PM2_CONFIG_FILE"]
