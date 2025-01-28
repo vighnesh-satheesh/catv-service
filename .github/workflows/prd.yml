@@ -2,7 +2,7 @@ name: PRD-PORTAL-CATV-API #Only for staging environment
 on:
   push:
     branches:
-      - master
+      - gcp_master
   workflow_dispatch:
 jobs:
   build:
