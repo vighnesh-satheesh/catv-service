@@ -47,11 +47,12 @@ RUN apt-get update --fix-missing && \
     fonts-ipafont-mincho \
     fonts-ipafont-gothic \
     fonts-unfonts-core && \
-    curl --proto '=https' --tlsv1.2 -sSf https://deb.nodesource.com/setup_20.x | bash - && \
+    curl --proto '=https' --tlsv1.2 -sSf https://deb.nodesource.com/setup_23.x | bash - && \
     apt-get update && \
     apt-get install -y nodejs && \
-    npm install pm2@5.4.3 -g --ignore-scripts && \
+    npm install pm2 -g --ignore-scripts && \
     curl -sSL https://sdk.cloud.google.com | bash && \
+    apt-get install --only-upgrade libtiff5 -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -80,16 +81,16 @@ RUN groupadd -g 999 uppsala && \
 USER uppsala
 
 # Configure PM2
-RUN pm2 install pm2-slack && \
-    pm2 set pm2-slack:slack_url ${SLACK_URL} && \
-    pm2 set pm2-slack:log false && \
-    pm2 set pm2-slack:error false && \
-    pm2 set pm2-slack:kill true && \
-    pm2 set pm2-slack:exception false && \
-    pm2 set pm2-slack:restart false && \
-    pm2 set pm2-slack:delete true && \
-    pm2 set pm2-slack:stop true && \
-    pm2 set pm2-slack:'restart overlimit' true && \
-    pm2 set pm2-slack:buffer_seconds 5
+#RUN pm2 install pm2-slack && \
+#    pm2 set pm2-slack:slack_url ${SLACK_URL} && \
+#    pm2 set pm2-slack:log false && \
+#    pm2 set pm2-slack:error false && \
+#    pm2 set pm2-slack:kill true && \
+#    pm2 set pm2-slack:exception false && \
+#    pm2 set pm2-slack:restart false && \
+#    pm2 set pm2-slack:delete true && \
+#    pm2 set pm2-slack:stop true && \
+#    pm2 set pm2-slack:'restart overlimit' true && \
+#    pm2 set pm2-slack:buffer_seconds 5
 
 CMD pm2-runtime /app/deploy/conf/$PORTAL_PM2_CONFIG_FILE
