@@ -60,7 +60,7 @@ RUN apt-get update --fix-missing && \
 COPY ./requirements/${CATVMS_API_ENV}.txt ./requirements.txt
 COPY ./library ./library
 
-RUN pip install --upgrade pip setuptools && \
+RUN pip install --upgrade pip setuptools==75.0.0 && \
     pip install -r /app/requirements.txt && \
     pip install uwsgi==2.0.28 && \
     pip install -e /app/library/indicator-lib/src/py
