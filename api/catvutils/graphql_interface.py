@@ -61,10 +61,7 @@ class GraphQLInterface:
         """Determine which template to use and prepare its parameters"""
         template_key = Constants.CHAIN_TEMPLATE_MAPPING[self.chain]
 
-        if self.is_ck_request:
-            template = Constants.CATV_QUERY_TEMPLATES[template_key]
-        else:
-            template = Constants.CATV_QUERY_TEMPLATES[template_key]
+        template = Constants.CATV_QUERY_TEMPLATES[template_key]
 
 
         params = {
