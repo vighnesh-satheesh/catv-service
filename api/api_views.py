@@ -24,7 +24,8 @@ from multiprocessing.pool import ThreadPool
 from api.catvutils.bloxy_interface import BloxyAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
-from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, string_to_bool
+from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, \
+    get_bool_param
 from .constants import Constants
 from .exceptions import ServerError
 from .models import CatvTokens, CatvSearchType, CatvRequestStatus, CatvTaskStatusType
@@ -167,7 +168,7 @@ def catv_query(route, request, chain):
         params = {k: v for k, v in request.GET.items()}
         token = _get_token(chain, params)
 
-        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+        bloxy = BloxyAPIInterface()
 
         if route == 'outbound':
             source = False
@@ -188,9 +189,9 @@ def catv_query(route, request, chain):
 
 def parse_request_params(request):
     params = {k: v for k, v in request.GET.items()}
-    params['query_source'] = params.pop('query_source', False)
-    txn_hashes_str = params.get('txn_hashes', '[]')
-    params['txn_hashes'] = json.loads(txn_hashes_str)
+    params['query_source'] = get_bool_param(params, 'query_source', default=False)
+    txn_hashes = json.loads(params.get('txn_hashes', '[]'))
+    params['txn_hashes'] = [] if txn_hashes == ['not_available'] else txn_hashes
     print(f"{params['txn_hashes'] = }")
     print(f"{type(params['txn_hashes']) = }")
     return params
@@ -207,11 +208,14 @@ def extract_addresses(params, chain):
 def fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex):
     address_to_query, source_depth, dist_depth = determine_address_to_use(is_victim_dex, threat_address, victim_address, params['depth_limit'])
 
-    query_source = string_to_bool(params['query_source'])
-    print(f"{query_source=}")
-    if query_source or is_victim_dex:
-        print("calling fetch_transactions_with_source")
-        return fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
+    if is_victim_dex:
+        print("Calling fetch_transactions_with_source as victim is dex")
+        dist_res, source_res =  fetch_transactions_with_source(bloxy, params, chain, token, address_to_query, source_depth, dist_depth)
+        if is_eth_based_wallet(chain):
+            filtered_src = [tx for tx in source_res if tx['sender'].lower() == victim_address.lower()]
+        else:
+            filtered_src = [tx for tx in source_res if tx['sender'] == victim_address]
+        return  dist_res, filtered_src
     else:
         # only query dist
         return bloxy.get_transactions(address_to_query, params['limit'],
@@ -221,8 +225,8 @@ def fetch_transactions(bloxy, params, chain, token, threat_address, victim_addre
 
 def determine_address_to_use(is_victim_dex, threat_address, victim_address, depth_limit):
     if is_victim_dex and threat_address and threat_address != 'not_available':
-        print(f"Using threat_address {threat_address} to query with depths (1,3)")
-        return threat_address, 1, 3
+        print(f"Using threat_address {threat_address} to query with depths (1,5)")
+        return threat_address, 1, 5
     return victim_address, 2, depth_limit
 
 
@@ -336,15 +340,19 @@ def annotate_transactions(bloxy_res, annotation_dict):
         for i in ['annotation', 'security_category']:
             d[f'sender_{i}'] = sender_details[i]
             d[f'receiver_{i}'] = receiver_details[i]
+        if d['sender_annotation'] == "" and d['sender_type'].lower() == "dex":
+            d['sender_annotation'] = d['sender_type']
+        if d['receiver_annotation'] == "" and d['receiver_type'].lower() == "dex":
+            d['receiver_annotation'] = d['receiver_type']
     return bloxy_res
 
 def ck_query(request, chain):
     try:
         params = parse_request_params(request)
         token, threat_address, victim_address = extract_addresses(params, chain)
-        is_victim_dex = check_if_victim_dex(victim_address)
+        is_victim_dex = True if params['query_source'] else check_if_victim_dex(victim_address)
         print(f"{is_victim_dex=}")
-        bloxy = BloxyAPIInterface(API_BLOXY_KEY)
+        bloxy = BloxyAPIInterface(True)
         # split into src and dist
         bloxy_res_dist, bloxy_res_src = fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex)
 
@@ -354,13 +362,6 @@ def ck_query(request, chain):
         if 'errors' in bloxy_res_src and bloxy_res_src['errors']:
             bloxy_res_src = []
 
-        # offset depth if victim is dex
-        # if is_victim_dex:
-        #     for item in bloxy_res_src:
-        #         item["depth"] = -1 * item["depth"]
-        #
-        #     for item in bloxy_res_dist:
-        #         item["depth"] = item["depth"] + 1
 
         all_transactions = bloxy_res_src + bloxy_res_dist
 
@@ -381,12 +382,19 @@ def ck_query(request, chain):
             filtered_src_txns = future_src.result()
             print(f'{len(filtered_src_txns) = }')
 
+        # offset depth if victim is dex
+        if is_victim_dex:
+            for item in filtered_src_txns:
+                item["depth"] = -1 * item["depth"]
+        
+            for item in filtered_dist_txns:
+                item["depth"] = item["depth"] + 1
         bloxy_res =  filtered_src_txns + filtered_dist_txns
-        print(f'{len(bloxy_res) = }')
+        print(f'Length before filter_transaction_path: {len(bloxy_res)}')
         # process only dist bloxy res here
-        # if params['txn_hashes']:
-        #     bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
-        # print(f'{len(bloxy_res) = }')
+        if params['txn_hashes']:
+            bloxy_res = filter_transaction_path(bloxy_res, "outbound", params['txn_hashes'], victim_address)
+        print(f'Final bloxy response length: {len(bloxy_res)}')
         return bloxy_res
     except Exception as e:
         print("Exception in catv_query: ", traceback.format_exc())
