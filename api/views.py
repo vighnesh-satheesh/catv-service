@@ -114,8 +114,11 @@ class CATVView(APIView):
     def post(self, request):
         token_type = request.query_params.get('token_type', CatvTokens.ETH.value)
         search_type = request.query_params.get('search_type', CatvSearchType.FLOW.value)
-        is_legacy = request.query_params.get('is_legacy', True)
-
+        is_legacy_param = request.query_params.get('is_legacy', 'True')
+        if isinstance(is_legacy_param, str):
+            is_legacy = is_legacy_param.lower() != 'false'
+        else:
+            is_legacy = bool(is_legacy_param)
         # Validate request parameters
         validate_request_parameters(token_type, search_type)
 
@@ -440,7 +443,12 @@ class CATVReportView(APIView):
             "Fantom": CatvTokens.FTM.value,
             "Polygon": CatvTokens.POL.value
         }
-        is_legacy = request.query_params.get("is_legacy", True)
+        is_legacy_param = request.query_params.get('is_legacy', 'True')
+        if isinstance(is_legacy_param, str):
+            is_legacy = is_legacy_param.lower() != 'false'
+        else:
+            is_legacy = bool(is_legacy_param)
+
         token_type = utils.determine_wallet_type(obj.token_type)
         has_from_address = obj.params.get("address_from", "")
         token_type = reverse_token_map[token_type]
@@ -478,7 +486,7 @@ class CATVReportView(APIView):
                     "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         print("Submission Status: ", res)
-        
+
         return APIResponse({
             "data": {
                 **task_serializer.data
@@ -782,7 +790,11 @@ class CATVCSVUpload(APIView):
             # Read and validate CSV
             csv_file = request.FILES['file']
             df = pd.read_csv(csv_file, dtype=self.DTYPE_MAP)
-            is_legacy = request.query_params.get('is_legacy', True)
+            is_legacy_param = request.query_params.get('is_legacy', 'True')
+            if isinstance(is_legacy_param, str):
+                is_legacy = is_legacy_param.lower() != 'false'
+            else:
+                is_legacy = bool(is_legacy_param)
 
             if df.empty:
                 return APIResponse({
