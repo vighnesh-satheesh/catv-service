@@ -158,6 +158,7 @@ class CatvRequestStatus(models.Model):
     updated = models.DateTimeField(auto_now=True)
     labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
     token_type = EnumField(CatvTokens, default=CatvTokens.ETH)
+    is_legacy = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'api_catv_request_status'
@@ -193,6 +194,19 @@ class CatvJobQueue(models.Model):
             models.Index(fields=['created'])
         ]
 
+# New job queue for CATV revamp
+class CatvNeoJobQueue(models.Model):
+    message = JSONField(default=dict)
+    retries_remaining = models.IntegerField(default=3)
+    created = models.DateTimeField(default=now)
+
+    class Meta:
+        db_table = 'api_neo_catv_job_queue'
+        indexes = [
+            models.Index(fields=['retries_remaining']),
+            models.Index(fields=['created'])
+        ]
+
 class CatvNodeLabelModel(models.Model):
     uid = models.CharField(max_length=100)
     wallet_address = models.CharField(max_length=100)
@@ -208,6 +222,17 @@ class CatvCSVJobQueue(models.Model):
     created = models.DateTimeField(default=now)
     class Meta:
         db_table = 'api_csv_catv_job_queue'
+        indexes = [
+            models.Index(fields=['retries_remaining']),
+            models.Index(fields=['created'])
+        ]
+
+class CatvNeoCSVJobQueue(models.Model):
+    message = JSONField(default=dict)
+    retries_remaining = models.IntegerField(default=3)
+    created = models.DateTimeField(default=now)
+    class Meta:
+        db_table = 'api_neo_csv_catv_job_queue'
         indexes = [
             models.Index(fields=['retries_remaining']),
             models.Index(fields=['created'])

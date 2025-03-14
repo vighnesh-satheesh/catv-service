@@ -337,9 +337,9 @@ class CATVRequestListSerializer(NonNullModelSerializer):
     class Meta:
         model = models.CatvRequestStatus
         fields = ("id", "uid", "created", "status", "wallet_address",
-                  "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message")
+                  "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
         read_only_fields = ("id", "uid", "created", "status", "wallet_address",
-                            "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message")
+                            "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
 
     def get_wallet_address(self, obj):
         if obj.params:
