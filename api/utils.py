@@ -426,11 +426,16 @@ def build_error_response(bitquery_res):
 
     return standardized_error
 
-def string_to_bool(x):
-    x = x.lower()
-    if x == "false":
-        return False
-    elif x == "true":
-        return True
-    else:
-        return False
+def get_bool_param(params, key, default=False):
+    value = params.pop(key, default)
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        value = value.lower()
+        if value == "true":
+            return True
+        elif value == "false":
+            return False
+
+    return default

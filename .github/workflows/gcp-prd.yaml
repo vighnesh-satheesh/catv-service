@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - gcp_master
   workflow_dispatch:
     
 jobs:

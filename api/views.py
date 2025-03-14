@@ -25,7 +25,7 @@ from .exceptions import ValidationError
 from .models import (
     CatvHistory, CatvTokens, CatvSearchType,
     CatvRequestStatus, CatvTaskStatusType, CatvResult,
-    ProductType, CatvNodeLabelModel, CatvCSVJobQueue, ConsumerErrorLogs
+    ProductType, CatvNodeLabelModel, CatvCSVJobQueue, ConsumerErrorLogs, CatvNeoCSVJobQueue
 )
 from .multitoken.tokens_auth import CachedTokenAuthentication, MultiToken
 from .pagination import CatvRequestPagination, CustomPagination
@@ -74,12 +74,13 @@ def check_permission_for_lunc(token_type, user_details):
     return True
 
 
-def submit_catv_request(token_type, search_type, history, request, is_api=False):
+def submit_catv_request(token_type, search_type, history, request, is_legacy, is_api=False):
     catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
                                     token_type=token_type,
                                     search_type=search_type,
                                     search_params=history,
-                                    user=request.user
+                                    user=request.user,
+                                    is_legacy=is_legacy
                                     )
     catv_req_task.run()
     task = catv_req_task.save()
@@ -113,7 +114,11 @@ class CATVView(APIView):
     def post(self, request):
         token_type = request.query_params.get('token_type', CatvTokens.ETH.value)
         search_type = request.query_params.get('search_type', CatvSearchType.FLOW.value)
-
+        is_legacy_param = request.query_params.get('is_legacy', 'True')
+        if isinstance(is_legacy_param, str):
+            is_legacy = is_legacy_param.lower() != 'false'
+        else:
+            is_legacy = bool(is_legacy_param)
         # Validate request parameters
         validate_request_parameters(token_type, search_type)
 
@@ -135,7 +140,7 @@ class CATVView(APIView):
 
         try:
             # Submit CATV request
-            task_data = submit_catv_request(token_type, search_type, history, request)
+            task_data = submit_catv_request(token_type, search_type, history, request, is_legacy, is_api=False)
             return APIResponse({
                 "data": task_data,
                 "messages": {
@@ -146,38 +151,6 @@ class CATVView(APIView):
             print(str(e))
             raise exceptions.ServerError(
                 detail="Something went wrong while submitting your request. Please try again later.")
-
-            # else:
-        #     tracking_cache = TrackingCache()
-        #     cache_key = utils_map[search_type]['pattern_creator'](serializer.data)
-        #     history_runner = utils_map[search_type]['history_runner']
-        #     cached_entry = tracking_cache.get_cache_entry(cache_key)
-        #     history.update({'user_id': user_details['user_id'], 'token_type': token_type})
-        #     if not serializer.data.get('force_lookup', False) and cached_entry:
-        #         results = json.loads(gzip.decompress(cached_entry).decode())
-        #         history_runner.delay(history=history, from_history=True)
-        #     else:
-        #         results = serializer.get_tracking_results()
-        #         from_db = results["api_calls"] > 0
-        #         tracking_cache.set_cache_entry(cache_key, gzip.compress(json.dumps(results).encode()), 86400)
-        #         history_runner.delay(history=history, from_history=from_db)
-        #
-        #     catv_metrics = CatvMetrics(results["graph"])
-        #     if history.get("distribution_depth", 0) > 0:
-        #         dist_metrics = catv_metrics.generate_metrics(gt)
-        #         print(dist_metrics)
-        #     if history.get("source_depth", 0) > 0:
-        #         src_metrics = catv_metrics.generate_metrics(lt)
-        #         print(src_metrics)
-        #
-        #     if "graph" in results and "messages" in results:
-        #         return APIResponse({
-        #             "data": {**results["graph"]},
-        #             "messages": {**results["messages"]}
-        #         })
-        #     return APIResponse({
-        #         "data": results
-        #     })
 
 
 class CATVBTCView(APIView):
@@ -470,7 +443,12 @@ class CATVReportView(APIView):
             "Fantom": CatvTokens.FTM.value,
             "Polygon": CatvTokens.POL.value
         }
-        
+        is_legacy_param = request.query_params.get('is_legacy', 'True')
+        if isinstance(is_legacy_param, str):
+            is_legacy = is_legacy_param.lower() != 'false'
+        else:
+            is_legacy = bool(is_legacy_param)
+
         token_type = utils.determine_wallet_type(obj.token_type)
         has_from_address = obj.params.get("address_from", "")
         token_type = reverse_token_map[token_type]
@@ -495,7 +473,8 @@ class CATVReportView(APIView):
                                         token_type=token_type,
                                         search_type=search_type,
                                         search_params=obj.params,
-                                        user=request.user
+                                        user=request.user,
+                                        is_legacy=is_legacy
                                         )
         catv_req_task.run()
         task = catv_req_task.save()
@@ -507,7 +486,7 @@ class CATVReportView(APIView):
                     "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         print("Submission Status: ", res)
-        
+
         return APIResponse({
             "data": {
                 **task_serializer.data
@@ -811,6 +790,11 @@ class CATVCSVUpload(APIView):
             # Read and validate CSV
             csv_file = request.FILES['file']
             df = pd.read_csv(csv_file, dtype=self.DTYPE_MAP)
+            is_legacy_param = request.query_params.get('is_legacy', 'True')
+            if isinstance(is_legacy_param, str):
+                is_legacy = is_legacy_param.lower() != 'false'
+            else:
+                is_legacy = bool(is_legacy_param)
 
             if df.empty:
                 return APIResponse({
@@ -846,6 +830,7 @@ class CATVCSVUpload(APIView):
             job_queue = []
             request_status = []
             result_status = []
+            csv_job_queue_class = CatvCSVJobQueue if is_legacy else CatvNeoCSVJobQueue
 
             # Convert DataFrame to records for processing
             records = processed_df.to_dict('records')
@@ -854,7 +839,7 @@ class CATVCSVUpload(APIView):
                 message_id = uuid.uuid4()
 
                 # Prepare job queue entry
-                job_queue.append(CatvCSVJobQueue(
+                job_queue.append(csv_job_queue_class(
                     message={
                         "message_id": message_id.hex,
                         "user_id": request.user["user_id"],
@@ -869,7 +854,8 @@ class CATVCSVUpload(APIView):
                     uid=message_id,
                     params=params,
                     user_id=request.user["user_id"],
-                    token_type=params['token_type']
+                    token_type=params['token_type'],
+                    is_legacy=is_legacy
                 )
                 request_status.append(status)
 

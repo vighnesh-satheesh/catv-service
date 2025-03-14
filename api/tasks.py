@@ -5,7 +5,7 @@ from django.utils.timezone import now
 from .constants import Constants
 from .exceptions import DataIntegrityError
 from .models import (
-    CatvJobQueue, CatvRequestStatus, CatvResult,
+    CatvJobQueue, CatvRequestStatus, CatvResult, CatvNeoJobQueue,
 )
 from celery.utils.log import get_task_logger
 
@@ -60,6 +60,7 @@ class CatvRequestTask:
         self.search_type = kwargs["search_type"]
         self.search_params = kwargs["search_params"]
         self.user = kwargs["user"]
+        self.is_legacy = kwargs.get("is_legacy", False)
         
     def run(self):
         message_body = {
@@ -69,8 +70,9 @@ class CatvRequestTask:
             "search_type": self.search_type,
             "search_params": self.search_params
         }
-        CatvJobQueue.objects.create(message=message_body, retries_remaining=1)
-    
+        job_queue_class = CatvJobQueue if self.is_legacy else CatvNeoJobQueue
+        job_queue_class.objects.create(message=message_body, retries_remaining=1)
+
     def save(self):
         try:
             with transaction.atomic():
@@ -78,7 +80,8 @@ class CatvRequestTask:
                     uid=self.message_id,
                     params=self.search_params,
                     user_id=self.user["user_id"],
-                    token_type=self.token_type
+                    token_type=self.token_type,
+                    is_legacy=self.is_legacy
                 )
                 CatvResult.objects.create(request=task_record)
             return task_record
