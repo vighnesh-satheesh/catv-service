@@ -830,7 +830,9 @@ class CATVCSVUpload(APIView):
             job_queue = []
             request_status = []
             result_status = []
-            csv_job_queue_class = CatvCSVJobQueue if is_legacy else CatvNeoCSVJobQueue
+            csv_job_queue_class = CatvNeoCSVJobQueue
+            if is_legacy:
+                csv_job_queue_class = CatvCSVJobQueue
 
             # Convert DataFrame to records for processing
             records = processed_df.to_dict('records')
@@ -865,7 +867,7 @@ class CATVCSVUpload(APIView):
             # Bulk create in transaction with chunks
             with transaction.atomic():
                 for chunk in [job_queue[i:i + 50] for i in range(0, len(job_queue), 100)]:
-                    CatvCSVJobQueue.objects.bulk_create(chunk)
+                    csv_job_queue_class.objects.bulk_create(chunk)
                 for chunk in [request_status[i:i + 50] for i in range(0, len(request_status), 100)]:
                     CatvRequestStatus.objects.bulk_create(chunk)
                 for chunk in [result_status[i:i + 50] for i in range(0, len(result_status), 100)]:
