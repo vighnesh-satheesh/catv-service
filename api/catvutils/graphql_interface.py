@@ -107,46 +107,91 @@ class GraphQLInterface:
                   " (network: " + Constants.NETWORK_CHAIN_MAPPING_FOR_QUERY[self.chain] + " ) "
 
         try:
-            GRAPHQL_DEX_QUERY = f"""
-                query sentinel_query {{
-                    {network} {{
-                        dexTrades(
-                        txHash: {{ is: "{tx_hash}" }}
-                        ) {{
-                            block {{
-                                timestamp {{
-                                time(format: "%Y-%m-%d %H:%M:%S")
+            if self.chain.lower() in ('eth','bsc'):
+                GRAPHQL_DEX_QUERY = f"""
+                        query MyQuery {{
+                                    EVM(dataset: combined, network: {self.chain.lower()}) {{
+                                        DEXTrades(
+                                        where: {{TransactionStatus: {{Success: true}}, Transaction: {{Hash: {{is: "{tx_hash}"}}}}}}
+                                        ) {{
+                                        Block {{
+                                            Time
+                                            Number
+                                        }}
+                                        Trade {{
+                                            Index
+                                            Dex {{
+                                            ProtocolName
+                                            ProtocolVersion
+                                            ProtocolFamily
+                                            OwnerAddress
+                                            SmartContract
+                                            }}
+                                            Buy {{
+                                            Amount
+                                            AmountInUSD
+                                            Currency {{
+                                                Name
+                                                Symbol
+                                                SmartContract
+                                            }}
+                                            }}
+                                            Sell {{
+                                            Amount
+                                            AmountInUSD
+                                            Currency {{
+                                                Name
+                                                Symbol
+                                                SmartContract
+                                            }}
+                                            }}
+                                            Sender
+                                        }}
+                                        }}
+                                    }}
+                                    }}
+                    """
+            else:
+                GRAPHQL_DEX_QUERY = f"""
+                    query sentinel_query {{
+                        {network} {{
+                            dexTrades(
+                            txHash: {{ is: "{tx_hash}" }}
+                            ) {{
+                                block {{
+                                    timestamp {{
+                                    time(format: "%Y-%m-%d %H:%M:%S")
+                                    }}
+                                    height
                                 }}
-                                height
-                            }}
-                            tradeIndex
-                            protocol
-                            exchange {{
-                                fullName
-                            }}
-                            smartContract {{
-                                address {{
-                                address
-                                annotation
+                                tradeIndex
+                                protocol
+                                exchange {{
+                                    fullName
                                 }}
-                            }}
-                            buyAmount
-                            buy_amount_usd: buyAmount(in: USD)
-                            buyCurrency {{
-                                address
-                                symbol
-                            }}
-                            sellAmount
-                            sell_amount_usd: sellAmount(in: USD)
-                            sellCurrency {{
-                                address
-                                name
-                                symbol
+                                smartContract {{
+                                    address {{
+                                    address
+                                    annotation
+                                    }}
+                                }}
+                                buyAmount
+                                buy_amount_usd: buyAmount(in: USD)
+                                buyCurrency {{
+                                    address
+                                    symbol
+                                }}
+                                sellAmount
+                                sell_amount_usd: sellAmount(in: USD)
+                                sellCurrency {{
+                                    address
+                                    name
+                                    symbol
+                                }}
                             }}
                         }}
-                    }}
-                }}   
-                """
+                    }}   
+                    """
             return GRAPHQL_DEX_QUERY
         except Exception as e:
             traceback.print_exc()
@@ -253,32 +298,51 @@ class GraphQLInterface:
             r = requests.post(self._graphql_endpoint, json={'query': request_body}, headers=self._headers,
                               timeout=(self.connect_timeout, self.read_timeout))
             response_object = r.json()
-            dex_trades = response_object["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["dexTrades"]
-            if len(dex_trades) < 1:
-                return None
-            initial_smartcontract_address = dex_trades[0]['smartContract']['address']['address']
-            if initial_smartcontract_address != swap["receiver"]["address"]:
-                return None
-            final_currency_address = dex_trades[-1]['sellCurrency']['address']
-            from_time = dex_trades[-1]['block']['timestamp']['time']
-            new_amount = dex_trades[-1]['sellAmount']
-            new_amount_usd = dex_trades[-1]['sell_amount_usd']
+            if self.chain.lower() in ('eth','bsc'):
+               
+                dex_trades = response_object["data"]["EVM"]["DEXTrades"]
+                if len(dex_trades) < 1:
+                    return None
+                initial_smartcontract_address = dex_trades[0]['Trade']['Dex']['SmartContract']
+                if initial_smartcontract_address != swap["receiver"]["address"]:
+                    return None
+                final_currency_address = dex_trades[-1]['Trade']['Sell']['Currency']['SmartContract']
+                from_time = dex_trades[-1]['Block']['Time'].replace('T', ' ').replace('Z', '')  # Format time to match old format
+                new_amount = float(dex_trades[-1]['Trade']['Sell']['Amount'])  # Convert string to float if needed
+                new_amount_usd = float(dex_trades[-1]['Trade']['Sell']['AmountInUSD'])
+                token_address = dex_trades[-1]['Trade']['Sell']['Currency']['SmartContract']
+                new_currency = {
+                    "name": dex_trades[-1]['Trade']['Sell']['Currency']['Name'],
+                    "symbol": dex_trades[-1]['Trade']['Sell']['Currency']['Symbol'],
+                    "address": token_address
+                }
+            
+            else:
 
-            token_address = dex_trades[-1]['sellCurrency']['address']
-
-            new_currency = {"name": dex_trades[-1]['sellCurrency']['name'],
-                            "symbol": dex_trades[-1]['sellCurrency']['symbol'],
-                            "address": token_address
-                            }
+                dex_trades = response_object["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["dexTrades"]
+                if len(dex_trades) < 1:
+                    return None
+                initial_smartcontract_address = dex_trades[0]['smartContract']['address']['address']
+                if initial_smartcontract_address != swap["receiver"]["address"]:
+                    return None
+                final_currency_address = dex_trades[-1]['sellCurrency']['address']
+                from_time = dex_trades[-1]['block']['timestamp']['time']
+                new_amount = dex_trades[-1]['sellAmount']
+                new_amount_usd = dex_trades[-1]['sell_amount_usd']
+                token_address = dex_trades[-1]['sellCurrency']['address']
+                new_currency = {"name": dex_trades[-1]['sellCurrency']['name'],
+                                "symbol": dex_trades[-1]['sellCurrency']['symbol'],
+                                "address": token_address
+                                }
+                
+            
             swap_node = self.modify_swap_data(swap, new_amount, new_amount_usd, new_currency)
 
             print(f"THE TRANSCATION COMING TO swap_node IS : {swap_node}")
-
             response = []
-
             self.flatten_node(0, swap_node, response, [], token_address)
-
             results = self.call_graphql_endpoint(sender, final_currency_address, from_time, initial_depth)
+            
             return response + results
         except Exception:
             print("ERROR : process_swap")
