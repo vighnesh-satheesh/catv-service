@@ -300,6 +300,7 @@ API_SETTINGS = {
     "API_USER_CACHE": env.str('API_USER_CACHE_DB', 'user_cache'),
     "API_ICF_CACHE": env.str('API_ICF_CACHE_DB', 'api_icf_cache'),
     "GRAPHQL_ENDPOINT": env.str('API_GRAPHQL_ENDPOINT', 'https://graphql.bitquery.io'),
+    "GRAPHQL_ENDPOINT_V2": env.str('API_GRAPHQL_ENDPOINT_V2', 'https://streaming.bitquery.io/graphql'),
     "GRAPHQL_X_API_KEY": env.str('GRAPHQL_API_KEY', ''),
     "API_ELASTICSEARCH_HOST": env.str('API_ELASTICSEARCH_HOST', ''),
     "BLOXY_API_KEY" : env.str('API_BLOXY_KEY', 'ACCG4wmxpYKkd'),
