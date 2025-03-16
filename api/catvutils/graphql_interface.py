@@ -43,6 +43,7 @@ class GraphQLInterface:
     def __init__(self, chain, source, depth_limit, till_time, limit, is_ck_request=False):
         self._graphql_key = api_settings.GRAPHQL_X_API_KEY
         self._graphql_endpoint = api_settings.GRAPHQL_ENDPOINT
+        self._graphql_endpoint_v2 = api_settings.GRAPHQL_ENDPOINT_V2
         self._headers = {'X-API-KEY': self._graphql_key}
         self.chain = chain
         self.source = source
@@ -295,11 +296,12 @@ class GraphQLInterface:
             return []
 
         try:
-            r = requests.post(self._graphql_endpoint, json={'query': request_body}, headers=self._headers,
-                              timeout=(self.connect_timeout, self.read_timeout))
-            response_object = r.json()
+
             if self.chain.lower() in ('eth','bsc'):
                
+                r = requests.post(self._graphql_endpoint_v2, json={'query': request_body}, headers=self._headers,
+                    timeout=(self.connect_timeout, self.read_timeout))
+                response_object = r.json()
                 dex_trades = response_object["data"]["EVM"]["DEXTrades"]
                 if len(dex_trades) < 1:
                     return None
@@ -318,6 +320,10 @@ class GraphQLInterface:
                 }
             
             else:
+
+                r = requests.post(self._graphql_endpoint, json={'query': request_body}, headers=self._headers,
+                                    timeout=(self.connect_timeout, self.read_timeout))
+                response_object = r.json()
 
                 dex_trades = response_object["data"][Constants.NETWORK_CHAIN_MAPPING_FOR_RESPONSE[self.chain]]["dexTrades"]
                 if len(dex_trades) < 1:
