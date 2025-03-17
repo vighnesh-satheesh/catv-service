@@ -170,8 +170,11 @@ REST_FRAMEWORK = {
 
 # cross origin setting
 CORS_ALLOWED_ORIGIN_REGEXES = env.str('CORS_ORIGIN_WHITELIST_REGEX',
-                                     default=[r'^https://.*?.*?\w+\.sentinelprotocol\.[a-zA-Z]+$',
-                                             r'^http://localhost:[0-9]+$'])
+                                      default=[r'^https://.*?.*?\w+\.sentinelprotocol\.[a-zA-Z]+$',
+                                               r'^http://localhost:[0-9]+$',
+                                               r'^https://.*chainbounty\.io.*$'
+                                               ]
+                                      )
 if not CORS_ALLOWED_ORIGIN_REGEXES:
     CORS_ALLOW_ALL_ORIGINS = True
 
