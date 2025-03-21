@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 from web3 import Web3
 from multiprocessing.pool import ThreadPool
 
-from api.catvutils.bloxy_interface import BloxyAPIInterface
+from api.catvutils.coinpath_interface import CoinpathAPIInterface
 from api.rpc.RPCClient import RPCAPIRateFetcher, RPCAPIRequestValidator, RPCClientUpdateUsageCatvCall, \
     RPCClientCATVFetchIndicators
 from api.utils import validate_coin, is_eth_based_wallet, serializer_map, build_error_response, \
@@ -168,11 +168,11 @@ def catv_query(route, request, chain):
         params = {k: v for k, v in request.GET.items()}
         token = _get_token(chain, params)
 
-        bloxy = BloxyAPIInterface()
+        coinpath = CoinpathAPIInterface()
 
         if route == 'outbound':
             source = False
-        bloxy_res = bloxy.get_transactions(params['address'], params['limit'],
+        bloxy_res = coinpath.get_transactions(params['address'], params['limit'],
                                            params['depth_limit'], source, chain,
                                            params['from_date'], params['till_date'], token
                                            )
@@ -352,9 +352,9 @@ def ck_query(request, chain):
         token, threat_address, victim_address = extract_addresses(params, chain)
         is_victim_dex = True if params['query_source'] else check_if_victim_dex(victim_address)
         print(f"{is_victim_dex=}")
-        bloxy = BloxyAPIInterface(True)
+        coinpath = CoinpathAPIInterface(True)
         # split into src and dist
-        bloxy_res_dist, bloxy_res_src = fetch_transactions(bloxy, params, chain, token, threat_address, victim_address, is_victim_dex)
+        bloxy_res_dist, bloxy_res_src = fetch_transactions(coinpath, params, chain, token, threat_address, victim_address, is_victim_dex)
 
         if 'errors' in bloxy_res_dist and bloxy_res_dist['errors']:
             return handle_bloxy_errors(bloxy_res_dist)
@@ -369,10 +369,15 @@ def ck_query(request, chain):
             return []
 
         addr_list = create_address_list(all_transactions, chain)
-        annotation_dict = fetch_annotations(addr_list, chain)
+
+        annotation_dict = {}
+        if  coinpath.api_used != 'tracer' : 
+            print("fetch_annotations")
+            annotation_dict = fetch_annotations(addr_list, chain)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            annotate_and_filter = partial(annotate_and_filter_transactions, annotation_dict=annotation_dict)
+            
+            annotate_and_filter = partial(annotate_and_filter_transactions, annotation_dict=annotation_dict, api_used=coinpath.api_used)
 
             future_dist = executor.submit(annotate_and_filter, bloxy_res_dist, "outbound")
             future_src = executor.submit(annotate_and_filter, bloxy_res_src, "inbound")
@@ -401,11 +406,14 @@ def ck_query(request, chain):
         return False
 
 
-def annotate_and_filter_transactions(transactions, direction, annotation_dict):
+def annotate_and_filter_transactions(transactions, direction, api_used,  annotation_dict):
     if not transactions:
         return []
     # Annotate all transactions
-    annotated = annotate_transactions(transactions, annotation_dict)
+    print(f"api_used : {api_used}")
+    annotated = transactions
+    if api_used != 'tracer': 
+        annotated = annotate_transactions(transactions, annotation_dict)
 
     # Filter based on direction
     if direction == "inbound":
