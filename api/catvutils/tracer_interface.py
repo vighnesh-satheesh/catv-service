@@ -1,6 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import json
 from multiprocessing.pool import ThreadPool
+import os
 import traceback
 from typing import List, Dict, Any, Optional
 
@@ -109,18 +111,20 @@ class TracerAPIInterface:
 
     
     def _get_tx_with_swaps(self, initial_data, possible_swaps):
-
         try:
             print(f"{len(possible_swaps)=}")
             if len(possible_swaps) > 0:
-                with ThreadPool(processes=len(possible_swaps)) as pool:
-                    results = pool.map(self._process_swap, possible_swaps)
-
-                valid_requests = [item for result in results if result is not None for item in result]
+                max_workers = min(32, os.cpu_count() or 4)
+                valid_requests = []
+                
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Process results as they complete rather than waiting for all
+                    for result in executor.map(self._process_swap, possible_swaps):
+                        if result is not None:
+                            valid_requests.extend(result)
+                
                 initial_data.extend(valid_requests)
-
             return initial_data
-
         except Exception as e:
             print("ERROR : get_tx_with_swaps")
             traceback.print_exc()
