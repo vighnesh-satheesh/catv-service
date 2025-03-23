@@ -30,7 +30,9 @@ class CoinpathAPIInterface:
             
             transformed_tx = tx.copy()
             transformed_tx["amount"] = float(tx["amount"])  
-            transformed_tx["token"] = tx["token"]["address"]  
+            transformed_tx["token"] = ''
+            if "token" in tx and tx["token"] is not None:
+                transformed_tx["token"] = tx["token"]["address"]
             transformed_tx["tx_time"] = tx["tx_time"].replace("Z", "+00:00")  
             
             transformed_data.append(transformed_tx)
@@ -55,12 +57,13 @@ class CoinpathAPIInterface:
                 transaction_data = tracer_interface.get_transactions(
                     address,
                     limit,
+                    0,
                     depth_limit,
                     from_time,
                     till_time,
                     token_address,
                     source,
-                    chain
+                    chain, 
                 )
                 self.ext_api_calls += 1
 

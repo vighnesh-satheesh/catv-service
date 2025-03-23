@@ -1,4 +1,6 @@
+from datetime import datetime
 import json
+from multiprocessing.pool import ThreadPool
 import traceback
 from typing import List, Dict, Any, Optional
 
@@ -11,19 +13,19 @@ class TracerAPIInterface:
     """Interface for Tracer API"""
 
     def __init__(self):
-        self._api_url = settings.TRACER_ENDPOINT
         self._timeout = (60, 600)
 
     def get_transactions(
             self,
             address: str,
             tx_limit: int,
+            depth,
             depth_limit: int = 2,
             from_time: str = None,
             till_time: str = None,
             token_address: Optional[str] = None,
             source: bool = True,
-            chain: str = 'ETH'
+            chain: str = 'ETH',
     ) -> List[Dict[str, Any]]:
         """
         Get transaction data from Tracer API.
@@ -50,17 +52,17 @@ class TracerAPIInterface:
                     token_address] if token_address and token_address != "0x0000000000000000000000000000000000000000" else []
             }
             endpoint = 'trace-inbound' if source else "trace-outbound"
-            self._api_url += endpoint
-            print(f"Calling Tracer API: {self._api_url} body: {json.dumps(request_body)}")
+            api_url = settings.TRACER_ENDPOINT + endpoint
+            print(f"Calling Tracer API: {api_url} body: {json.dumps(request_body)}")
             # Make API call
             response = requests.post(
-                self._api_url,
+                api_url,
                 json=request_body,
                 timeout=self._timeout
             )
             response.raise_for_status()  # Raise exception for HTTP errors
             # Process and return data in the same format as BitqueryAPIInterface
-            return self._process_response(response.json(), source)
+            return self._process_response(response.json(), source, depth)
 
         except Exception:
             traceback.print_exc()
@@ -81,12 +83,56 @@ class TracerAPIInterface:
             # Add other chains as needed
         }
         return chain_mapping.get(chain, 1)  # Default to Ethereum
+    
+    def _process_swap(self, swap):
+       
+        address = swap["sender"]
+        from_time = swap["tx_time"]
+        depth = swap["depth"]
+        token_address = swap["swap_info"]["token_out"]["address"]
+        source = False
+        chain: str = 'ETH'
+        till_time = datetime.now()
+        try:
+            print(f"THE TRANSCATION COMING TO swap IS : {swap}")
+            swap_node = TracerAPIInterface.create_reverse_swap_transactions(swap)
+            print(f"THE TRANSCATION COMING TO swapped_node IS : {swap_node}")
+            response = []
+            response.append(swap_node)
+            results = self.get_transactions(address, 1000, depth, 5, from_time, till_time, token_address, source, chain)
+            
+            return response + results
+        except Exception:
+            print("ERROR : process_swap")
+            traceback.print_exc()
+            return []
 
-    def _process_response(self, response_data: Dict, source: bool) -> List[Dict[str, Any]]:
+    
+    def _get_tx_with_swaps(self, initial_data, possible_swaps):
+
+        try:
+            print(f"{len(possible_swaps)=}")
+            if len(possible_swaps) > 0:
+                with ThreadPool(processes=len(possible_swaps)) as pool:
+                    results = pool.map(self._process_swap, possible_swaps)
+
+                valid_requests = [item for result in results if result is not None for item in result]
+                initial_data.extend(valid_requests)
+
+            return initial_data
+
+        except Exception as e:
+            print("ERROR : get_tx_with_swaps")
+            traceback.print_exc()
+            return None
+
+
+    def _process_response(self, response_data: Dict, source: bool, depth) -> List[Dict[str, Any]]:
         """
         Process the response from Tracer API to match the format expected by TrackingResults.
         """
         transactions = response_data.get('transactions', [])
+        swap_transactions = []
 
         unwanted_fields = [
             'chain_id', 'block_height', 'direction', 'original_value',
@@ -96,77 +142,61 @@ class TracerAPIInterface:
 
         # Process transactions
         for transaction in transactions:
-            # Remove unwanted fields
+            
+            if transaction.get('is_swap') and transaction.get('swap_info'):
+                swap_transactions.append(transaction)
             for field in unwanted_fields:
                 transaction.pop(field, None)
-
+            transaction['depth'] += depth # adding depth for tracking swapped tokens
             # offsetting depth to -(depth) for source transactions
             if source:
                 transaction['depth'] = -transaction['depth']
 
-        # Process swaps to create reverse transactions
-        swap_transactions = [tx for tx in transactions if tx.get('is_swap') and tx.get('swap_info')]
-        reverse_swap_transactions = TracerAPIInterface.create_reverse_swap_transactions(swap_transactions)
-
-        # Add the reverse swap transactions to the original list
-        if reverse_swap_transactions:
-            transactions.extend(reverse_swap_transactions)
-            print(f"Added {len(reverse_swap_transactions)} reverse swap transactions")
-
-        return transactions
+        #return transactions
+        return self._get_tx_with_swaps(transactions, swap_transactions)
 
     @staticmethod
-    def create_reverse_swap_transactions(swap_transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Create reverse transactions for swaps to visualize token flow from router back to sender.
+    def create_reverse_swap_transactions(tx):
 
-        Args:
-            swap_transactions: List of transactions with is_swap=true and valid swap_info
-
-        Returns:
-            List of new transaction objects representing the reverse swap flow
-        """
-        reverse_transactions = []
-
-        for tx in swap_transactions:
-            swap_info = tx.get('swap_info', {})
-            token_out = swap_info.get('token_out', {})
+        swap_info = tx.get('swap_info', {})
+        token_out = swap_info.get('token_out', {})
 
             # Skip if token_out is missing or invalid
-            if not token_out or not isinstance(token_out, dict):
-                continue
+        if not token_out or not isinstance(token_out, dict):
+            return
 
             # Create reverse transaction (from router to original sender)
-            reverse_tx = {
-                # Keep same identification fields
-                "depth": tx.get('depth'),
-                "tx_hash": tx.get('tx_hash'),
-                "tx_time": tx.get('tx_time'),
+        reverse_tx = {
+            # Keep same identification fields
+            "depth": tx.get('depth'),
+            "tx_hash": tx.get('tx_hash'),
+            "tx_time": tx.get('tx_time'),
 
-                # Swap addresses
-                "sender": tx.get('receiver'),  # Router address is now sender
-                "receiver": tx.get('sender'),  # Original sender is now receiver
+            # Swap addresses
+            "sender": tx.get('receiver'),  # Router address is now sender
+            "receiver": tx.get('sender'),  # Original sender is now receiver
 
-                # Swap annotations and security categories
-                "sender_annotation": tx.get('receiver_annotation', ''),
-                "receiver_annotation": tx.get('sender_annotation', ''),
+            # Swap annotations and security categories
+            "sender_annotation": tx.get('receiver_annotation', ''),
+            "receiver_annotation": tx.get('sender_annotation', ''),
 
-                # Token details from token_out
+            # Token details from token_out
+            "token": {
+                "address": token_out.get('address', ''),
                 "symbol": token_out.get('symbol', ''),
-                "token": token_out.get('address', ''),
-                "token_type": "ERC20",  # Assuming all swap tokens are ERC20
-                "token_id": "",
+            },
+            "token_type": "ERC20",  # Assuming all swap tokens are ERC20
+            "token_id": "",
 
-                # Amount from swap_info.amount_out
-                "amount": float(swap_info.get('amount_out', 0)),
-                "amount_usd": 0,  # Update when value is available
+            # Amount from swap_info.amount_out
+            "amount": float(swap_info.get('amount_out', 0)),
+            "amount_usd": 0,  # Update when value is available
 
-                # Swap sender/receiver types
-                "sender_type": tx.get('receiver_type', 'Generic'),
-                "receiver_type": tx.get('sender_type', 'Wallet'),
-                "is_swap": True
-            }
+            # Swap sender/receiver types
+            "sender_type": tx.get('receiver_type', 'Generic'),
+            "receiver_type": tx.get('sender_type', 'Wallet'),
+            "is_swap": True
+        }
 
-            reverse_transactions.append(reverse_tx)
-
-        return reverse_transactions
+            
+        return reverse_tx
