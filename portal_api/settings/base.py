@@ -310,7 +310,8 @@ API_SETTINGS = {
     "ES_INDEX": env.str('ES_INDEX', 'dev_latest_indicator'),
     "API_ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
     "ES_FLAG": env.bool('ES_FLAG', True),
-    "CATV_REPORT_BASE_URL": env.str('CATV_REPORT_BASE_URL', "https://stgportal.sentinelprotocol.io/catv-report")
+    "CATV_REPORT_BASE_URL": env.str('CATV_REPORT_BASE_URL', "https://stgportal.sentinelprotocol.io/catv-report"),
+    "TRACER_ENDPOINT": env.str("TRACER_ENDPOINT", "https://stgtracer-api.sentinelprotocol.io/"),
 }
 
 # Add AWS Private IP to ALLOWED_HOSTS.
@@ -363,3 +364,7 @@ RABBIT_MQ_REGION=API_SETTINGS['RABBIT_MQ_REGION']
 RABBIT_MQ_BROKER_ID=API_SETTINGS['RABBIT_MQ_BROKER_ID']
 RABBIT_MQ_ENV=API_SETTINGS['RABBIT_MQ_ENV']
 RABBIT_MQ_LOCAL_URL=API_SETTINGS['RABBIT_MQ_LOCAL_URL']
+
+
+# TRACER
+TRACER_ENDPOINT = API_SETTINGS["TRACER_ENDPOINT"]

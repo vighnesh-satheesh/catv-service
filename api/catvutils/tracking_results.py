@@ -6,7 +6,7 @@ from multiprocessing.pool import ThreadPool
 from django.conf import settings
 from django.utils.timezone import make_aware
 
-from .bloxy_interface import BloxyAPIInterface
+from .coinpath_interface import CoinpathAPIInterface
 from .graphtools import (
     generate_nodes_edges, generate_nodes_edges_btc,
     generate_nodes_edges_coinpath, generate_nodes_edges_ethcoinpath,
@@ -73,7 +73,7 @@ class TrackingResults:
 
     def fetch_results(self, tx_limit, limit, save_to_db, for_source=False):
         till_date_extend = self.to_date + "T23:59:59"
-        bloxy = BloxyAPIInterface(settings.BLOXY_API_KEY)
+        coinpath = CoinpathAPIInterface()
 
         if for_source:
             bloxy_db_class = BloxySource
@@ -88,7 +88,7 @@ class TrackingResults:
         aware_to_date = make_aware(datetime.strptime(self.to_date, '%Y-%m-%d'))
         try:
             if self.force_lookup:
-                transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, tx_limit, limit, for_source)
+                transaction_data = self.get_results_from_bloxy(coinpath, depth_limit, till_date_extend, tx_limit, limit, for_source)
                 if save_to_db and transaction_data:
                     self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date, transaction_data)
                 self.ext_api_calls += 1
@@ -101,7 +101,7 @@ class TrackingResults:
                                                             .order_by('-id', '-updated', '-till_time',
                                                                       'from_time')[0:1]
                 if not db_results or len(db_results[0]['result']) == 0:
-                    transaction_data = self.get_results_from_bloxy(bloxy, depth_limit, till_date_extend, tx_limit, limit, for_source)
+                    transaction_data = self.get_results_from_bloxy(coinpath, depth_limit, till_date_extend, tx_limit, limit, for_source)
                     if save_to_db and transaction_data:
                         self.save_bloxy_result(bloxy_db_class, depth_limit, aware_from_date, aware_to_date,
                                                transaction_data)
