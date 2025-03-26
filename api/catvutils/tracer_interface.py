@@ -140,8 +140,8 @@ class TracerAPIInterface:
 
         unwanted_fields = [
             'chain_id', 'block_height', 'direction', 'original_value',
-            'tracked_value', 'pending_value', 'receiver_sender_type',
-            'sender_security_category', 'receiver_security_category'
+            'tracked_value', 'pending_value', 'receiver_sender_type'
+            
         ]
 
         # Process transactions
