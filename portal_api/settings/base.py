@@ -311,6 +311,7 @@ API_SETTINGS = {
     "API_ELASTICSEARCH_CREDENTIALS": env.str('API_ELASTICSEARCH_CREDENTIALS', ''),
     "ES_FLAG": env.bool('ES_FLAG', True),
     "CATV_REPORT_BASE_URL": env.str('CATV_REPORT_BASE_URL', "https://stgportal.sentinelprotocol.io/catv-report"),
+    "CATV_NEO_REPORT_BASE_URL": env.str('CATV_NEO_REPORT_BASE_URL', "https://stgcatv.sentinelprotocol.io/catv-report"),
     "TRACER_ENDPOINT": env.str("TRACER_ENDPOINT", "https://stgtracer-api.sentinelprotocol.io/"),
 }
 
