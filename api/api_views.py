@@ -873,6 +873,11 @@ class CATVReportLinkView(APIView):
         if not data.get("transaction_limit"):
             data["transaction_limit"] = 2000
         token_type = data.get('token_type', CatvTokens.ETH.value).upper()
+        is_legacy_param = data.get('is_legacy', 'False')
+        if isinstance(is_legacy_param, str):
+            is_legacy = is_legacy_param.lower() != 'false'
+        else:
+            is_legacy = bool(is_legacy_param)
         search_type = data.get('search_type', CatvSearchType.FLOW.value)
         serializer_cls = serializer_map[token_type][search_type]
         serializer = serializer_cls(data=data, context={"request": request})
@@ -885,7 +890,7 @@ class CATVReportLinkView(APIView):
             auth = rpc_response["auth"]
             request.user = auth
             # Submit CATV request
-            catv_sub_res = submit_catv_request(token_type, search_type, history, request, True, True)
+            catv_sub_res = submit_catv_request(token_type, search_type, history, request, is_legacy, True)
             self.request_uid = catv_sub_res["uid"]
             try:
                 self.check_status()
@@ -905,7 +910,7 @@ class CATVReportLinkView(APIView):
                     "status": True,
                     "request_uid": self.request_uid,
                     "data": {
-                        "report_url": self.get_catv_report_url(),
+                        "report_url": self.get_catv_report_url(is_legacy),
                         "message": Constants.CATV_API["CATV_REPORT_SUCCESS"]
                     },
                     "request_params": data
@@ -947,5 +952,9 @@ class CATVReportLinkView(APIView):
                 self.failed = True
                 break
 
-    def get_catv_report_url(self):
-        return f'{api_settings.CATV_REPORT_BASE_URL}/{self.request_uid}'
+    def get_catv_report_url(self, is_legacy):
+        if is_legacy:
+            report_base_url = api_settings.CATV_REPORT_BASE_URL
+        else:
+            report_base_url = api_settings.CATV_NEO_REPORT_BASE_URL
+        return f'{report_base_url}/{self.request_uid}'
