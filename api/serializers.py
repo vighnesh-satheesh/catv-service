@@ -329,6 +329,7 @@ class CATVRequestListSerializer(NonNullModelSerializer):
     depth = serializers.SerializerMethodField()
     status = fields.EnumField(enum=models.CatvTaskStatusType)
     created = serializers.SerializerMethodField()
+    updated = serializers.SerializerMethodField()
     token_address = serializers.SerializerMethodField()
     token_type = fields.EnumField(enum=models.CatvTokens)
     labels = serializers.ListField(child=serializers.CharField(), required=False, read_only=True)
@@ -336,9 +337,9 @@ class CATVRequestListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.CatvRequestStatus
-        fields = ("id", "uid", "created", "status", "wallet_address",
+        fields = ("id", "uid", "created", "updated", "status", "wallet_address",
                   "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
-        read_only_fields = ("id", "uid", "created", "status", "wallet_address",
+        read_only_fields = ("id", "uid", "created", "updated", "status", "wallet_address",
                             "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
 
     def get_wallet_address(self, obj):
@@ -374,6 +375,11 @@ class CATVRequestListSerializer(NonNullModelSerializer):
         if obj.created is None:
             return None
         return time.mktime(obj.created.timetuple()) * 1000
+
+    def get_updated(self, obj):
+        if obj.updated is None:
+            return None
+        return time.mktime(obj.updated.timetuple()) * 1000
 
     def get_token_address(self, obj):
         if obj.params:

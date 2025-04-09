@@ -15,7 +15,9 @@ ALLOWED_HOSTS += [
     "stgportal.sentinelprotocol.io",
     "gcp-stgportal.api.sentinelprotocol.io", 
     "gcp-stgportal.sentinelprotocol.io",
-    "stgcatv.api.sentinelprotocol.io"
+    "stgcatv.api.sentinelprotocol.io",
+    "track.chainbounty.io",
+    "chainbounty.io"
 ] 
 ALLOWED_HOSTS += ["172.16.4.%s" % s for s in range(2, 255)]
 ALLOWED_HOSTS += ["172.16.5.%s" % s for s in range(2, 255)]

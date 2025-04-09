@@ -22,7 +22,10 @@ ALLOWED_HOSTS += ['172.16.{}.{}'.format(i, j)
 
 
 ALLOWED_HOSTS += [
-    "localhost", "test.sentinelportal.com", "gcp-catv-service.api.sentinelprotocol.io","catv-service.api.sentinelprotocol.io", "gcp-portal.api.sentinelprotocol.io","portal.api.sentinelprotocol.io", "gcp-portal.sentinelprotocol.io","portal.sentinelprotocol.io", ".sentinelprotocol.io", "gcp-catv.api.sentinelprotocol.io","catv.api.sentinelprotocol.io"
+    "localhost", "test.sentinelportal.com", "gcp-catv-service.api.sentinelprotocol.io","catv-service.api.sentinelprotocol.io",
+    "gcp-portal.api.sentinelprotocol.io","portal.api.sentinelprotocol.io", "gcp-portal.sentinelprotocol.io",
+    "portal.sentinelprotocol.io", ".sentinelprotocol.io", "gcp-catv.api.sentinelprotocol.io","catv.api.sentinelprotocol.io",
+    "track.chainbounty.io", "chainbounty.io"
 ]
 
 # TODO: version file or tag?
