@@ -47,10 +47,10 @@ class CoinpathAPIInterface:
         should_use_tracer_first = chain in ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'TRX', 'BTC']
 
         # Special case: If chain is BSC and there's a valid token address, don't use tracer first
-        if (chain == 'BSC' and token_address is not None and token_address != "" and token_address != '0x0000000000000000000000000000000000000000'):
+        if chain == 'BSC' and token_address is not None and token_address != "" and token_address != '0x0000000000000000000000000000000000000000':
             should_use_tracer_first = False
         
-        if should_use_tracer_first and self.is_ck_request:
+        if should_use_tracer_first:
             try:
                 # Try Tracer API first
                 tracer_interface = TracerAPIInterface()
