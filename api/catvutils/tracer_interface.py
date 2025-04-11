@@ -69,7 +69,7 @@ class TracerAPIInterface:
             )
             response.raise_for_status()  # Raise exception for HTTP errors
             # Process and return data in the same format as BitqueryAPIInterface
-            return self._process_response(response.json(), source, depth)
+            return self._process_response(response.json(), source, depth, is_ck_request)
 
         except Exception:
             traceback.print_exc()
@@ -89,7 +89,6 @@ class TracerAPIInterface:
         return chain_mapping.get(chain, (1, 'evm'))  # Default to Ethereum
     
     def _process_swap(self, swap):
-       
         address = swap["sender"]
         from_time = swap["tx_time"]
         depth = swap["depth"]
@@ -103,6 +102,7 @@ class TracerAPIInterface:
             print(f"THE TRANSCATION COMING TO swapped_node IS : {swap_node}")
             response = []
             response.append(swap_node)
+
             results = self.get_transactions(address, 1000, depth, 5, from_time, till_time, token_address, source, chain)
             
             return response + results
@@ -132,8 +132,8 @@ class TracerAPIInterface:
             traceback.print_exc()
             return None
 
-
-    def _process_response(self, response_data: Dict, source: bool, depth) -> List[Dict[str, Any]]:
+    def _process_response(self, response_data: Dict, source: bool, depth, is_ck_request: bool = False) -> List[
+        Dict[str, Any]]:
         """
         Process the response from Tracer API to match the format expected by TrackingResults.
         """
@@ -158,7 +158,11 @@ class TracerAPIInterface:
             if source:
                 transaction['depth'] = -transaction['depth']
 
-        #return transactions
+        # for catv requests bypass processing swap transactions
+        if not is_ck_request:
+            return transactions
+
+        #return transactions for ck request
         return self._get_tx_with_swaps(transactions, swap_transactions)
 
     @staticmethod
