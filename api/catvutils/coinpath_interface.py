@@ -63,7 +63,8 @@ class CoinpathAPIInterface:
                     till_time,
                     token_address,
                     source,
-                    chain, 
+                    chain,
+                    self.is_ck_request
                 )
                 self.ext_api_calls += 1
 
