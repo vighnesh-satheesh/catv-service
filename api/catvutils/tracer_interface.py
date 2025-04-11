@@ -28,6 +28,7 @@ class TracerAPIInterface:
             token_address: Optional[str] = None,
             source: bool = True,
             chain: str = 'ETH',
+            is_ck_request: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Get transaction data from Tracer API.
@@ -40,7 +41,11 @@ class TracerAPIInterface:
             else:
                 start_datetime = from_time
 
-            end_datetime = f"{till_time}Z"
+            if not is_ck_request:
+                end_datetime = f"{till_time}T23:59:59Z"
+            else:
+                end_datetime = f"{till_time}Z"
+
             # Prepare request body
             request_body = {
                 "chain_type": chain_type,
