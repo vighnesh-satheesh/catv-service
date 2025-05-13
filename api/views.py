@@ -291,7 +291,12 @@ class CATVRequestsView(generics.ListAPIView):
     
     def list(self, request, *args, **kwargs):
         status = self.request.query_params.get("status", None)
-        is_bt_request = self.request.query_params.get("is_bt_request", False)
+        is_bt_request = request.query_params.get('is_bt_request', 'False')
+        if isinstance(is_bt_request, str):
+            is_bt_request = is_bt_request.lower() != 'false'
+        else:
+            is_bt_request = bool(is_bt_request)
+        print(f"{is_bt_request=}")
         if status and status not in \
             [CatvTaskStatusType.PROGRESS.value,
              CatvTaskStatusType.RELEASED.value,
