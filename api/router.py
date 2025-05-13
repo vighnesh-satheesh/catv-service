@@ -34,6 +34,7 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^catvmultireport/?$', views.CATVMultiReportView.as_view(), name='catv-multi-report'),
         re_path(r'^catvrequests/(?P<pk>[0-9a-z\-]+)/?$', views.CATVRequestDetailView.as_view(),
             name='catv-request-detail'),
+        re_path(r'^catvrequest-status/(?P<request_uid>[0-9a-z\-]+)/?$', views.CatvRequestStatusView.as_view(), name='catv-request-status'),
         re_path(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
         re_path(r'^catvnodelabel/?$', views.CATVNodeLabelView.as_view(), name='catv-node-label'),
         re_path(r'^catvcsvupload/?$', views.CATVCSVUpload.as_view(), name='catv-csv-upload'),

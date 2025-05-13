@@ -10,7 +10,7 @@ from django.db.models import OuterRef, Subquery, Q, Case, When, Value, TextField
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.authentication import get_authorization_header
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -74,13 +74,14 @@ def check_permission_for_lunc(token_type, user_details):
     return True
 
 
-def submit_catv_request(token_type, search_type, history, request, is_legacy, is_api=False):
+def submit_catv_request(token_type, search_type, history, request, is_legacy, is_bounty_track, is_api=False):
     catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
                                     token_type=token_type,
                                     search_type=search_type,
                                     search_params=history,
                                     user=request.user,
-                                    is_legacy=is_legacy
+                                    is_legacy=is_legacy,
+                                    is_bounty_track=is_bounty_track
                                     )
     catv_req_task.run()
     task = catv_req_task.save()
@@ -94,6 +95,7 @@ def submit_catv_request(token_type, search_type, history, request, is_legacy, is
         user_details, verified_token = MultiToken.get_user_from_key(request)
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
                     'source': 'portal',
+                    'is_bounty_track': is_bounty_track,
                     "uid": str(user_details['user_uid']),
                     "credits_required": user_details['usage']['credits_requirement']['catv']}
         res = (rpc.call(user_rpc)).decode('UTF-8')
@@ -110,6 +112,7 @@ class CATVView(APIView):
     def get_throttles(self):
         if self.request.method.lower() == 'post':
             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+        return None
 
     def post(self, request):
         token_type = request.query_params.get('token_type', CatvTokens.ETH.value)
@@ -119,6 +122,13 @@ class CATVView(APIView):
             is_legacy = is_legacy_param.lower() != 'false'
         else:
             is_legacy = bool(is_legacy_param)
+
+        is_bounty_track = request.query_params.get('is_bounty_track', 'False')
+        if isinstance(is_bounty_track, str):
+            is_bounty_track = is_bounty_track.lower() != 'false'
+        else:
+            is_bounty_track = bool(is_bounty_track)
+        print(f"is_bounty_track: {is_bounty_track}")
         # Validate request parameters
         validate_request_parameters(token_type, search_type)
 
@@ -140,7 +150,7 @@ class CATVView(APIView):
 
         try:
             # Submit CATV request
-            task_data = submit_catv_request(token_type, search_type, history, request, is_legacy, is_api=False)
+            task_data = submit_catv_request(token_type, search_type, history, request, is_legacy, is_bounty_track, is_api=False)
             return APIResponse({
                 "data": task_data,
                 "messages": {
@@ -281,6 +291,7 @@ class CATVRequestsView(generics.ListAPIView):
     
     def list(self, request, *args, **kwargs):
         status = self.request.query_params.get("status", None)
+        is_bt_request = self.request.query_params.get("is_bt_request", False)
         if status and status not in \
             [CatvTaskStatusType.PROGRESS.value,
              CatvTaskStatusType.RELEASED.value,
@@ -288,15 +299,17 @@ class CATVRequestsView(generics.ListAPIView):
             raise exceptions.ValidationError("Invalid status type parameter")
         page = self.request.GET.get("page", 1)
         page = int(page)
-        queryset = self.filter_queryset(self.get_queryset(request.user["user_id"], status))
+        queryset = self.filter_queryset(self.get_queryset(request.user["user_id"], status, is_bt_request))
         page = self.paginate_queryset(queryset)
         serializer = CATVRequestListSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
 
-    def get_queryset(self, user_id, status):
+    def get_queryset(self, user_id, status, is_bt_request=False):
         filter_queries = Q(user_id=user_id)
         if status:
             filter_queries &= Q(status=status)
+        filter_queries &= Q(is_bounty_track=is_bt_request)
+        # fitler requests based on the source (BountyTrack/CATV)
 
         # Subquery to get the user_error_message from ConsumerErrorLogs
         error_message_subquery = ConsumerErrorLogs.objects.filter(
@@ -495,6 +508,26 @@ class CATVReportView(APIView):
                 "source": "Address successfully re-submitted for report generation."
             }
         })
+
+
+class CatvRequestStatusView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request, request_uid=None):
+        try:
+            catv_request = CatvRequestStatus.objects.get(uid=request_uid)
+        except CatvRequestStatus.DoesNotExist:
+            return APIResponse({'detail': 'Not Found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        request_status = catv_request.status == CatvTaskStatusType.RELEASED
+        error_status = catv_request.status == CatvTaskStatusType.FAILED
+        message = ""
+        if request_status:
+            message = "Report ready."
+        elif error_status:
+            message = "Failed to generate report."
+        return APIResponse({'report_ready': request_status, 'error_status': error_status, 'message': message})
 
 
 class CATVMultiReportView(APIView):
@@ -795,7 +828,12 @@ class CATVCSVUpload(APIView):
                 is_legacy = is_legacy_param.lower() != 'false'
             else:
                 is_legacy = bool(is_legacy_param)
-
+            is_bounty_track = request.query_params.get('is_bounty_track', 'False')
+            if isinstance(is_bounty_track, str):
+                is_bounty_track = is_bounty_track.lower() != 'false'
+            else:
+                is_bounty_track = bool(is_bounty_track)
+            print(f"{is_bounty_track=}")
             if df.empty:
                 return APIResponse({
                     "data": {"error": "CSV file is empty"}
@@ -857,7 +895,8 @@ class CATVCSVUpload(APIView):
                     params=params,
                     user_id=request.user["user_id"],
                     token_type=params['token_type'],
-                    is_legacy=is_legacy
+                    is_legacy=is_legacy,
+                    is_bounty_track=is_bounty_track
                 )
                 request_status.append(status)
 
@@ -885,7 +924,8 @@ class CATVCSVUpload(APIView):
                 "timestamp": str(timestamp),
                 "uid": str(user_details['user_uid']),
                 "csv_records": final_length,
-                "credits_required": credits_per_addr
+                "credits_required": credits_per_addr,
+                "is_bounty_track": is_bounty_track
             }
 
             res = (rpc.call(user_rpc)).decode('UTF-8')
@@ -915,112 +955,3 @@ class CATVCSVUpload(APIView):
             raise exceptions.ServerError(
                 detail="Something went wrong while submitting your request. Please try again later."
             )
-
-class CATVCSVUploadView(APIView):
-    authentication_classes = (CachedTokenAuthentication,)
-    permission_classes = (IsCATVAuthenticated,)
-
-    def get_throttles(self):
-        if self.request.method.lower() == 'post':
-            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
-
-    def post(self, request):
-        try:
-            result = request.FILES['file']
-            df = pd.read_csv(result)
-            total_length = df.shape[0]
-            total_column = df.shape[1]
-            user_details, verified_token = MultiToken.get_user_from_key(request)
-            if total_length > 0 and total_column == 8:
-                df.drop_duplicates(subset="wallet_address", keep="first", inplace=True)
-                df['token_address'].fillna("0x0000000000000000000000000000000000000000", inplace = True)
-                newdf = df[(df['token_type'].str.contains(CatvTokens.ETH.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.BTC.value) & df['wallet_address'].str.match("^([13]|bc1).*[a-zA-Z0-9]{26,35}$")) |
-                            (df['token_type'].str.contains(CatvTokens.TRON.value) & df['wallet_address'].str.match("^T[a-zA-Z0-9]{21,34}$")) |
-                            (df['token_type'].str.contains(CatvTokens.LTC.value) & df['wallet_address'].str.match("^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$")) |
-                            (df['token_type'].str.contains(CatvTokens.BCH.value) & df['wallet_address'].str.match("^([13][a-km-zA-HJ-NP-Z1-9]{25,34})|^((bitcoincash:)?(q|p)[a-z0-9]{41})|^((BITCOINCASH:)?(Q|P)[A-Z0-9]{41})$")) |
-                            (df['token_type'].str.contains(CatvTokens.XRP.value) & df['wallet_address'].str.match("^r[0-9a-zA-Z]{24,34}$")) |
-                            (df['token_type'].str.contains(CatvTokens.EOS.value) & df['wallet_address'].str.match("^[1-5a-z.]{12}$")) |
-                            (df['token_type'].str.contains(CatvTokens.XLM.value) & df['wallet_address'].str.match("^[0-9a-zA-Z]{56}$")) |
-                            (df['token_type'].str.contains(CatvTokens.BNB.value) & df['wallet_address'].str.match("^(bnb1)[0-9a-z]{38}$")) |
-                            (df['token_type'].str.contains(CatvTokens.ADA.value) & df['wallet_address'].str.match("^[0-9a-zA-Z]+$")) |
-                            (df['token_type'].str.contains(CatvTokens.BSC.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.KLAY.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.LUNC.value) & df['wallet_address'].str.match("^(terra1)[0-9a-z]{38}$")) |
-                            (df['token_type'].str.contains(CatvTokens.ZEC.value) & df['wallet_address'].str.match("^(t)[A-Za-z0-9]{34}$")) |
-                            (df['token_type'].str.contains(CatvTokens.DASH.value) & df['wallet_address'].str.match("^[X|7][0-9A-Za-z]{33}$")) |
-                            (df['token_type'].str.contains(CatvTokens.AVAX.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.FTM.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.POL.value) & df['wallet_address'].str.match("^0x[a-fA-F0-9]{40}$")) |
-                            (df['token_type'].str.contains(CatvTokens.DOGE.value) & df['wallet_address'].str.match("^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$"))
-                          ]
-                newdf['from_date'] = pd.to_datetime(newdf['from_date'])
-                newdf['from_date'] = newdf['from_date'].dt.strftime('%Y-%m-%d')
-                newdf['to_date'] = pd.to_datetime(newdf['to_date'])
-                newdf['to_date'] = newdf['to_date'].dt.strftime('%Y-%m-%d')
-                if (newdf['token_type'].eq(CatvTokens.LUNC.value)).any():
-                    rpc_for_permission_check = RPCClientCATVCheckTerraAccess()
-                    res_Terra = (rpc_for_permission_check.call(user_details['user_id'])).decode('UTF-8')
-                    if "False" in res_Terra:
-                        newdf.drop(newdf.index[newdf['token_type'] == CatvTokens.LUNC.value], inplace = True)
-                final_length = len(newdf)
-                credits_left = user_details['usage']['credits_left']
-                credits_per_addr = user_details['usage']['credits_requirement']['catv']
-                print(f'Total CSV record count: {final_length} and credits required: {20 * final_length}')
-                if credits_left < (credits_per_addr * final_length):
-                    return APIResponse({
-                        "data": {
-                            "error": "You do not have sufficient usage credits to process this CSV. Please purchase more credits to continue."
-                        }
-                    })
-                verified_data = newdf.to_json(index=1, orient='records')
-                json_df = json.loads(verified_data)
-                job_quene = list()
-                request_csv = list()
-                result_csv = list()
-                for params in json_df:
-                    message_id = uuid.uuid4()
-                    message_body = {
-                        "message_id": message_id.hex,
-                        "user_id": request.user["user_id"],
-                        "token_type": params['token_type'],
-                        "search_params": params
-                    }
-                    job_quene.append(CatvCSVJobQueue(message=message_body, retries_remaining=1))
-                    request_csv.append(CatvRequestStatus(uid=message_id, params=params, user_id=request.user["user_id"], token_type=params['token_type']))
-                with transaction.atomic():
-                    CatvCSVJobQueue.objects.bulk_create(job_quene)
-                    task_record = CatvRequestStatus.objects.bulk_create(request_csv)
-                    for result_record in task_record:
-                        result_csv.append(CatvResult(request=result_record))
-                    CatvResult.objects.bulk_create(result_csv)
-                rpc = RPCClientUpdateUsageCSVCatvCall()
-                auth = get_authorization_header(request).split()
-                token = auth[1].decode()
-                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
-                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
-                            "uid": str(user_details['user_uid']), "csv_records": final_length,
-                            "credits_required": credits_per_addr}
-                res = (rpc.call(user_rpc)).decode('UTF-8')
-                print("Submission Status: ", res)
-                return APIResponse({
-                        "data": json_df,
-                        "messages": {
-                            "source":  f"{final_length} Addresses are successfully submitted for report generation."
-                        }
-                    })
-            elif total_length == 0 and total_column == 8:
-                return APIResponse({
-                        "data": {
-                            "error": f"In this CSV no entry is entered. Please check the file and trying to re-upload."
-                        }
-                    })
-            else:
-                return APIResponse({
-                        "data": {
-                            "error": f"CSV Format is not correct. Please check the file and trying to re-upload."
-                        }
-                    })
-        except:
-                raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
-                                             f"Please try again later.")
