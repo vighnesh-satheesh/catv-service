@@ -24,8 +24,8 @@ if settings.EXPOSE_INTERNAL_API:
 if settings.EXPOSE_GENERAL_API:
     urlpatterns += [
         re_path(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
-        re_path(r'^catvbtctracking/?$',
-            views.CATVBTCView.as_view(), name='catv-btc-view'),
+        # re_path(r'^catvbtctracking/?$',
+        #     views.CATVBTCView.as_view(), name='catv-btc-view'),
         re_path(r'^catvbtctxlist/?$', views.CATVBTCTxlistView.as_view(),
             name='catv-btc-txlist-view'),
         re_path(r'^catvhistory/?$', views.CATVHistoryView.as_view(), name='catv-history'),

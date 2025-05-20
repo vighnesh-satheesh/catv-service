@@ -93,11 +93,15 @@ def submit_catv_request(token_type, search_type, history, request, is_legacy, is
         token = auth[1].decode()
         timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
         user_details, verified_token = MultiToken.get_user_from_key(request)
+        if is_bounty_track:
+            credits_required = user_details['usage']['credits_requirement']['track']
+        else:
+            credits_required = user_details['usage']['credits_required']['catv']
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
                     'source': 'portal',
                     'is_bounty_track': is_bounty_track,
                     "uid": str(user_details['user_uid']),
-                    "credits_required": user_details['usage']['credits_requirement']['catv']}
+                    "credits_required": credits_required}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         print("Submission Status: ", res)
 
@@ -162,63 +166,63 @@ class CATVView(APIView):
             raise exceptions.ServerError(
                 detail="Something went wrong while submitting your request. Please try again later.")
 
-
-class CATVBTCView(APIView):
-    authentication_classes = (CachedTokenAuthentication, )
-    permission_classes = (IsCATVAuthenticated, )
-
-    def get_throttles(self):
-        if self.request.method.lower() == 'post':
-            return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
-
-    def post(self, request):
-        serializer = CATVBTCSerializer(
-            data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        history = serializer.data
-        if api_settings.SWITCH_CATV_KAFKA:
-            try:
-                catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
-                                                token_type=CatvTokens.BTC.value,
-                                                search_type=CatvSearchType.FLOW.value,
-                                                search_params=history,
-                                                user=request.user
-                                                )
-                catv_req_task.run()
-                catv_req_task.save()
-
-                rpc = RPCClientUpdateUsageCatvCall()
-                auth = get_authorization_header(request).split()
-                token = auth[1].decode()
-                timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
-                user_details, verified_token = MultiToken.get_user_from_key(request)
-                user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
-                            "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
-                res = (rpc.call(user_rpc)).decode('UTF-8')
-                print("Submission Status: ", res)
-
-                return APIResponse({
-                    "data": {},
-                    "messages": {
-                        "source": "Address successfully submitted for report generation."
-                    }
-                })
-            except:
-                raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
-                                             f"Please try again later.")
-        else:
-            user_details, verified_token = MultiToken.get_user_from_key(request)
-            history.update({'user_id': user_details["user_id"], 'token_type': CatvTokens.BTC.value})
-            results = serializer.get_tracking_results()
-            catv_history_task.delay(history=history, from_history=False)
-            if "graph" in results and "messages" in results:
-                return APIResponse({
-                    "data": {**results["graph"]},
-                    "messages": {**results["messages"]}
-                })
-            return APIResponse({
-                "data": results
-            })
+#obsolete
+# class CATVBTCView(APIView):
+#     authentication_classes = (CachedTokenAuthentication, )
+#     permission_classes = (IsCATVAuthenticated, )
+#
+#     def get_throttles(self):
+#         if self.request.method.lower() == 'post':
+#             return [CatvUsageExceededThrottle(), CatvPostThrottle(), ]
+#
+#     def post(self, request):
+#         serializer = CATVBTCSerializer(
+#             data=request.data, context={"request": request})
+#         serializer.is_valid(raise_exception=True)
+#         history = serializer.data
+#         if api_settings.SWITCH_CATV_KAFKA:
+#             try:
+#                 catv_req_task = CatvRequestTask(api_settings.KAFKA_CATV_TOPIC,
+#                                                 token_type=CatvTokens.BTC.value,
+#                                                 search_type=CatvSearchType.FLOW.value,
+#                                                 search_params=history,
+#                                                 user=request.user
+#                                                 )
+#                 catv_req_task.run()
+#                 catv_req_task.save()
+#
+#                 rpc = RPCClientUpdateUsageCatvCall()
+#                 auth = get_authorization_header(request).split()
+#                 token = auth[1].decode()
+#                 timestamp = request.META.get('HTTP_X_AUTHORIZATION_TIMESTAMP', None)
+#                 user_details, verified_token = MultiToken.get_user_from_key(request)
+#                 user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
+#                             "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
+#                 res = (rpc.call(user_rpc)).decode('UTF-8')
+#                 print("Submission Status: ", res)
+#
+#                 return APIResponse({
+#                     "data": {},
+#                     "messages": {
+#                         "source": "Address successfully submitted for report generation."
+#                     }
+#                 })
+#             except:
+#                 raise exceptions.ServerError(detail=f"Something went wrong while submitting your request."
+#                                              f"Please try again later.")
+#         else:
+#             user_details, verified_token = MultiToken.get_user_from_key(request)
+#             history.update({'user_id': user_details["user_id"], 'token_type': CatvTokens.BTC.value})
+#             results = serializer.get_tracking_results()
+#             catv_history_task.delay(history=history, from_history=False)
+#             if "graph" in results and "messages" in results:
+#                 return APIResponse({
+#                     "data": {**results["graph"]},
+#                     "messages": {**results["messages"]}
+#                 })
+#             return APIResponse({
+#                 "data": results
+#             })
 
 
 class CATVBTCTxlistView(APIView):
@@ -466,7 +470,11 @@ class CATVReportView(APIView):
             is_legacy = is_legacy_param.lower() != 'false'
         else:
             is_legacy = bool(is_legacy_param)
-
+        is_bounty_track = request.query_params.get('is_bounty_track', 'False')
+        if isinstance(is_bounty_track, str):
+            is_bounty_track = is_bounty_track.lower() != 'false'
+        else:
+            is_bounty_track = bool(is_bounty_track)
         token_type = utils.determine_wallet_type(obj.token_type)
         has_from_address = obj.params.get("address_from", "")
         token_type = reverse_token_map[token_type]
@@ -492,7 +500,8 @@ class CATVReportView(APIView):
                                         search_type=search_type,
                                         search_params=obj.params,
                                         user=request.user,
-                                        is_legacy=is_legacy
+                                        is_legacy=is_legacy,
+                                        is_bounty_track=is_bounty_track
                                         )
         catv_req_task.run()
         task = catv_req_task.save()
@@ -500,8 +509,12 @@ class CATVReportView(APIView):
 
         rpc = RPCClientUpdateUsageCatvCall()
         auth = get_authorization_header(request).split()
+        if is_bounty_track:
+            credits_required = user_details['usage']['credits_requirement']['track']
+        else:
+            credits_required = user_details['usage']['credits_required']['catv']
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
-                    "uid": str(user_details['user_uid']), "credits_required": user_details['usage']['credits_requirement']['catv']}
+                    "uid": str(user_details['user_uid']), "credits_required": credits_required}
         res = (rpc.call(user_rpc)).decode('UTF-8')
         print("Submission Status: ", res)
 
