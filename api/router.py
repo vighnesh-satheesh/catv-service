@@ -24,8 +24,8 @@ if settings.EXPOSE_INTERNAL_API:
 if settings.EXPOSE_GENERAL_API:
     urlpatterns += [
         re_path(r'^catv/?$', views.CATVView.as_view(), name='catv-view'),
-        re_path(r'^catvbtctracking/?$',
-            views.CATVBTCView.as_view(), name='catv-btc-view'),
+        # re_path(r'^catvbtctracking/?$',
+        #     views.CATVBTCView.as_view(), name='catv-btc-view'),
         re_path(r'^catvbtctxlist/?$', views.CATVBTCTxlistView.as_view(),
             name='catv-btc-txlist-view'),
         re_path(r'^catvhistory/?$', views.CATVHistoryView.as_view(), name='catv-history'),
@@ -34,6 +34,7 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^catvmultireport/?$', views.CATVMultiReportView.as_view(), name='catv-multi-report'),
         re_path(r'^catvrequests/(?P<pk>[0-9a-z\-]+)/?$', views.CATVRequestDetailView.as_view(),
             name='catv-request-detail'),
+        re_path(r'^catvrequest-status/(?P<request_uid>[0-9a-z\-]+)/?$', views.CatvRequestStatusView.as_view(), name='catv-request-status'),
         re_path(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
         re_path(r'^catvnodelabel/?$', views.CATVNodeLabelView.as_view(), name='catv-node-label'),
         re_path(r'^catvcsvupload/?$', views.CATVCSVUpload.as_view(), name='catv-csv-upload'),

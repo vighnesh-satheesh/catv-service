@@ -61,7 +61,8 @@ class CatvRequestTask:
         self.search_params = kwargs["search_params"]
         self.user = kwargs["user"]
         self.is_legacy = kwargs.get("is_legacy", False)
-        
+        self.is_bounty_track = kwargs.get("is_bounty_track", False)
+
     def run(self):
         message_body = {
             "message_id": self.message_id.hex,
@@ -81,7 +82,8 @@ class CatvRequestTask:
                     params=self.search_params,
                     user_id=self.user["user_id"],
                     token_type=self.token_type,
-                    is_legacy=self.is_legacy
+                    is_legacy=self.is_legacy,
+                    is_bounty_track=self.is_bounty_track
                 )
                 CatvResult.objects.create(request=task_record)
             return task_record
