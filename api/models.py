@@ -159,6 +159,7 @@ class CatvRequestStatus(models.Model):
     labels = ArrayField(models.CharField(max_length=100, blank=False), default=list)
     token_type = EnumField(CatvTokens, default=CatvTokens.ETH)
     is_legacy = models.BooleanField(default=False)
+    is_bounty_track = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'api_catv_request_status'

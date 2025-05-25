@@ -890,7 +890,7 @@ class CATVReportLinkView(APIView):
             auth = rpc_response["auth"]
             request.user = auth
             # Submit CATV request
-            catv_sub_res = submit_catv_request(token_type, search_type, history, request, is_legacy, True)
+            catv_sub_res = submit_catv_request(token_type, search_type, history, request, is_legacy, False, True)
             self.request_uid = catv_sub_res["uid"]
             try:
                 self.check_status()
