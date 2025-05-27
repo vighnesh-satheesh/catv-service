@@ -96,7 +96,7 @@ def submit_catv_request(token_type, search_type, history, request, is_legacy, is
         if is_bounty_track:
             credits_required = user_details['usage']['credits_requirement']['track']
         else:
-            credits_required = user_details['usage']['credits_required']['catv']
+            credits_required = user_details['usage']['credits_requirement']['catv']
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp),
                     'source': 'portal',
                     'is_bounty_track': is_bounty_track,
@@ -161,8 +161,8 @@ class CATVView(APIView):
                     "source": "Address successfully submitted for report generation."
                 }
             })
-        except Exception as e:
-            print(str(e))
+        except Exception:
+            traceback.print_exc()
             raise exceptions.ServerError(
                 detail="Something went wrong while submitting your request. Please try again later.")
 
@@ -512,7 +512,7 @@ class CATVReportView(APIView):
         if is_bounty_track:
             credits_required = user_details['usage']['credits_requirement']['track']
         else:
-            credits_required = user_details['usage']['credits_required']['catv']
+            credits_required = user_details['usage']['credits_requirement']['catv']
         user_rpc = {"id": user_details['user_id'], "token": str(token), "timestamp": str(timestamp), 'source': 'portal',
                     "uid": str(user_details['user_uid']), "credits_required": credits_required}
         res = (rpc.call(user_rpc)).decode('UTF-8')
