@@ -216,7 +216,7 @@ def determine_wallet_type(token_type):
         "BNB": "Binance Coin",
         "ADA": "Cardano",
         "BSC": "Binance Smart Chain",
-        "KLAY": "Klaytn",
+        "KLAY": "KAIA",
         "LUNC": "LUNC",
         "FTM": "Fantom",
         "POL": "Polygon",
