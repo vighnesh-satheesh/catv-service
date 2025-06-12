@@ -455,7 +455,7 @@ class CATVReportView(APIView):
             "Binance Coin": CatvTokens.BNB.value,
             "Cardano": CatvTokens.ADA.value,
             "Binance Smart Chain": CatvTokens.BSC.value,
-            "Klaytn": CatvTokens.KLAY.value,
+            "KAIA": CatvTokens.KLAY.value,
             "Bitcoin Cash": CatvTokens.BCH.value,
             "LUNC": CatvTokens.LUNC.value,
             "Doge Coin": CatvTokens.DOGE.value,
