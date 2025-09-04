@@ -44,7 +44,7 @@ class CoinpathAPIInterface:
                          till_time=datetime.now(),
                          token_address=None):
         
-        should_use_tracer_first = chain in ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'TRX', 'BTC']
+        should_use_tracer_first = chain in ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'TRX', 'BTC', 'KLAY']
 
         # Special case: If chain is BSC and there's a valid token address, don't use tracer first
         # if chain == 'BSC' and token_address is not None and token_address != "" and token_address != '0x0000000000000000000000000000000000000000':

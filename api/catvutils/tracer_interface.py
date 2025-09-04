@@ -84,7 +84,8 @@ class TracerAPIInterface:
             'ETC': (61, 'evm'),  # Ethereum Classic
             'AVAX': (43114, 'evm'),  # Avalanche
             'TRX': (1, 'tron'),  # Tron
-            'BTC': (1, 'btc')
+            'BTC': (1, 'btc'),
+            'KLAY': (1, 'klaytn')
         }
         return chain_mapping.get(chain, (1, 'evm'))  # Default to Ethereum
     
