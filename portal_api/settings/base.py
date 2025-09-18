@@ -167,12 +167,12 @@ REST_FRAMEWORK = {
     'DATETIME_FORMAT': '%s'
 }
 
-
 # cross origin setting
 CORS_ALLOWED_ORIGIN_REGEXES = env.str('CORS_ORIGIN_WHITELIST_REGEX',
                                       default=[r'^https://.*?.*?\w+\.sentinelprotocol\.[a-zA-Z]+$',
                                                r'^http://localhost:[0-9]+$',
-                                               r'^https://.*chainbounty\.io.*$'
+                                               r'^https://.*chainbounty\.io.*$',
+                                               r'^https://(.*\.)?dev.sentinelprotocol.io:[0-9]+$'
                                                ]
                                       )
 if not CORS_ALLOWED_ORIGIN_REGEXES:
