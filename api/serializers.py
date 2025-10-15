@@ -28,7 +28,8 @@ class NonNullModelSerializer(serializers.ModelSerializer):
         return OrderedDict([(key, result[key]) for key in result if result[key] is not None])
 
 class CATVSerializer(serializers.Serializer):
-    wallet_address = serializers.CharField(required=True)
+    wallet_address = serializers.CharField(required=False, allow_blank=True)
+    transaction_hash = serializers.CharField(required=False, allow_blank=True)
     source_depth = serializers.IntegerField(
         required=False, min_value=1, max_value=10)
     distribution_depth = serializers.IntegerField(
@@ -43,16 +44,46 @@ class CATVSerializer(serializers.Serializer):
         
 
     def validate(self, data):
-        if 'source_depth' in data or 'distribution_depth' in data:
-            return data
-        else:
+        if 'source_depth' not in data and 'distribution_depth' not in data:
             raise serializers.ValidationError(
                 "Either of source_depth or distribution_depth is needed.")
 
+            # Check that exactly one of wallet_address or transaction_hash is provided
+        wallet = data.get('wallet_address', '').strip()
+        tx_hash = data.get('transaction_hash', '').strip()
+
+        if not wallet and not tx_hash:
+            raise serializers.ValidationError(
+                "Either wallet_address or transaction_hash is required.")
+
+        if wallet and tx_hash:
+            raise serializers.ValidationError(
+                "Provide either wallet_address or transaction_hash, not both.")
+
+        return data
+
     def validate_wallet_address(self, value):
+        if not value or not value.strip():
+            return value
+
         if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
-                "Token address is not a valid ethereum address.")
+                "Wallet address is not a valid address for the specified token type.")
+        return value
+
+    def validate_transaction_hash(self, value):
+        if not value or not value.strip():
+            return value
+
+        # EVM transaction hash: 0x followed by 64 hex characters
+        evm_pattern = re.compile(r'^0x[a-fA-F0-9]{64}$')
+        # TRON transaction hash: 64 hex characters (no 0x prefix)
+        tron_pattern = re.compile(r'^[a-fA-F0-9]{64}$')
+
+        if not (evm_pattern.match(value) or tron_pattern.match(value)):
+            raise serializers.ValidationError(
+                "Transaction hash must be a valid EVM (0x + 64 hex chars) or TRON (64 hex chars) transaction hash.")
+
         return value
 
     def validate_from_date(self, value):
@@ -188,9 +219,25 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
         super().__init__(*args, **kwargs)
 
     def validate_wallet_address(self, value):
+        if not value or not value.strip():
+            return value
+
         if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
-                "Wallet address is an invalid Bitcoin address")
+                "Wallet address is not a valid address for the specified token type.")
+        return value
+
+    def validate_transaction_hash(self, value):
+        if not value or not value.strip():
+            return value
+
+        # BTC transaction hash: 64 hex characters (no 0x prefix)
+        btc_pattern = re.compile(r'^[a-fA-F0-9]{64}$')
+
+        if not btc_pattern.match(value):
+            raise serializers.ValidationError(
+                "Transaction hash must be a valid BTC (64 hex chars) transaction hash.")
+
         return value
 
     def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True, build_lossy_graph=True):
@@ -324,6 +371,7 @@ class CatvBtcPathSerializer(CATVEthPathSerializer):
 
 class CATVRequestListSerializer(NonNullModelSerializer):
     wallet_address = serializers.SerializerMethodField()
+    transaction_hash = serializers.SerializerMethodField()
     address_type = serializers.SerializerMethodField()
     date_range = serializers.SerializerMethodField()
     depth = serializers.SerializerMethodField()
@@ -337,16 +385,24 @@ class CATVRequestListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.CatvRequestStatus
-        fields = ("id", "uid", "created", "updated", "status", "wallet_address",
+        fields = ("id", "uid", "created", "updated", "status", "wallet_address", "transaction_hash",
                   "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
-        read_only_fields = ("id", "uid", "created", "updated", "status", "wallet_address",
+        read_only_fields = ("id", "uid", "created", "updated", "status", "wallet_address", "transaction_hash",
                             "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
 
     def get_wallet_address(self, obj):
         if obj.params:
+            # Check for path search first (has address_from)
             if obj.params.get("address_from", ""):
                 return obj.params["address_from"]
+            # Then check for flow search wallet_address
             return obj.params.get("wallet_address", "")
+        return ""
+
+    def get_transaction_hash(self, obj):
+        """Extract transaction_hash from params if available"""
+        if obj.params:
+            return obj.params.get("transaction_hash", "")
         return ""
 
     def get_address_type(self, obj):
