@@ -50,9 +50,9 @@ jobs:
       - name: Clone indicator lib
         id: indicator-lib-checkout
         run: |
-            git clone "https://uppindicator:b06fdc52611d60ce262c5718e4b1352bca09d4c3@github.com/upphub/indicator-lib.git"
-            mkdir -p library
-            mv indicator-lib library/indicator-lib
+          git clone "https://uppindicator:${{secrets.INDICATOR_LIB_TOKEN}}@github.com/upphub/indicator-lib.git"
+          mkdir -p library
+          mv indicator-lib library/indicator-lib
             
       - name: Build & Push Docker Image
         id: 'docker-build'
