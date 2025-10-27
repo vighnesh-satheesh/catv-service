@@ -17,7 +17,7 @@ class AMQPCATVConsuming(threading.Thread):
         try:
             query_list = Constants.QUERIES['CATV_USAGE_QUERY'].format(
                 tz, date_range, user)
-            with connections['readonly'].cursor() as cursor:
+            with connections['default'].cursor() as cursor:
                 cursor.execute(query_list)
                 result = cursor.fetchall()
         except Exception as e:
@@ -25,7 +25,7 @@ class AMQPCATVConsuming(threading.Thread):
             return False
         return result
 
-    @ensure_db_connections('readonly')
+    @ensure_db_connections('default')
     def on_request_portal_catv_call(self, ch, method, props, body):
         result = ast.literal_eval(body.decode('utf-8'))
         user = result['user_id']

@@ -211,3 +211,69 @@ class TracerAPIInterface:
 
             
         return reverse_tx
+
+    def get_transaction_count(
+            self,
+            address: str = None,
+            tx_hash: str = None,
+            chain: str = 'ETH',
+            token_contract: str = None,
+    ) -> Dict[str, Any]:
+        """
+        Get transaction count for an address or transaction hash from Tracer API.
+
+        Args:
+            address: Wallet address (mutually exclusive with tx_hash)
+            tx_hash: Transaction hash (mutually exclusive with address)
+            chain: Blockchain identifier
+            token_contract: Token contract address
+        Returns:
+            Dict containing transaction count and metadata
+        """
+        try:
+            chain_id, chain_type = self._get_chain_info(chain)
+
+            if address:
+                # Use address endpoint
+                endpoint = f"tx-count/{chain_type}/{address}"
+                params = {"chain_id": chain_id}
+            elif tx_hash:
+                # Use transaction hash validation endpoint
+                endpoint = f"validate-tx/{chain_type}/{tx_hash}"
+                params = {"chain_id": chain_id}
+            else:
+                raise ValueError("Either address or tx_hash must be provided")
+
+            if token_contract:
+                params["contract_address"] = token_contract
+
+            api_url = f"{settings.TRACER_ENDPOINT}{endpoint}"
+
+            print(f"Calling Tracer API: {api_url} with params: {params}")
+
+            response = requests.get(
+                api_url,
+                params=params,
+                timeout=self._timeout
+            )
+            response.raise_for_status()
+
+            result = response.json()
+
+            # Standardize response format
+            if tx_hash and 'transaction_count' in result:
+                # Response from validate-tx endpoint
+                return {
+                    'address': result.get('address'),
+                    'chain_type': result.get('chain_type'),
+                    'chain_id': result.get('chain_id'),
+                    'chain_name': result.get('chain_name'),
+                    'transaction_count': result.get('transaction_count', 0)
+                }
+            else:
+                # Response from tx-count endpoint
+                return result
+
+        except Exception as e:
+            traceback.print_exc()
+            raise

@@ -1,6 +1,8 @@
 import re
 import time
+import traceback
 from collections import OrderedDict
+from typing import Dict, Any
 
 from dateutil import parser
 from django.utils import timezone
@@ -11,13 +13,14 @@ from . import exceptions
 from . import fields
 from . import models
 from . import utils
+from .catvutils.tracer_interface import TracerAPIInterface
 from .catvutils.tracking_results import (
     TrackingResults, BTCTrackingResults,
     BTCCoinpathTrackingResults, EthPathResults,
     BtcPathResults
 )
 from .catvutils.vendor_api import LyzeAPIInterface
-from .models import CatvNodeLabelModel
+from .models import CatvNodeLabelModel, CatvTokens
 from .settings import api_settings
 
 
@@ -28,7 +31,8 @@ class NonNullModelSerializer(serializers.ModelSerializer):
         return OrderedDict([(key, result[key]) for key in result if result[key] is not None])
 
 class CATVSerializer(serializers.Serializer):
-    wallet_address = serializers.CharField(required=True)
+    wallet_address = serializers.CharField(required=False, allow_blank=True)
+    transaction_hash = serializers.CharField(required=False, allow_blank=True)
     source_depth = serializers.IntegerField(
         required=False, min_value=1, max_value=10)
     distribution_depth = serializers.IntegerField(
@@ -43,16 +47,46 @@ class CATVSerializer(serializers.Serializer):
         
 
     def validate(self, data):
-        if 'source_depth' in data or 'distribution_depth' in data:
-            return data
-        else:
+        if 'source_depth' not in data and 'distribution_depth' not in data:
             raise serializers.ValidationError(
                 "Either of source_depth or distribution_depth is needed.")
 
+            # Check that exactly one of wallet_address or transaction_hash is provided
+        wallet = data.get('wallet_address', '').strip()
+        tx_hash = data.get('transaction_hash', '').strip()
+
+        if not wallet and not tx_hash:
+            raise serializers.ValidationError(
+                "Either wallet_address or transaction_hash is required.")
+
+        if wallet and tx_hash:
+            raise serializers.ValidationError(
+                "Provide either wallet_address or transaction_hash, not both.")
+
+        return data
+
     def validate_wallet_address(self, value):
+        if not value or not value.strip():
+            return value
+
         if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
-                "Token address is not a valid ethereum address.")
+                "Wallet address is not a valid address for the specified token type.")
+        return value
+
+    def validate_transaction_hash(self, value):
+        if not value or not value.strip():
+            return value
+
+        # EVM transaction hash: 0x followed by 64 hex characters
+        evm_pattern = re.compile(r'^0x[a-fA-F0-9]{64}$')
+        # TRON transaction hash: 64 hex characters (no 0x prefix)
+        tron_pattern = re.compile(r'^[a-fA-F0-9]{64}$')
+
+        if not (evm_pattern.match(value) or tron_pattern.match(value)):
+            raise serializers.ValidationError(
+                "Transaction hash must be a valid EVM (0x + 64 hex chars) or TRON (64 hex chars) transaction hash.")
+
         return value
 
     def validate_from_date(self, value):
@@ -188,9 +222,25 @@ class CATVBTCCoinpathSerializer(CATVSerializer):
         super().__init__(*args, **kwargs)
 
     def validate_wallet_address(self, value):
+        if not value or not value.strip():
+            return value
+
         if not utils.pattern_matches_token(value, self._token_type):
             raise serializers.ValidationError(
-                "Wallet address is an invalid Bitcoin address")
+                "Wallet address is not a valid address for the specified token type.")
+        return value
+
+    def validate_transaction_hash(self, value):
+        if not value or not value.strip():
+            return value
+
+        # BTC transaction hash: 64 hex characters (no 0x prefix)
+        btc_pattern = re.compile(r'^[a-fA-F0-9]{64}$')
+
+        if not btc_pattern.match(value):
+            raise serializers.ValidationError(
+                "Transaction hash must be a valid BTC (64 hex chars) transaction hash.")
+
         return value
 
     def get_tracking_results(self, tx_limit=10000, limit=10000, save_to_db=True, build_lossy_graph=True):
@@ -324,6 +374,7 @@ class CatvBtcPathSerializer(CATVEthPathSerializer):
 
 class CATVRequestListSerializer(NonNullModelSerializer):
     wallet_address = serializers.SerializerMethodField()
+    transaction_hash = serializers.SerializerMethodField()
     address_type = serializers.SerializerMethodField()
     date_range = serializers.SerializerMethodField()
     depth = serializers.SerializerMethodField()
@@ -337,16 +388,24 @@ class CATVRequestListSerializer(NonNullModelSerializer):
 
     class Meta:
         model = models.CatvRequestStatus
-        fields = ("id", "uid", "created", "updated", "status", "wallet_address",
+        fields = ("id", "uid", "created", "updated", "status", "wallet_address", "transaction_hash",
                   "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
-        read_only_fields = ("id", "uid", "created", "updated", "status", "wallet_address",
+        read_only_fields = ("id", "uid", "created", "updated", "status", "wallet_address", "transaction_hash",
                             "address_type", "date_range", "depth", "token_address", "token_type", "labels", "user_error_message", "is_legacy")
 
     def get_wallet_address(self, obj):
         if obj.params:
+            # Check for path search first (has address_from)
             if obj.params.get("address_from", ""):
                 return obj.params["address_from"]
+            # Then check for flow search wallet_address
             return obj.params.get("wallet_address", "")
+        return ""
+
+    def get_transaction_hash(self, obj):
+        """Extract transaction_hash from params if available"""
+        if obj.params:
+            return obj.params.get("transaction_hash", "")
         return ""
 
     def get_address_type(self, obj):
@@ -411,3 +470,225 @@ class CATVNodeLabelPostSerializer(serializers.ModelSerializer):
 
         # Create new label if it doesn't exist
         return super().create(validated_data)
+
+
+# Add this to api/serializers.py
+
+class TracerRecommendationsSerializer(serializers.Serializer):
+    """
+    Serializer for Tracer API recommendations based on transaction count.
+    """
+    blockchain = serializers.CharField(required=True)
+    wallet_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    transaction_hash = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    token_contract_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    # Additional fields for UTXO chains when using transaction_hash
+    sender_wallet_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    receiver_wallet_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate(self, data):
+        """
+        Validate that either wallet_address or transaction_hash is provided, but not both.
+        For UTXO chains with transaction_hash, validate sender and receiver addresses.
+        """
+        wallet_address = data.get('wallet_address')
+        transaction_hash = data.get('transaction_hash')
+        blockchain = data.get('blockchain', '').upper()
+        token_contract_address = data.get('token_contract_address')
+
+        # Check that exactly one of wallet_address or transaction_hash is provided
+        if not wallet_address and not transaction_hash:
+            raise serializers.ValidationError(
+                "Either wallet_address or transaction_hash must be provided."
+            )
+
+        if wallet_address and transaction_hash:
+            raise serializers.ValidationError(
+                "Only one of wallet_address or transaction_hash should be provided, not both."
+            )
+
+        # Validate blockchain
+        valid_blockchains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX', 'TRX', 'BTC', 'KLAY']
+        if blockchain not in valid_blockchains:
+            raise serializers.ValidationError(
+                f"Invalid blockchain. Supported: {', '.join(valid_blockchains)}"
+            )
+
+        # UTXO chain validation
+        utxo_chains = ['BTC']
+        if blockchain in utxo_chains and transaction_hash:
+            sender = data.get('sender_wallet_address')
+            receiver = data.get('receiver_wallet_address')
+
+            if not sender or not receiver:
+                raise serializers.ValidationError(
+                    f"For {blockchain} with transaction_hash, both sender_wallet_address "
+                    "and receiver_wallet_address are required."
+                )
+
+        # Token contract address validation
+        evm_chains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX']
+        tron_chains = ['TRX']
+
+        if blockchain in evm_chains or blockchain in tron_chains:
+            # Token contract is optional but if provided, validate format
+            if token_contract_address:
+                if blockchain in evm_chains:
+                    if not utils.pattern_matches_token(token_contract_address, models.CatvTokens.ETH.value):
+                        raise serializers.ValidationError(
+                            "token_contract_address is not a valid EVM address."
+                        )
+                elif blockchain in tron_chains:
+                    if not utils.pattern_matches_token(token_contract_address, models.CatvTokens.TRON.value):
+                        raise serializers.ValidationError(
+                            "token_contract_address is not a valid TRON address."
+                        )
+
+        # Validate address format based on blockchain
+        if wallet_address:
+            token_type = self._get_token_type(blockchain)
+            if not utils.pattern_matches_token(wallet_address, token_type):
+                raise serializers.ValidationError(
+                    f"wallet_address is not a valid {blockchain} address."
+                )
+
+        # Validate transaction hash format
+        if transaction_hash:
+            if blockchain in ['ETH', 'BSC', 'FTM', 'POL', 'AVAX', 'TRX', 'KLAY']:
+                # EVM and TRON use 64 hex characters (with or without 0x prefix)
+                pattern = re.compile("^(0x)?[a-fA-F0-9]{64}$")
+                if not pattern.match(transaction_hash):
+                    raise serializers.ValidationError(
+                        f"transaction_hash is not a valid {blockchain} transaction hash."
+                    )
+            elif blockchain == 'BTC':
+                # Bitcoin transaction hash: 64 hex characters
+                pattern = re.compile("^[a-fA-F0-9]{64}$")
+                if not pattern.match(transaction_hash):
+                    raise serializers.ValidationError(
+                        "transaction_hash is not a valid Bitcoin transaction hash."
+                    )
+
+                # Validate sender and receiver addresses for BTC
+                sender = data.get('sender_wallet_address')
+                receiver = data.get('receiver_wallet_address')
+                if sender and not utils.pattern_matches_token(sender, models.CatvTokens.BTC.value):
+                    raise serializers.ValidationError(
+                        "sender_wallet_address is not a valid Bitcoin address."
+                    )
+                if receiver and not utils.pattern_matches_token(receiver, models.CatvTokens.BTC.value):
+                    raise serializers.ValidationError(
+                        "receiver_wallet_address is not a valid Bitcoin address."
+                    )
+
+        return data
+
+    def _get_token_type(self, blockchain: str) -> str:
+        """Map blockchain to token type for validation."""
+        mapping = {
+            'ETH': CatvTokens.ETH.value,
+            'BSC': CatvTokens.BSC.value,  # BSC uses same address format as ETH
+            'FTM': CatvTokens.FTM.value,
+            'POL': CatvTokens.POL.value,
+            # 'ETC': CatvTokens.ETC.value,
+            'AVAX': CatvTokens.AVAX.value,
+            'TRX': CatvTokens.TRON.value,
+            'BTC': CatvTokens.BTC.value,
+            'KLAY': CatvTokens.KLAY.value,
+        }
+        return mapping.get(blockchain, models.CatvTokens.ETH.value)
+
+    def get_recommendations(self):
+        """
+        Call Tracer API and generate recommendations based on transaction count.
+
+        Returns:
+            Dict with recommendations including depth, date range, and alerts
+        """
+        data = self.validated_data
+        blockchain = data['blockchain']
+        wallet_address = data.get('wallet_address')
+        transaction_hash = data.get('transaction_hash')
+        token_contract = data.get('token_contract_address')
+
+        # Initialize Tracer API interface
+        tracer = TracerAPIInterface()
+
+        try:
+            # Get transaction count from Tracer API
+            if wallet_address:
+                result = tracer.get_transaction_count(
+                    address=wallet_address,
+                    chain=blockchain,
+                    token_contract=token_contract,
+                )
+            else:
+                result = tracer.get_transaction_count(
+                    tx_hash=transaction_hash,
+                    chain=blockchain,
+                )
+
+            transaction_count = result.get('transaction_count', 0)
+
+            # Generate recommendations based on transaction count
+            recommendations = self._generate_recommendations(transaction_count)
+
+            # Add transaction count to response
+            recommendations['transaction_count'] = transaction_count
+
+            # Add address if available (from validate-tx response)
+            if 'address' in result:
+                recommendations['address'] = result['address']
+
+            return recommendations
+
+        except Exception as e:
+            traceback.print_exc()
+            raise serializers.ValidationError(
+                f"Failed to get recommendations from Tracer API: {str(e)}"
+            )
+
+    def _generate_recommendations(self, tx_count: int) -> Dict[str, Any]:
+        """
+        Generate depth and date range recommendations based on transaction count.
+
+        Logic:
+        - tx_count <= 1000: Deep (5)
+        - 1000 < tx_count <= 5000: Medium (3)
+        - 5000 < tx_count <= 10000: Shallow (1)
+        - tx_count > 10000: Shallow (1) with heavy wallet alert
+
+        Date ranges scale with transaction count to keep results focused.
+        """
+        recommendations = {}
+
+        # Determine depth
+        if tx_count <= 1000:
+            depth_count = 5
+            depth_indicator = "deep"
+            # date_range = 180 # days
+        elif tx_count <= 5000:
+            depth_count = 3
+            depth_indicator = "medium"
+            # date_range = 90
+        elif tx_count <= 10000:
+            depth_count = 1
+            depth_indicator = "shallow"
+            # date_range = 30
+        else:
+            # Heavy transaction wallet
+            depth_count = 1
+            depth_indicator = "shallow"
+            # date_range = 7
+            recommendations['alert'] = {
+                'type': 'heavy_wallet',
+                'message': 'Heavy transaction wallet detected',
+                'description': f'Over {tx_count:,} transactions found.'
+            }
+
+        recommendations['depth_count'] = depth_count
+        recommendations['depth_indicator'] = depth_indicator
+        # recommendations['date_range_in_days'] = date_range
+
+        return recommendations

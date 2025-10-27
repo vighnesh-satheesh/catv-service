@@ -32,7 +32,7 @@ from .pagination import CatvRequestPagination, CustomPagination
 from .response import APIResponse
 from .serializers import (
     CATVBTCSerializer, CATVBTCTxlistSerializer,
-    CATVHistorySerializer, CATVRequestListSerializer, CATVNodeLabelPostSerializer
+    CATVHistorySerializer, CATVRequestListSerializer, CATVNodeLabelPostSerializer, TracerRecommendationsSerializer
 )
 from .settings import api_settings
 from .tasks import (
@@ -51,7 +51,6 @@ class HealthCheckView(APIView):
     def get(self, request):
         return APIResponse({
             "status": "ok",
-            "secret": str(api_settings.ATTACHED_FILE_S3_BUCKET_NAME)
         })
 
 
@@ -165,6 +164,73 @@ class CATVView(APIView):
             traceback.print_exc()
             raise exceptions.ServerError(
                 detail="Something went wrong while submitting your request. Please try again later.")
+
+
+# Add this to api/views.py
+
+class TracerRecommendationsView(APIView):
+    """
+    GET endpoint to retrieve trace recommendations based on transaction count.
+
+    This API is called after initial input validation to provide recommendations
+    for depth and date range settings before generating a full CATV report.
+
+    Query Parameters:
+        - blockchain (required): Blockchain identifier (ETH, BSC, BTC, etc.)
+        - wallet_address (optional): Wallet address to analyze
+        - transaction_hash (optional): Transaction hash to analyze
+        - token_contract_address (optional): Token contract address for EVM/TRON chains
+        - sender_wallet_address (optional): Required for UTXO chains with transaction_hash
+        - receiver_wallet_address (optional): Required for UTXO chains with transaction_hash
+
+    Returns:
+        JSON response with:
+        - transaction_count: Number of transactions found
+        - depth_count: Recommended depth value (1, 3, or 5)
+        - depth_indicator: Human-readable depth (shallow, medium, deep)
+        - date_range: Recommended date range (Last 30d, Last 90d, etc.)
+        - alert (optional): Heavy wallet warning if tx_count > 10,000
+        - address (optional): Validated address from transaction hash
+    """
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request):
+        """Handle GET request for recommendations."""
+        # Extract query parameters
+        data = {
+            'blockchain': request.query_params.get('blockchain'),
+            'wallet_address': request.query_params.get('wallet_address'),
+            'transaction_hash': request.query_params.get('transaction_hash'),
+            'token_contract_address': request.query_params.get('token_contract_address'),
+            'sender_wallet_address': request.query_params.get('sender_wallet_address'),
+            'receiver_wallet_address': request.query_params.get('receiver_wallet_address'),
+        }
+
+        # Remove None values
+        data = {k: v for k, v in data.items() if v is not None}
+
+        # Validate and get recommendations
+        serializer = TracerRecommendationsSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            recommendations = serializer.get_recommendations()
+
+            return APIResponse({
+                'data': recommendations,
+                'messages': {
+                    'info': 'Recommendations generated successfully.'
+                }
+            })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise exceptions.ServerError(
+                detail="Failed to generate recommendations. Please try again later."
+            )
+
 
 #obsolete
 # class CATVBTCView(APIView):
