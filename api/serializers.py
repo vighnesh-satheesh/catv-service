@@ -664,12 +664,12 @@ class TracerRecommendationsSerializer(serializers.Serializer):
         recommendations = {}
 
         # Determine depth
-        if tx_count <= 1000:
-            depth_count = 5
+        if tx_count <= 500:
+            depth_count = 3
             depth_indicator = "deep"
             # date_range = 180 # days
-        elif tx_count <= 5000:
-            depth_count = 3
+        elif tx_count < 5000:
+            depth_count = 2
             depth_indicator = "medium"
             # date_range = 90
         elif tx_count <= 10000:
