@@ -3,7 +3,7 @@ import threading
 import traceback
 
 import pika
-from django.db import connections
+from django.db import connection
 
 from api.constants import Constants
 from api.settings import api_settings
@@ -17,7 +17,7 @@ class AMQPCATVConsuming(threading.Thread):
         try:
             query_list = Constants.QUERIES['CATV_USAGE_QUERY'].format(
                 tz, date_range, user)
-            with connections['default'].cursor() as cursor:
+            with connection.cursor() as cursor:
                 cursor.execute(query_list)
                 result = cursor.fetchall()
         except Exception as e:
