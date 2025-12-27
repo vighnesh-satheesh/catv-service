@@ -37,6 +37,7 @@ class CatvTokens(Enum):
     ZEC = 'ZEC'
     DASH = 'DASH'
     POL = 'POL'
+    SOL = 'SOL'
 
 class CatvSearchType(Enum):
     PATH = 'path'

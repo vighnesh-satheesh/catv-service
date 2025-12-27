@@ -103,6 +103,10 @@ serializer_map = {
     CatvTokens.DASH.value: {
         CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
         CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.SOL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
     }
 }
 
