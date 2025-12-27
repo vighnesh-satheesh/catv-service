@@ -509,7 +509,7 @@ class TracerRecommendationsSerializer(serializers.Serializer):
             )
 
         # Validate blockchain
-        valid_blockchains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX', 'TRX', 'BTC', 'KLAY']
+        valid_blockchains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX', 'TRX', 'BTC', 'KLAY', 'SOL']
         if blockchain not in valid_blockchains:
             raise serializers.ValidationError(
                 f"Invalid blockchain. Supported: {', '.join(valid_blockchains)}"
@@ -530,8 +530,9 @@ class TracerRecommendationsSerializer(serializers.Serializer):
         # Token contract address validation
         evm_chains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX']
         tron_chains = ['TRX']
+        solana_chain = ['SOL']
 
-        if blockchain in evm_chains or blockchain in tron_chains:
+        if blockchain in evm_chains or blockchain in tron_chains or blockchain in solana_chain:
             # Token contract is optional but if provided, validate format
             if token_contract_address:
                 if blockchain in evm_chains:
@@ -543,6 +544,11 @@ class TracerRecommendationsSerializer(serializers.Serializer):
                     if not utils.pattern_matches_token(token_contract_address, models.CatvTokens.TRON.value):
                         raise serializers.ValidationError(
                             "token_contract_address is not a valid TRON address."
+                        )
+                elif blockchain in solana_chain:
+                    if not utils.pattern_matches_token(token_contract_address, models.CatvTokens.SOL.value):
+                        raise serializers.ValidationError(
+                            "token_contract_address is not a valid Solana address."
                         )
 
         # Validate address format based on blockchain
@@ -596,6 +602,7 @@ class TracerRecommendationsSerializer(serializers.Serializer):
             'TRX': CatvTokens.TRON.value,
             'BTC': CatvTokens.BTC.value,
             'KLAY': CatvTokens.KLAY.value,
+            'SOL': CatvTokens.SOL.value
         }
         return mapping.get(blockchain, models.CatvTokens.ETH.value)
 
@@ -617,19 +624,22 @@ class TracerRecommendationsSerializer(serializers.Serializer):
 
         try:
             # Get transaction count from Tracer API
-            if wallet_address:
-                result = tracer.get_transaction_count(
-                    address=wallet_address,
-                    chain=blockchain,
-                    token_contract=token_contract,
-                )
-            else:
-                result = tracer.get_transaction_count(
-                    tx_hash=transaction_hash,
-                    chain=blockchain,
-                )
+            result = {}
+            if blockchain != 'SOL':
+                if wallet_address:
+                    result = tracer.get_transaction_count(
+                        address=wallet_address,
+                        chain=blockchain,
+                        token_contract=token_contract,
+                    )
+                else:
+                    result = tracer.get_transaction_count(
+                        tx_hash=transaction_hash,
+                        chain=blockchain,
+                    )
 
-            transaction_count = result.get('transaction_count', 0)
+            transaction_count = result.get('transaction_count',
+                                           0) if blockchain != 'SOL' else 6000  # temp code to get recommendations, tx_count for solana yet to be implemented in tracer
 
             # Generate recommendations based on transaction count
             recommendations = self._generate_recommendations(transaction_count)
