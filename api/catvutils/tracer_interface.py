@@ -85,7 +85,8 @@ class TracerAPIInterface:
             'AVAX': (43114, 'evm'),  # Avalanche
             'TRX': (1, 'tron'),  # Tron
             'BTC': (1, 'btc'),
-            'KLAY': (1, 'klaytn')
+            'KLAY': (1, 'klaytn'),
+            'SOL': (1, 'solana'),
         }
         return chain_mapping.get(chain, (1, 'evm'))  # Default to Ethereum
     

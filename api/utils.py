@@ -103,6 +103,10 @@ serializer_map = {
     CatvTokens.DASH.value: {
         CatvSearchType.FLOW.value: CATVBTCCoinpathSerializer,
         CatvSearchType.PATH.value: CatvBtcPathSerializer
+    },
+    CatvTokens.SOL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
     }
 }
 
@@ -253,7 +257,7 @@ def pattern_matches_token(address, token_type):
         CatvTokens.DOGE.value: "^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$",
         CatvTokens.ZEC.value: "^(t)[A-Za-z0-9]{34}$",
         CatvTokens.DASH.value: "^[X|7][0-9A-Za-z]{33}$",
-        CatvTokens.DOGE.value: "^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$"
+        CatvTokens.SOL.value: "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:
