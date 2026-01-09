@@ -227,7 +227,8 @@ def determine_wallet_type(token_type):
         "AVAX": "Avalanche",
         "ZEC": "Zcash",
         "DASH": "DASH",
-        "DOGE": "Doge Coin"
+        "DOGE": "Doge Coin",
+        "SOL": "Solana"
     }
 
     if address_mapping.__contains__(token_type.value):
