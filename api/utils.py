@@ -592,7 +592,7 @@ def match_report_labels_from_csv(
         depth = node.get("depth")
         if depth is None:
             depth = node.get("level", 0)
-
+        print("Updated")
         matched_wallets_info.append({
             "address": wallet_address_raw,
             "depth": depth,
