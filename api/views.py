@@ -529,7 +529,8 @@ class CATVReportView(APIView):
             "DASH": CatvTokens.DASH.value,
             "Avalanche": CatvTokens.AVAX.value,
             "Fantom": CatvTokens.FTM.value,
-            "Polygon": CatvTokens.POL.value
+            "Polygon": CatvTokens.POL.value,
+            "Solana": CatvTokens.SOL.value
         }
         is_legacy_param = request.query_params.get('is_legacy', 'True')
         if isinstance(is_legacy_param, str):
