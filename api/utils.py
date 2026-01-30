@@ -540,7 +540,7 @@ def match_report_labels_from_csv(
         ValueError: If chain type cannot be determined from item_list.
 
     Returns dict with:
-      - node_list (updated with userLabel/group)
+      - node_list (updated with label/group)
       - wallets (list of {address, total_amount, depth, id, label})
       - total_amount (sum of totals)
       - updated_count
@@ -584,7 +584,7 @@ def match_report_labels_from_csv(
             continue
 
         # Update node with user label info
-        node["userLabel"] = label
+        node["label"] = label
         node["group"] = "User Label"
         updated_count += 1
 
