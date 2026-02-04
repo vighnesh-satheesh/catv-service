@@ -107,6 +107,130 @@ serializer_map = {
     CatvTokens.SOL.value: {
         CatvSearchType.FLOW.value: CATVSerializer,
         CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ARB.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ARBNOVA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.OP.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BASE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.LINEA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BLAST.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SCROLL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MANTLE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.OPBNB.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BTT.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.CELO.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.FRAXTAL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.GNOSIS.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MEMECORE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MOONBEAM.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MOONRIVER.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.TAIKO.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.XDC.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.APECHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.WORLD.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SONIC.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.UNICHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ABSTRACT.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BERACHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SWELLCHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MONAD.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.HYPEREVM.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.KATANA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SEI.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.STABLE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.PLASMA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
     }
 }
 
@@ -228,7 +352,38 @@ def determine_wallet_type(token_type):
         "ZEC": "Zcash",
         "DASH": "DASH",
         "DOGE": "Doge Coin",
-        "SOL": "Solana"
+        "SOL": "Solana",
+        "ARB": "Arbitrum",
+        "ARBNOVA": "Arbitrum Nova",
+        "OP": "Optimism",
+        "BASE": "Base",
+        "LINEA": "Linea",
+        "BLAST": "Blast",
+        "SCROLL": "Scroll",
+        "MANTLE": "Mantle",
+        "OPBNB": "opBNB",
+        "BTT": "BitTorrent",
+        "CELO": "Celo",
+        "FRAXTAL": "Fraxtal",
+        "GNOSIS": "Gnosis",
+        "MEMECORE": "Memecore",
+        "MOONBEAM": "Moonbeam",
+        "MOONRIVER": "Moonriver",
+        "TAIKO": "Taiko",
+        "XDC": "XDC",
+        "APECHAIN": "Apechain",
+        "WORLD": "World",
+        "SONIC": "Sonic",
+        "UNICHAIN": "Unichain",
+        "ABSTRACT": "Abstract",
+        "BERACHAIN": "Berachain",
+        "SWELLCHAIN": "Swellchain",
+        "MONAD": "Monad",
+        "HYPEREVM": "HyperEVM",
+        "KATANA": "Katana",
+        "SEI": "Sei",
+        "STABLE": "Stable",
+        "PLASMA": "Plasma"
     }
 
     if address_mapping.__contains__(token_type.value):
@@ -258,7 +413,38 @@ def pattern_matches_token(address, token_type):
         CatvTokens.DOGE.value: "^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$",
         CatvTokens.ZEC.value: "^(t)[A-Za-z0-9]{34}$",
         CatvTokens.DASH.value: "^[X|7][0-9A-Za-z]{33}$",
-        CatvTokens.SOL.value: "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+        CatvTokens.SOL.value: "^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+        CatvTokens.ARB.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.ARBNOVA.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.OP.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BASE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.LINEA.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BLAST.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SCROLL.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MANTLE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.OPBNB.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BTT.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.CELO.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.FRAXTAL.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.GNOSIS.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MEMECORE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MOONBEAM.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MOONRIVER.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.TAIKO.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.XDC.value: "^(0x|xdc)[a-fA-F0-9]{40}$",
+        CatvTokens.APECHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.WORLD.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SONIC.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.UNICHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.ABSTRACT.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BERACHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SWELLCHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MONAD.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.HYPEREVM.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.KATANA.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SEI.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.STABLE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.PLASMA.value: "^0x[a-fA-F0-9]{40}$"
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:
@@ -305,7 +491,14 @@ def validate_coin(address):
 
 
 def is_eth_based_wallet(pattern_subtype):
-    eth_based_pattern_subtypes = ['ETH', 'BSC', 'KLAY', 'FTM', 'POL', 'ETC', 'AVAX']
+    eth_based_pattern_subtypes = [
+        'ETH', 'BSC', 'KLAY', 'FTM', 'POL', 'ETC', 'AVAX',
+        'ARB', 'ARBNOVA', 'OP', 'BASE', 'LINEA', 'BLAST', 'SCROLL',
+        'MANTLE', 'OPBNB', 'BTT', 'CELO', 'FRAXTAL', 'GNOSIS', 'MEMECORE',
+        'MOONBEAM', 'MOONRIVER', 'TAIKO', 'XDC', 'APECHAIN', 'WORLD', 'SONIC',
+        'UNICHAIN', 'ABSTRACT', 'BERACHAIN', 'SWELLCHAIN', 'MONAD', 'HYPEREVM',
+        'KATANA', 'SEI', 'STABLE', 'PLASMA'
+    ]
     if pattern_subtype in eth_based_pattern_subtypes:
         return True
     return False
