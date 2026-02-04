@@ -54,6 +54,137 @@ class HealthCheckView(APIView):
         })
 
 
+class MatchReportLabelsView(APIView):
+    """
+    Accepts a CSV of wallet_address,label and a report UID, matches wallets to nodes,
+    and returns updated node_list plus total_amount per matched wallet.
+    """
+
+    authentication_classes = (CachedTokenAuthentication,)
+    permission_classes = (IsCATVAuthenticated,)
+
+    def _load_report_and_retrieve_data(self, uid):
+        """
+        Load report data from GCS using the provided UID.
+        
+        Returns:
+            dict: Parsed JSON results from the report file
+            
+        Raises:
+            exceptions.CATVReportNotFound: If report not found
+            exceptions.ValidationError: If results not generated yet
+            exceptions.ServerError: If loading fails
+        """
+        try:
+            catv_result = CatvResult.objects.select_related("request").get(
+                request__uid__iexact=uid
+            )
+        except CatvResult.DoesNotExist:
+            raise exceptions.CATVReportNotFound()
+
+        if not catv_result.result_file_id:
+            raise exceptions.ValidationError(
+                "Results not generated yet. Please try again later."
+            )
+
+        file_id = str(catv_result.result_file_id)
+        res = (RPCClientFetchResultFileUid().call(file_id)).decode("UTF-8")
+        filename = api_settings.ATTACHED_FILE_S3_KEY_PREFIX + res
+
+        try:
+            body = utils.get_gcs_file(
+                api_settings.ATTACHED_FILE_S3_BUCKET_NAME, filename
+            )
+        except SuspiciousOperation:
+            raise exceptions.ValidationError(
+                "Results not generated yet. Please try again later."
+            )
+
+        # Parse JSON once (optimization: removed double parsing)
+        try:
+            results = json.loads(body)
+        except json.JSONDecodeError:
+            # Fallback: try literal_eval if it's a string representation
+            results = ast.literal_eval(body) if isinstance(body, str) else body
+
+        if results == "False":
+            raise exceptions.ValidationError(
+                "Results not generated yet. Please try again later."
+            )
+
+        return results
+
+    def post(self, request):
+        uid = request.data.get("uid") or request.POST.get("uid")
+        csv_file = request.FILES.get("file")
+
+        if not uid:
+            return APIResponse(
+                {"data": {"error": "uid is required"}},
+                status=400,
+            )
+
+        try:
+            utils.validate_labels_csv_file(csv_file)
+        except ValueError as e:
+            return APIResponse(
+                {"data": {"error": str(e)}},
+                status=400,
+            )
+
+        # Load report from GCS
+        try:
+            results = self._load_report_and_retrieve_data(uid)
+        except exceptions.APIException:
+            raise
+        except Exception:
+            traceback.print_exc()
+            raise exceptions.ServerError(
+                detail="Failed to load report data for label matching."
+            )
+
+        data = results.get("data", {})
+        node_list = data.get("node_list", [])
+        item_list = data.get("item_list", [])
+
+        # Read CSV content once and delegate matching/calculation to utils
+        try:
+            decoded = csv_file.read().decode("utf-8")
+            match_result = utils.match_report_labels_from_csv(
+                csv_content=decoded,
+                node_list=node_list,
+                item_list=item_list,
+            )
+        except ValueError as e:
+            # Check if it's a chain type determination error
+            error_msg = str(e)
+            if "Cannot determine chain type" in error_msg:
+                return APIResponse(
+                    {
+                        "data": {
+                            "error": "Label matching could not be completed because the chain type could not be determined from the report data."
+                        }
+                    },
+                    status=400,
+                )
+            # Other ValueError cases (e.g., CSV validation)
+            return APIResponse(
+                {"data": {"error": error_msg}},
+                status=400,
+            )
+        except Exception:
+            traceback.print_exc()
+            raise exceptions.ServerError(
+                detail="Failed to process CSV for label matching."
+            )
+
+        return APIResponse(
+            {
+                "data": match_result
+            }
+        )
+
+
 def validate_request_parameters(token_type, search_type):
     allowed_tokens = [token.value for token in CatvTokens]
     allowed_search = [search.value for search in CatvSearchType]
