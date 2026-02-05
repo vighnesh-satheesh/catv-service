@@ -1,10 +1,12 @@
 import binascii
+import csv
 import hashlib
 import random
 import re
 import time
 from datetime import datetime, timedelta
 from functools import wraps
+from typing import List, Dict, Any
 
 import base58
 from django.core.exceptions import SuspiciousOperation
@@ -105,6 +107,130 @@ serializer_map = {
         CatvSearchType.PATH.value: CatvBtcPathSerializer
     },
     CatvTokens.SOL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ARB.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ARBNOVA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.OP.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BASE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.LINEA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BLAST.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SCROLL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MANTLE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.OPBNB.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BTT.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.CELO.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.FRAXTAL.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.GNOSIS.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MEMECORE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MOONBEAM.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MOONRIVER.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.TAIKO.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.XDC.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.APECHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.WORLD.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SONIC.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.UNICHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.ABSTRACT.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.BERACHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SWELLCHAIN.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.MONAD.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.HYPEREVM.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.KATANA.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.SEI.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.STABLE.value: {
+        CatvSearchType.FLOW.value: CATVSerializer,
+        CatvSearchType.PATH.value: CATVEthPathSerializer
+    },
+    CatvTokens.PLASMA.value: {
         CatvSearchType.FLOW.value: CATVSerializer,
         CatvSearchType.PATH.value: CATVEthPathSerializer
     }
@@ -228,7 +354,38 @@ def determine_wallet_type(token_type):
         "ZEC": "Zcash",
         "DASH": "DASH",
         "DOGE": "Doge Coin",
-        "SOL": "Solana"
+        "SOL": "Solana",
+        "ARB": "Arbitrum",
+        "ARBNOVA": "Arbitrum Nova",
+        "OP": "Optimism",
+        "BASE": "Base",
+        "LINEA": "Linea",
+        "BLAST": "Blast",
+        "SCROLL": "Scroll",
+        "MANTLE": "Mantle",
+        "OPBNB": "opBNB",
+        "BTT": "BitTorrent",
+        "CELO": "Celo",
+        "FRAXTAL": "Fraxtal",
+        "GNOSIS": "Gnosis",
+        "MEMECORE": "Memecore",
+        "MOONBEAM": "Moonbeam",
+        "MOONRIVER": "Moonriver",
+        "TAIKO": "Taiko",
+        "XDC": "XDC",
+        "APECHAIN": "Apechain",
+        "WORLD": "World",
+        "SONIC": "Sonic",
+        "UNICHAIN": "Unichain",
+        "ABSTRACT": "Abstract",
+        "BERACHAIN": "Berachain",
+        "SWELLCHAIN": "Swellchain",
+        "MONAD": "Monad",
+        "HYPEREVM": "HyperEVM",
+        "KATANA": "Katana",
+        "SEI": "Sei",
+        "STABLE": "Stable",
+        "PLASMA": "Plasma"
     }
 
     if address_mapping.__contains__(token_type.value):
@@ -258,12 +415,402 @@ def pattern_matches_token(address, token_type):
         CatvTokens.DOGE.value: "^(D|A|9)[a-km-zA-HJ-NP-Z1-9]{33,34}$",
         CatvTokens.ZEC.value: "^(t)[A-Za-z0-9]{34}$",
         CatvTokens.DASH.value: "^[X|7][0-9A-Za-z]{33}$",
-        CatvTokens.SOL.value: "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+        CatvTokens.SOL.value: "^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+        CatvTokens.ARB.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.ARBNOVA.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.OP.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BASE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.LINEA.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BLAST.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SCROLL.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MANTLE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.OPBNB.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BTT.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.CELO.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.FRAXTAL.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.GNOSIS.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MEMECORE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MOONBEAM.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MOONRIVER.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.TAIKO.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.XDC.value: "^(0x|xdc)[a-fA-F0-9]{40}$",
+        CatvTokens.APECHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.WORLD.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SONIC.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.UNICHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.ABSTRACT.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.BERACHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SWELLCHAIN.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.MONAD.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.HYPEREVM.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.KATANA.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.SEI.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.STABLE.value: "^0x[a-fA-F0-9]{40}$",
+        CatvTokens.PLASMA.value: "^0x[a-fA-F0-9]{40}$"
     }
     pattern = token_regex_map.get(token_type, None)
     if not pattern:
         return False
     return re.compile(pattern).match(address)
+
+
+def validate_labels_csv_file(csv_file):
+    """
+    Basic validation for uploaded labels CSV file.
+    - Ensures presence
+    - Checks extension
+    - Checks max size (1MB)
+    """
+    if not csv_file:
+        raise ValueError("CSV file is required")
+
+    if not getattr(csv_file, "name", "").endswith(".csv"):
+        raise ValueError("Invalid file type. Please upload a CSV file.")
+
+    # Basic size guard: 1MB like frontend
+    if getattr(csv_file, "size", 0) > 1024 * 1024:
+        raise ValueError("File too large. Please upload a file smaller than 1MB.")
+
+    return True
+
+
+def find_main_token_symbol(item_list):
+    """
+    Determine the main token symbol from item_list.
+    
+    Uses a sample of up to 20 transactions to determine the most frequent symbol.
+    
+    Raises:
+        ValueError: If item_list is empty or no symbol can be determined.
+    """
+    if not item_list:
+        raise ValueError("Cannot determine chain type: item_list is empty")
+    
+    # Use a sample of up to 20 transactions to determine main token
+    sample_size = min(20, len(item_list))
+    sample_items = item_list[:sample_size]
+    
+    # Count occurrences of each token symbol
+    token_counts = {}
+    for item in sample_items:
+        symbol = item.get('symbol')
+        if symbol:
+            token_counts[symbol] = token_counts.get(symbol, 0) + 1
+    
+    # Find the symbol with highest count
+    if token_counts:
+        return max(token_counts.items(), key=lambda x: x[1])[0]
+    else:
+        raise ValueError("Cannot determine chain type: no token symbols found in item_list")
+
+
+def calculate_wallet_total_amount(
+    item_list: List[Dict[str, Any]],
+    wallet_address: str,
+    main_symbol: str,
+    depth: int,
+) -> float:
+    """
+    Calculate total_amount for a wallet using logic from _calculate_wallet_metrics.
+    
+    This is the same logic used in CATVNodeLabelView._calculate_wallet_total_amount
+    to ensure consistency across the codebase.
+    
+    Args:
+        item_list: List of transaction items from report
+        wallet_address: Wallet address to calculate for
+        main_symbol: Main token symbol (e.g., 'ETH', 'BTC')
+        depth: Depth/level of the wallet in the graph
+        
+    Returns:
+        Total amount for the wallet
+    """
+    if not wallet_address or not main_symbol or not isinstance(item_list, list):
+        return 0.0
+    
+    # Determine if it's distribution (depth > 0) or source (depth < 0)
+    is_outbound = depth > 0 if depth is not None else True
+    is_btc_ltc = main_symbol in ["BTC", "LTC"]
+    
+    # Filter for main token transactions (excluding swaps)
+    main_token_items = [
+        item for item in item_list
+        if item.get('symbol') == main_symbol and not item.get('is_swap', False)
+    ]
+    
+    wallet_amount = 0.0
+    
+    if is_btc_ltc and is_outbound:
+        # Special logic for BTC/LTC distribution side
+        addresses_with_outgoing = set()
+        for item in main_token_items:
+            addresses_with_outgoing.add(item.get('sender', '').lower())
+        
+        all_receivers = set()
+        for item in main_token_items:
+            all_receivers.add(item.get('receiver', '').lower())
+        
+        wallet_lower = wallet_address.lower()
+        processed_txs = set()
+        processed_leaf_txs = set()
+        
+        # Check if wallet is a non-leaf node (has outgoing transactions)
+        if wallet_lower in addresses_with_outgoing and wallet_lower in all_receivers:
+            # Process non-leaf node: sum from_amount where wallet is sender
+            for item in main_token_items:
+                sender = item.get('sender', '').lower()
+                tx_hash = item.get('tx_hash')
+                
+                if sender == wallet_lower and tx_hash and tx_hash not in processed_txs:
+                    amount = item.get('from_amount', item.get('amount', 0))
+                    wallet_amount += abs(float(amount))
+                    processed_txs.add(tx_hash)
+        
+        # Check if wallet is a leaf node (no outgoing transactions)
+        if wallet_lower not in addresses_with_outgoing:
+            # Process leaf node: sum to_amount where wallet is receiver
+            for item in main_token_items:
+                receiver = item.get('receiver', '').lower()
+                tx_hash = item.get('tx_hash')
+                
+                if receiver == wallet_lower and tx_hash and tx_hash not in processed_leaf_txs:
+                    amount = item.get('to_amount', item.get('amount', 0))
+                    wallet_amount += abs(float(amount))
+                    processed_leaf_txs.add(tx_hash)
+    else:
+        # Original logic for non-BTC/LTC or source side
+        wallet_lower = wallet_address.lower()
+        for item in main_token_items:
+            if is_outbound:
+                # Distribution: sum amounts where wallet is receiver
+                receiver = item.get('receiver', '').lower()
+                if receiver == wallet_lower:
+                    wallet_amount += abs(float(item.get('amount', 0)))
+            else:
+                # Source: sum amounts where wallet is sender
+                sender = item.get('sender', '').lower()
+                if sender == wallet_lower:
+                    wallet_amount += abs(float(item.get('amount', 0)))
+    
+    return wallet_amount
+
+
+def calculate_wallets_total_amounts(
+    item_list: List[Dict[str, Any]],
+    wallets: List[Dict[str, Any]],
+    main_symbol: str,
+) -> Dict[str, float]:
+    """
+    Calculate total_amount for multiple wallets efficiently.
+    
+    Optimized version using pre-indexed dictionaries for O(1) lookups
+    instead of O(n) iterations per wallet.
+    
+    Args:
+        item_list: List of transaction items from report
+        wallets: List of wallet dicts with at least 'address' and 'depth' keys
+        main_symbol: Main token symbol (e.g., 'ETH', 'BTC')
+        
+    Returns:
+        Dictionary mapping wallet_address (lowercase) to total_amount
+    """
+    if not wallets or not item_list or not main_symbol:
+        return {}
+    
+    # Pre-filter main token items once for all wallets
+    main_token_items = [
+        item for item in item_list
+        if item.get('symbol') == main_symbol and not item.get('is_swap', False)
+    ]
+    
+    if not main_token_items:
+        return {wallet.get('address', '').lower(): 0.0 for wallet in wallets if wallet.get('address')}
+    
+    is_btc_ltc = main_symbol in ["BTC", "LTC"]
+    
+    # Pre-compute sets and indexes for faster lookups
+    addresses_with_outgoing = set()
+    all_receivers = set()
+    
+    # Index items by sender/receiver for O(1) lookups
+    items_by_sender = {}  # sender_lower -> list of items
+    items_by_receiver = {}  # receiver_lower -> list of items
+    
+    for item in main_token_items:
+        sender = (item.get('sender') or '').lower()
+        receiver = (item.get('receiver') or '').lower()
+        
+        if is_btc_ltc:
+            addresses_with_outgoing.add(sender)
+            all_receivers.add(receiver)
+        
+        # Index by sender
+        if sender:
+            if sender not in items_by_sender:
+                items_by_sender[sender] = []
+            items_by_sender[sender].append(item)
+        
+        # Index by receiver
+        if receiver:
+            if receiver not in items_by_receiver:
+                items_by_receiver[receiver] = []
+            items_by_receiver[receiver].append(item)
+    
+    results = {}
+    
+    for wallet in wallets:
+        wallet_address = wallet.get('address', '').strip()
+        if not wallet_address:
+            continue
+        
+        depth = wallet.get('depth')
+        if depth is None:
+            depth = wallet.get('level', 0)
+        
+        is_outbound = depth > 0 if depth is not None else True
+        wallet_lower = wallet_address.lower()
+        
+        wallet_amount = 0.0
+        
+        if is_btc_ltc and is_outbound:
+            processed_txs = set()
+            processed_leaf_txs = set()
+            
+            # Check if wallet is a non-leaf node
+            if wallet_lower in addresses_with_outgoing and wallet_lower in all_receivers:
+                # Use indexed items instead of iterating all items
+                for item in items_by_sender.get(wallet_lower, []):
+                    tx_hash = item.get('tx_hash')
+                    if tx_hash and tx_hash not in processed_txs:
+                        amount = item.get('from_amount', item.get('amount', 0))
+                        wallet_amount += abs(float(amount))
+                        processed_txs.add(tx_hash)
+            
+            # Check if wallet is a leaf node
+            if wallet_lower not in addresses_with_outgoing:
+                # Use indexed items instead of iterating all items
+                for item in items_by_receiver.get(wallet_lower, []):
+                    tx_hash = item.get('tx_hash')
+                    if tx_hash and tx_hash not in processed_leaf_txs:
+                        amount = item.get('to_amount', item.get('amount', 0))
+                        wallet_amount += abs(float(amount))
+                        processed_leaf_txs.add(tx_hash)
+        else:
+            # Original logic for non-BTC/LTC or source side - use indexed lookups
+            if is_outbound:
+                # Distribution: sum amounts where wallet is receiver
+                for item in items_by_receiver.get(wallet_lower, []):
+                    wallet_amount += abs(float(item.get('amount', 0)))
+            else:
+                # Source: sum amounts where wallet is sender
+                for item in items_by_sender.get(wallet_lower, []):
+                    wallet_amount += abs(float(item.get('amount', 0)))
+        
+        results[wallet_lower] = wallet_amount
+    
+    return results
+
+
+def match_report_labels_from_csv(
+    csv_content: str,
+    node_list: List[Dict[str, Any]],
+    item_list: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Match CSV wallet_address,label against node_list and calculate per-wallet totals.
+
+    Uses find_main_token_symbol to determine the main token, then calculates
+    totals using the same logic as CATVNodeLabelView.
+
+    Raises:
+        ValueError: If chain type cannot be determined from item_list.
+
+    Returns dict with:
+      - node_list (updated with label/group)
+      - wallets (list of {address, total_amount, depth, id, label})
+      - total_amount (sum of totals)
+      - updated_count
+    """
+    if not csv_content:
+        return {
+            "node_list": node_list,
+            "wallets": [],
+            "total_amount": 0.0,
+            "updated_count": 0,
+        }
+
+    reader = csv.DictReader(csv_content.splitlines())
+    required_fields = ["wallet_address", "label"]
+    if not reader.fieldnames or not all(field in reader.fieldnames for field in required_fields):
+        raise ValueError("CSV must contain 'wallet_address' and 'label' columns.")
+
+    # Determine main token symbol - raises ValueError if cannot be determined
+    main_symbol = find_main_token_symbol(item_list)
+
+    # Build node lookup by address
+    node_dict = {
+        (node.get("address") or "").lower(): node
+        for node in node_list
+        if node.get("address")
+    }
+
+    # First pass: collect all matched wallets with their info
+    matched_wallets_info: List[Dict[str, Any]] = []
+    updated_count = 0
+
+    for row in reader:
+        wallet_address_raw = (row.get("wallet_address") or "").strip()
+        label = (row.get("label") or "").strip()
+        if not wallet_address_raw:
+            continue
+
+        wallet_address = wallet_address_raw.lower()
+        node = node_dict.get(wallet_address)
+        if not node:
+            continue
+
+        # Update node with user label info
+        node["label"] = label
+        node["group"] = "User Label"
+        updated_count += 1
+
+        # Determine depth/level
+        depth = node.get("depth")
+        if depth is None:
+            depth = node.get("level", 0)
+        print("Updated")
+        matched_wallets_info.append({
+            "address": wallet_address_raw,
+            "depth": depth,
+            "id": node.get("id", 0),
+            "label": label,
+        })
+
+    # Calculate totals for all wallets at once (more efficient)
+    if matched_wallets_info:
+        totals_dict = calculate_wallets_total_amounts(
+            item_list=item_list,
+            wallets=matched_wallets_info,
+            main_symbol=main_symbol,
+        )
+
+        # Add total_amount to each wallet
+        for wallet in matched_wallets_info:
+            wallet_lower = wallet["address"].lower()
+            wallet["total_amount"] = totals_dict.get(wallet_lower, 0.0)
+    else:
+        # No matches, return empty result
+        for wallet in matched_wallets_info:
+            wallet["total_amount"] = 0.0
+
+    total_amount_sum = sum(w.get("total_amount", 0.0) for w in matched_wallets_info)
+
+    return {
+        "node_list": node_list,
+        "wallets": matched_wallets_info,
+        "total_amount": total_amount_sum,
+        "updated_count": updated_count,
+    }
 
 def retry_run(tries=5, delay=15, backoff=2):
     def deco_retry(f):
@@ -305,7 +852,14 @@ def validate_coin(address):
 
 
 def is_eth_based_wallet(pattern_subtype):
-    eth_based_pattern_subtypes = ['ETH', 'BSC', 'KLAY', 'FTM', 'POL', 'ETC', 'AVAX']
+    eth_based_pattern_subtypes = [
+        'ETH', 'BSC', 'KLAY', 'FTM', 'POL', 'ETC', 'AVAX',
+        'ARB', 'ARBNOVA', 'OP', 'BASE', 'LINEA', 'BLAST', 'SCROLL',
+        'MANTLE', 'OPBNB', 'BTT', 'CELO', 'FRAXTAL', 'GNOSIS', 'MEMECORE',
+        'MOONBEAM', 'MOONRIVER', 'TAIKO', 'XDC', 'APECHAIN', 'WORLD', 'SONIC',
+        'UNICHAIN', 'ABSTRACT', 'BERACHAIN', 'SWELLCHAIN', 'MONAD', 'HYPEREVM',
+        'KATANA', 'SEI', 'STABLE', 'PLASMA'
+    ]
     if pattern_subtype in eth_based_pattern_subtypes:
         return True
     return False
