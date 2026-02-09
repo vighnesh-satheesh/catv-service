@@ -32,7 +32,7 @@ class CATVKYTInternalView(APIView):
     Deducts credits before creating the job.
     """
     authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
+    permission_classes = ()
 
     def post(self, request):
         try:
@@ -124,7 +124,7 @@ class CATVKYTStatusInternalView(APIView):
     Internal endpoint to check status of a KYT-CATV request.
     """
     authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
+    permission_classes = ()
 
     def get(self, request):
         try:
