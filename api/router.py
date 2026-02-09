@@ -18,7 +18,11 @@ urlpatterns = [
 if settings.EXPOSE_INTERNAL_API:
     urlpatterns += [
         re_path(r'^internal/catv/?$', views_internal.CATVInternalView.as_view(),
-            name='internal-catv')
+            name='internal-catv'),
+        re_path(r'^internal/catv-kyt/?$', views_internal.CATVKYTInternalView.as_view(),
+            name='internal-catv-kyt'),
+        re_path(r'^internal/catv-kyt-status/?$', views_internal.CATVKYTStatusInternalView.as_view(),
+            name='internal-catv-kyt-status'),
     ]
 
 if settings.EXPOSE_GENERAL_API:
