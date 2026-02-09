@@ -11,6 +11,7 @@ class InternalOnly(permissions.BasePermission):
             ip = x_forwarded_for.split(',')[0]
         else:
             ip = request.META.get('REMOTE_ADDR')
+        print(f"InternalOnly check from IP: {ip}")
 
         if ip.startswith("127") or ip.startswith("10.") or ip.startswith("172.") or ip.startswith("192.") or ip.startswith("255."):
             return True
