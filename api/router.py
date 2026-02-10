@@ -18,7 +18,11 @@ urlpatterns = [
 if settings.EXPOSE_INTERNAL_API:
     urlpatterns += [
         re_path(r'^internal/catv/?$', views_internal.CATVInternalView.as_view(),
-            name='internal-catv')
+            name='internal-catv'),
+        re_path(r'^internal/catv-kyt/?$', views_internal.CATVKYTInternalView.as_view(),
+            name='internal-catv-kyt'),
+        re_path(r'^internal/catv-kyt-status/?$', views_internal.CATVKYTStatusInternalView.as_view(),
+            name='internal-catv-kyt-status'),
     ]
 
 if settings.EXPOSE_GENERAL_API:
@@ -37,6 +41,7 @@ if settings.EXPOSE_GENERAL_API:
         re_path(r'^catvrequest-status/(?P<request_uid>[0-9a-z\-]+)/?$', views.CatvRequestStatusView.as_view(), name='catv-request-status'),
         re_path(r'^request_search/?$', views.RequestSearchView.as_view(), name='request-search'),
         re_path(r'^catvnodelabel/?$', views.CATVNodeLabelView.as_view(), name='catv-node-label'),
+        re_path(r'^match-report-labels/?$', views.MatchReportLabelsView.as_view(), name='match-report-labels'),
         re_path(r'^catvcsvupload/?$', views.CATVCSVUpload.as_view(), name='catv-csv-upload'),
         re_path(r'^api_key_info', api_views.ApiKeyInfo.as_view(),name='api-key-info'),
         re_path(r'^v1/source', api_views.CatvInbound.as_view(),name='catv-inbound'),

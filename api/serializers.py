@@ -509,7 +509,14 @@ class TracerRecommendationsSerializer(serializers.Serializer):
             )
 
         # Validate blockchain
-        valid_blockchains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX', 'TRX', 'BTC', 'KLAY', 'SOL']
+        valid_blockchains = [
+            'ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX', 'TRX', 'BTC', 'KLAY', 'SOL',
+            'ARB', 'ARBNOVA', 'OP', 'BASE', 'LINEA', 'BLAST', 'SCROLL',
+            'MANTLE', 'OPBNB', 'BTT', 'CELO', 'FRAXTAL', 'GNOSIS', 'MEMECORE',
+            'MOONBEAM', 'MOONRIVER', 'TAIKO', 'XDC', 'APECHAIN', 'WORLD', 'SONIC',
+            'UNICHAIN', 'ABSTRACT', 'BERACHAIN', 'SWELLCHAIN', 'MONAD', 'HYPEREVM',
+            'KATANA', 'SEI', 'STABLE', 'PLASMA'
+        ]
         if blockchain not in valid_blockchains:
             raise serializers.ValidationError(
                 f"Invalid blockchain. Supported: {', '.join(valid_blockchains)}"
@@ -528,7 +535,14 @@ class TracerRecommendationsSerializer(serializers.Serializer):
                 )
 
         # Token contract address validation
-        evm_chains = ['ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX']
+        evm_chains = [
+            'ETH', 'BSC', 'FTM', 'POL', 'ETC', 'AVAX',
+            'ARB', 'ARBNOVA', 'OP', 'BASE', 'LINEA', 'BLAST', 'SCROLL',
+            'MANTLE', 'OPBNB', 'BTT', 'CELO', 'FRAXTAL', 'GNOSIS', 'MEMECORE',
+            'MOONBEAM', 'MOONRIVER', 'TAIKO', 'XDC', 'APECHAIN', 'WORLD', 'SONIC',
+            'UNICHAIN', 'ABSTRACT', 'BERACHAIN', 'SWELLCHAIN', 'MONAD', 'HYPEREVM',
+            'KATANA', 'SEI', 'STABLE', 'PLASMA'
+        ]
         tron_chains = ['TRX']
         solana_chain = ['SOL']
 
@@ -561,7 +575,14 @@ class TracerRecommendationsSerializer(serializers.Serializer):
 
         # Validate transaction hash format
         if transaction_hash:
-            if blockchain in ['ETH', 'BSC', 'FTM', 'POL', 'AVAX', 'TRX', 'KLAY']:
+            if blockchain in [
+                'ETH', 'BSC', 'FTM', 'POL', 'AVAX', 'TRX', 'KLAY',
+                'ARB', 'ARBNOVA', 'OP', 'BASE', 'LINEA', 'BLAST', 'SCROLL',
+                'MANTLE', 'OPBNB', 'BTT', 'CELO', 'FRAXTAL', 'GNOSIS', 'MEMECORE',
+                'MOONBEAM', 'MOONRIVER', 'TAIKO', 'XDC', 'APECHAIN', 'WORLD', 'SONIC',
+                'UNICHAIN', 'ABSTRACT', 'BERACHAIN', 'SWELLCHAIN', 'MONAD', 'HYPEREVM',
+                'KATANA', 'SEI', 'STABLE', 'PLASMA'
+            ]:
                 # EVM and TRON use 64 hex characters (with or without 0x prefix)
                 pattern = re.compile("^(0x)?[a-fA-F0-9]{64}$")
                 if not pattern.match(transaction_hash):
@@ -602,7 +623,38 @@ class TracerRecommendationsSerializer(serializers.Serializer):
             'TRX': CatvTokens.TRON.value,
             'BTC': CatvTokens.BTC.value,
             'KLAY': CatvTokens.KLAY.value,
-            'SOL': CatvTokens.SOL.value
+            'SOL': CatvTokens.SOL.value,
+            'ARB': CatvTokens.ARB.value,
+            'ARBNOVA': CatvTokens.ARBNOVA.value,
+            'OP': CatvTokens.OP.value,
+            'BASE': CatvTokens.BASE.value,
+            'LINEA': CatvTokens.LINEA.value,
+            'BLAST': CatvTokens.BLAST.value,
+            'SCROLL': CatvTokens.SCROLL.value,
+            'MANTLE': CatvTokens.MANTLE.value,
+            'OPBNB': CatvTokens.OPBNB.value,
+            'BTT': CatvTokens.BTT.value,
+            'CELO': CatvTokens.CELO.value,
+            'FRAXTAL': CatvTokens.FRAXTAL.value,
+            'GNOSIS': CatvTokens.GNOSIS.value,
+            'MEMECORE': CatvTokens.MEMECORE.value,
+            'MOONBEAM': CatvTokens.MOONBEAM.value,
+            'MOONRIVER': CatvTokens.MOONRIVER.value,
+            'TAIKO': CatvTokens.TAIKO.value,
+            'XDC': CatvTokens.XDC.value,
+            'APECHAIN': CatvTokens.APECHAIN.value,
+            'WORLD': CatvTokens.WORLD.value,
+            'SONIC': CatvTokens.SONIC.value,
+            'UNICHAIN': CatvTokens.UNICHAIN.value,
+            'ABSTRACT': CatvTokens.ABSTRACT.value,
+            'BERACHAIN': CatvTokens.BERACHAIN.value,
+            'SWELLCHAIN': CatvTokens.SWELLCHAIN.value,
+            'MONAD': CatvTokens.MONAD.value,
+            'HYPEREVM': CatvTokens.HYPEREVM.value,
+            'KATANA': CatvTokens.KATANA.value,
+            'SEI': CatvTokens.SEI.value,
+            'STABLE': CatvTokens.STABLE.value,
+            'PLASMA': CatvTokens.PLASMA.value,
         }
         return mapping.get(blockchain, models.CatvTokens.ETH.value)
 
