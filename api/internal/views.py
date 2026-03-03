@@ -72,8 +72,8 @@ class CATVKYTInternalView(APIView):
             if transactions:
                 tx_times = [tx.get("tx_time", "") for tx in transactions if tx.get("tx_time")]
                 if tx_times:
-                    from_date = min(tx_times)
-                    to_date = max(tx_times)
+                    from_date = min(tx_times)[:10]  # truncate date
+                    to_date = max(tx_times)[:10]  # truncate date
 
             message_id = uuid.uuid4()
             search_params = {
