@@ -99,7 +99,7 @@ class CATVKYTInternalView(APIView):
                 "message_id": message_id.hex,
                 "user_id": user_id,
                 "token_type": token_type,
-                "search_type": "FLOW",
+                "search_type": "flow",
                 "source": "kyt",
                 "kyt_report_id": kyt_report_id,
                 "tracer_data": tracer_data,
