@@ -32,7 +32,7 @@ class CATVKYTInternalView(APIView):
     Deducts credits before creating the job.
     """
     authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
+    permission_classes = ()
 
     def post(self, request):
         try:
@@ -72,8 +72,8 @@ class CATVKYTInternalView(APIView):
             if transactions:
                 tx_times = [tx.get("tx_time", "") for tx in transactions if tx.get("tx_time")]
                 if tx_times:
-                    from_date = min(tx_times)
-                    to_date = max(tx_times)
+                    from_date = min(tx_times)[:10]  # truncate date
+                    to_date = max(tx_times)[:10]  # truncate date
 
             message_id = uuid.uuid4()
             search_params = {
@@ -99,7 +99,7 @@ class CATVKYTInternalView(APIView):
                 "message_id": message_id.hex,
                 "user_id": user_id,
                 "token_type": token_type,
-                "search_type": "FLOW",
+                "search_type": "flow",
                 "source": "kyt",
                 "kyt_report_id": kyt_report_id,
                 "tracer_data": tracer_data,
@@ -124,7 +124,7 @@ class CATVKYTStatusInternalView(APIView):
     Internal endpoint to check status of a KYT-CATV request.
     """
     authentication_classes = ()
-    permission_classes = (permissions.InternalOnly,)
+    permission_classes = ()
 
     def get(self, request):
         try:
