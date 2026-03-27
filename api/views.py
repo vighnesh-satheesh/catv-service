@@ -927,6 +927,16 @@ class RequestSearchView(generics.ListAPIView):
     def get_catv_queryset(self, query, status, order_key):
         filter_queries = Q(params__icontains=query)
         filter_queries |= Q(labels__arrayilike=query)
+
+        # Match query against token_type values and display names
+        matching_tokens = [
+            token for token in CatvTokens
+            if query.lower() in token.value.lower()
+               or query.lower() in utils.determine_wallet_type(token).lower()
+        ]
+        if matching_tokens:
+            filter_queries |= Q(token_type__in=matching_tokens)
+
         if status:
             filter_queries &= Q(status=status)
         user_details, verified_token = MultiToken.get_user_from_key(self.request)
